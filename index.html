@@ -256,6 +256,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .qbtn:last-child{border-radius:0 6px 6px 0}
 .qbtn:active{background:var(--s4)}
 .qval{width:36px;text-align:center;background:var(--s2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:16px;font-weight:900;color:var(--text);font-family:'Zen Kaku Gothic New',sans-serif;height:32px;display:flex;align-items:center;justify-content:center}
+.sinp{text-align:center;font-size:16px;font-weight:700;color:var(--text);background:var(--s1);border:1.5px solid var(--border);border-radius:6px;padding:4px 2px;outline:none;-webkit-appearance:none;-moz-appearance:textfield}
+.sinp::-webkit-outer-spin-button,.sinp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .pay-pick{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:11px}
 .pay-btn{background:var(--s2);border:1.5px solid var(--border);border-radius:7px;padding:9px 4px;text-align:center;cursor:pointer;touch-action:manipulation;font-size:12px;font-weight:700;color:var(--dim);transition:all .13s}
 .pay-btn:active{transform:scale(.95)}
@@ -607,7 +609,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
         <div style="font-size:12px;font-weight:700;color:var(--blue);width:60px;flex-shrink:0">🏪 現地</div>
         <div class="qty-ctrl">
           <button class="qbtn" id="stock-loc-minus">－</button>
-          <div class="qval" id="stock-loc-val">0</div>
+          <input type="number" inputmode="numeric" id="stock-loc-val" class="sinp" value="0" min="0" style="width:68px"
+            oninput="T.stockLocVal=parseInt(this.value)||0">
           <button class="qbtn" id="stock-loc-plus">＋</button>
         </div>
         <span style="font-size:12px;color:var(--dim)">個</span>
@@ -616,7 +619,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
         <div style="font-size:12px;font-weight:700;color:var(--green);width:60px;flex-shrink:0">📦 郵送</div>
         <div class="qty-ctrl">
           <button class="qbtn" id="stock-ship-minus">－</button>
-          <div class="qval" id="stock-ship-val">0</div>
+          <input type="number" inputmode="numeric" id="stock-ship-val" class="sinp" value="0" min="0" style="width:68px"
+            oninput="T.stockShipVal=parseInt(this.value)||0">
           <button class="qbtn" id="stock-ship-plus">＋</button>
         </div>
         <span style="font-size:12px;color:var(--dim)">個</span>
@@ -643,7 +647,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;justify-content:center">
     <div class="qty-ctrl">
       <button class="qbtn" id="stock-adj-minus">－</button>
-      <div class="qval" id="stock-adj-val" style="width:50px;font-size:18px">0</div>
+      <input type="number" inputmode="numeric" id="stock-adj-val" class="sinp" value="0" min="0" style="width:80px;font-size:18px"
+        oninput="stockAdjVal=parseInt(this.value)||0">
       <button class="qbtn" id="stock-adj-plus">＋</button>
     </div>
   </div>
@@ -660,7 +665,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
       <div style="font-size:12px;color:var(--dim);flex-shrink:0">移動数</div>
       <div class="qty-ctrl">
         <button class="qbtn" onclick="adjXferAmt(-1)">－</button>
-        <div class="qval" id="xfer-amt-val" style="width:40px">1</div>
+        <input type="number" inputmode="numeric" id="xfer-amt-val" class="sinp" value="1" min="1" style="width:68px"
+          oninput="T.xferAmt=parseInt(this.value)||1">
         <button class="qbtn" onclick="adjXferAmt(+1)">＋</button>
       </div>
       <span style="font-size:11px;color:var(--dim)" id="xfer-type-sel"></span>
@@ -2284,8 +2290,8 @@ document.getElementById('btn-add-product').addEventListener('click',()=>{
   document.getElementById('inp-pname').value='';
   document.getElementById('inp-pprice').value='';
   document.getElementById('inp-stock-warn').value='3';
-  document.getElementById('stock-loc-val').textContent='0';
-  document.getElementById('stock-ship-val').textContent='0';
+  document.getElementById('stock-loc-val').value='0';
+  document.getElementById('stock-ship-val').value='0';
   document.getElementById('inp-type-name').value='';
   renderTypesList();
   buildStepTimeGrid(); openOverlay('ov-product');
@@ -2316,7 +2322,8 @@ function renderTypesList() {
           <div style="font-size:12px;font-weight:700;color:var(--blue);width:60px;flex-shrink:0">🏪 現地</div>
           <div style="display:flex;align-items:center;gap:4px">
             <button class="qbtn" style="width:30px;height:30px;font-size:14px" onclick="adjTypeStockLoc(${idx},-1)">－</button>
-            <div class="qval" id="type-loc-${idx}" style="width:38px;font-size:14px">${t.stockLoc||0}</div>
+            <input type="number" inputmode="numeric" id="type-loc-${idx}" class="sinp" value="${t.stockLoc||0}" min="0" style="width:64px;font-size:14px"
+              oninput="T.types[${idx}].stockLoc=parseInt(this.value)||0">
             <button class="qbtn" style="width:30px;height:30px;font-size:14px" onclick="adjTypeStockLoc(${idx},1)">＋</button>
           </div>
           <span style="font-size:12px;color:var(--dim)">個</span>
@@ -2325,7 +2332,8 @@ function renderTypesList() {
           <div style="font-size:12px;font-weight:700;color:var(--green);width:60px;flex-shrink:0">📦 郵送</div>
           <div style="display:flex;align-items:center;gap:4px">
             <button class="qbtn" style="width:30px;height:30px;font-size:14px" onclick="adjTypeStockShip(${idx},-1)">－</button>
-            <div class="qval" id="type-ship-${idx}" style="width:38px;font-size:14px">${t.stockShip||0}</div>
+            <input type="number" inputmode="numeric" id="type-ship-${idx}" class="sinp" value="${t.stockShip||0}" min="0" style="width:64px;font-size:14px"
+              oninput="T.types[${idx}].stockShip=parseInt(this.value)||0">
             <button class="qbtn" style="width:30px;height:30px;font-size:14px" onclick="adjTypeStockShip(${idx},1)">＋</button>
           </div>
           <span style="font-size:12px;color:var(--dim)">個</span>
@@ -2337,11 +2345,11 @@ function renderTypesList() {
 
 function adjTypeStockLoc(idx, d) {
   T.types[idx].stockLoc = Math.max(0, (T.types[idx].stockLoc||0) + d);
-  document.getElementById('type-loc-'+idx).textContent = T.types[idx].stockLoc;
+  document.getElementById('type-loc-'+idx).value = T.types[idx].stockLoc;
 }
 function adjTypeStockShip(idx, d) {
   T.types[idx].stockShip = Math.max(0, (T.types[idx].stockShip||0) + d);
-  document.getElementById('type-ship-'+idx).textContent = T.types[idx].stockShip;
+  document.getElementById('type-ship-'+idx).value = T.types[idx].stockShip;
 }
 
 function removeType(idx) {
@@ -2366,19 +2374,19 @@ function editProduct(pid) {
   document.getElementById('inp-pname').value=p.name;
   document.getElementById('inp-pprice').value=p.price||'';
   document.getElementById('inp-stock-warn').value=p.stockWarn||3;
-  document.getElementById('stock-loc-val').textContent=String(T.stockLocVal);
-  document.getElementById('stock-ship-val').textContent=String(T.stockShipVal);
+  document.getElementById('stock-loc-val').value=String(T.stockLocVal);
+  document.getElementById('stock-ship-val').value=String(T.stockShipVal);
   document.getElementById('inp-type-name').value='';
   renderTypesList();
   buildStepTimeGrid(); openOverlay('ov-product');
 }
 
 // タイプなし在庫ボタン（現地）
-document.getElementById('stock-loc-minus').addEventListener('click',()=>{T.stockLocVal=Math.max(0,(T.stockLocVal||0)-1);document.getElementById('stock-loc-val').textContent=T.stockLocVal;});
-document.getElementById('stock-loc-plus').addEventListener('click', ()=>{T.stockLocVal=(T.stockLocVal||0)+1;document.getElementById('stock-loc-val').textContent=T.stockLocVal;});
+document.getElementById('stock-loc-minus').addEventListener('click',()=>{T.stockLocVal=Math.max(0,(T.stockLocVal||0)-1);document.getElementById('stock-loc-val').value=T.stockLocVal;});
+document.getElementById('stock-loc-plus').addEventListener('click', ()=>{T.stockLocVal=(T.stockLocVal||0)+1;document.getElementById('stock-loc-val').value=T.stockLocVal;});
 // タイプなし在庫ボタン（郵送）
-document.getElementById('stock-ship-minus').addEventListener('click',()=>{T.stockShipVal=Math.max(0,(T.stockShipVal||0)-1);document.getElementById('stock-ship-val').textContent=T.stockShipVal;});
-document.getElementById('stock-ship-plus').addEventListener('click', ()=>{T.stockShipVal=(T.stockShipVal||0)+1;document.getElementById('stock-ship-val').textContent=T.stockShipVal;});
+document.getElementById('stock-ship-minus').addEventListener('click',()=>{T.stockShipVal=Math.max(0,(T.stockShipVal||0)-1);document.getElementById('stock-ship-val').value=T.stockShipVal;});
+document.getElementById('stock-ship-plus').addEventListener('click', ()=>{T.stockShipVal=(T.stockShipVal||0)+1;document.getElementById('stock-ship-val').value=T.stockShipVal;});
 
 function buildStepTimeGrid() {
   const g=document.getElementById('step-time-grid'); g.innerHTML='';
@@ -2440,7 +2448,8 @@ function openStockAdj(pid) {
             <div style="font-size:12px;font-weight:700;color:var(--blue);width:60px;flex-shrink:0">🏪 現地</div>
             <div style="display:flex;align-items:center;gap:4px">
               <button class="qbtn" style="width:32px;height:32px" onclick="adjTypeModalLoc(${i},-1)">－</button>
-              <div class="qval" id="tadj-loc-${i}" style="width:40px;font-size:14px">${t.stockLoc||0}</div>
+              <input type="number" inputmode="numeric" id="tadj-loc-${i}" class="sinp" value="${t.stockLoc||0}" min="0" style="width:68px;font-size:14px"
+                oninput="T.stockAdjTypes[${i}].stockLoc=parseInt(this.value)||0">
               <button class="qbtn" style="width:32px;height:32px" onclick="adjTypeModalLoc(${i},1)">＋</button>
             </div>
             <span style="font-size:12px;color:var(--dim)">個</span>
@@ -2449,7 +2458,8 @@ function openStockAdj(pid) {
             <div style="font-size:12px;font-weight:700;color:var(--green);width:60px;flex-shrink:0">📦 郵送</div>
             <div style="display:flex;align-items:center;gap:4px">
               <button class="qbtn" style="width:32px;height:32px" onclick="adjTypeModalShip(${i},-1)">－</button>
-              <div class="qval" id="tadj-ship-${i}" style="width:40px;font-size:14px">${t.stockShip||0}</div>
+              <input type="number" inputmode="numeric" id="tadj-ship-${i}" class="sinp" value="${t.stockShip||0}" min="0" style="width:68px;font-size:14px"
+                oninput="T.stockAdjTypes[${i}].stockShip=parseInt(this.value)||0">
               <button class="qbtn" style="width:32px;height:32px" onclick="adjTypeModalShip(${i},1)">＋</button>
             </div>
             <span style="font-size:12px;color:var(--dim)">個</span>
@@ -2475,7 +2485,8 @@ function openStockAdj(pid) {
           <div style="font-size:12px;font-weight:700;color:var(--blue);width:60px;flex-shrink:0">🏪 現地</div>
           <div style="display:flex;align-items:center;gap:4px">
             <button class="qbtn" style="width:32px;height:32px" onclick="adjNoTypeModalLoc(-1)">－</button>
-            <div class="qval" id="notadj-loc" style="width:40px;font-size:14px">${p.stockLoc||0}</div>
+            <input type="number" inputmode="numeric" id="notadj-loc" class="sinp" value="${p.stockLoc||0}" min="0" style="width:68px;font-size:14px"
+              oninput="T.stockAdjNoTypeLoc=parseInt(this.value)||0">
             <button class="qbtn" style="width:32px;height:32px" onclick="adjNoTypeModalLoc(1)">＋</button>
           </div>
           <span style="font-size:12px;color:var(--dim)">個</span>
@@ -2484,7 +2495,8 @@ function openStockAdj(pid) {
           <div style="font-size:12px;font-weight:700;color:var(--green);width:60px;flex-shrink:0">📦 郵送</div>
           <div style="display:flex;align-items:center;gap:4px">
             <button class="qbtn" style="width:32px;height:32px" onclick="adjNoTypeModalShip(-1)">－</button>
-            <div class="qval" id="notadj-ship" style="width:40px;font-size:14px">${p.stockShip||0}</div>
+            <input type="number" inputmode="numeric" id="notadj-ship" class="sinp" value="${p.stockShip||0}" min="0" style="width:68px;font-size:14px"
+              oninput="T.stockAdjNoTypeShip=parseInt(this.value)||0">
             <button class="qbtn" style="width:32px;height:32px" onclick="adjNoTypeModalShip(1)">＋</button>
           </div>
           <span style="font-size:12px;color:var(--dim)">個</span>
@@ -2507,23 +2519,23 @@ function openStockAdj(pid) {
 function adjTypeModalLoc(idx, d) {
   if (!T.stockAdjTypes) return;
   T.stockAdjTypes[idx].stockLoc = Math.max(0,(T.stockAdjTypes[idx].stockLoc||0)+d);
-  document.getElementById('tadj-loc-'+idx).textContent = T.stockAdjTypes[idx].stockLoc;
+  document.getElementById('tadj-loc-'+idx).value = T.stockAdjTypes[idx].stockLoc;
 }
 function adjTypeModalShip(idx, d) {
   if (!T.stockAdjTypes) return;
   T.stockAdjTypes[idx].stockShip = Math.max(0,(T.stockAdjTypes[idx].stockShip||0)+d);
-  document.getElementById('tadj-ship-'+idx).textContent = T.stockAdjTypes[idx].stockShip;
+  document.getElementById('tadj-ship-'+idx).value = T.stockAdjTypes[idx].stockShip;
 }
 function adjNoTypeModalLoc(d) {
   T.stockAdjNoTypeLoc = Math.max(0,(T.stockAdjNoTypeLoc||0)+d);
-  document.getElementById('notadj-loc').textContent = T.stockAdjNoTypeLoc;
+  document.getElementById('notadj-loc').value = T.stockAdjNoTypeLoc;
 }
 function adjNoTypeModalShip(d) {
   T.stockAdjNoTypeShip = Math.max(0,(T.stockAdjNoTypeShip||0)+d);
-  document.getElementById('notadj-ship').textContent = T.stockAdjNoTypeShip;
+  document.getElementById('notadj-ship').value = T.stockAdjNoTypeShip;
 }
-document.getElementById('stock-adj-minus').addEventListener('click',()=>{stockAdjVal=Math.max(0,stockAdjVal-1);document.getElementById('stock-adj-val').textContent=stockAdjVal;});
-document.getElementById('stock-adj-plus').addEventListener('click', ()=>{stockAdjVal++;document.getElementById('stock-adj-val').textContent=stockAdjVal;});
+document.getElementById('stock-adj-minus').addEventListener('click',()=>{stockAdjVal=Math.max(0,stockAdjVal-1);document.getElementById('stock-adj-val').value=stockAdjVal;});
+document.getElementById('stock-adj-plus').addEventListener('click', ()=>{stockAdjVal++;document.getElementById('stock-adj-val').value=stockAdjVal;});
 document.getElementById('seg-stock-reason').querySelectorAll('.seg-btn').forEach(b=>{
   b.addEventListener('click',()=>setSegVal('seg-stock-reason',b.dataset.val));
 });
