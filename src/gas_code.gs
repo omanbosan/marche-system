@@ -534,6 +534,7 @@ function handleUpdateStep(data) {
 //  アイテム更新（onHold・paid対応）
 // ============================================================
 function handleUpdateItem(data) {
+  invalidateCache();
   const sh   = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.ITEMS);
   const rows = sh.getDataRange().getValues();
   for (var i = 1; i < rows.length; i++) {
@@ -559,6 +560,7 @@ function handleUpdateItem(data) {
 //  注文更新
 // ============================================================
 function handleUpdateOrder(data) {
+  invalidateCache();
   const sh   = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.ORDERS);
   const rows = sh.getDataRange().getValues();
   for (var i = 1; i < rows.length; i++) {
