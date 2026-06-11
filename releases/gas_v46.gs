@@ -93,7 +93,6 @@ function doGet(e) {
       case 'exportCSV':         return handleExportCSV();
       case 'fixSalesTypeNames': return ok({ result: fixSalesTypeNames() });
       case 'fixItemTypes':      return handleFixItemTypes();
-      case 'recordOrderSales':  return handleRecordOrderSales(data);
       default:               return err('Unknown action: ' + action);
     }
   } catch(ex) {
@@ -386,12 +385,10 @@ function handleSaveOrderFast(data) {
   const iSh = ss.getSheetByName(SH.ITEMS);
   const sSh = ss.getSheetByName(SH.STEPS);
 
-  // typeId→typeName, productId→productName 補完用マップ
+  // typeId→typeName 補完用マップをproductsシートから構築
   var typeNameMap = {};
-  var prodNameMap = {};
   try {
     sheetToObjects(ss.getSheetByName(SH.PRODUCTS)).forEach(function(p){
-      prodNameMap[String(p.id)] = p.name || '';
       try {
         var types = JSON.parse(p.typesJson || '[]');
         (types||[]).forEach(function(t){ typeNameMap[String(t.id)] = t.name || ''; });
@@ -435,21 +432,6 @@ function handleSaveOrderFast(data) {
 
   if (itemRows.length > 0) iSh.getRange(iSh.getLastRow()+1,1,itemRows.length,16).setValues(itemRows);
   if (stepRows.length > 0) sSh.getRange(sSh.getLastRow()+1,1,stepRows.length,7).setValues(stepRows);
-
-  // 現地注文は登録時に売上記録
-  if (data.deliveryType !== 'shipping') {
-    var salesItems = (data.items||[]).map(function(it){
-      var resolvedTypeName = it.typeName || (it.typeId ? typeNameMap[String(it.typeId)] || '' : '');
-      return {
-        pid: it.pid,
-        productName: prodNameMap[String(it.pid)] || '',
-        typeName: resolvedTypeName,
-        price: it.price||0,
-        paymentMethod: it.paymentMethod||'cash'
-      };
-    });
-    recordSalesForOrder(ss, data.id, data.num||'', data.deliveryType, salesItems, data.shippingFee||0, '');
-  }
 
   return ok({ saved: true });
 }
@@ -553,13 +535,10 @@ function handleUpdateStep(data) {
 // ============================================================
 function handleUpdateItem(data) {
   invalidateCache();
-  const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sh   = ss.getSheetByName(SH.ITEMS);
+  const sh   = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.ITEMS);
   const rows = sh.getDataRange().getValues();
-  var foundOrderId = '';
   for (var i = 1; i < rows.length; i++) {
     if (rows[i][0] === data.itemId) {
-      foundOrderId = rows[i][1];
       if (data.price         !== undefined) sh.getRange(i+1,8).setValue(data.price);
       if (data.skipBinarize  !== undefined) sh.getRange(i+1,6).setValue(data.skipBinarize?1:0);
       if (data.skipDesign    !== undefined) sh.getRange(i+1,7).setValue(data.skipDesign?1:0);
@@ -574,48 +553,6 @@ function handleUpdateItem(data) {
       break;
     }
   }
-
-  // 郵送注文で入金確認チェック → 売上記録
-  if (data.paid && foundOrderId) {
-    var oSh   = ss.getSheetByName(SH.ORDERS);
-    var oRows = oSh.getDataRange().getValues();
-    var orderDeliveryType = '';
-    var orderNum          = '';
-    var shippingFee       = 0;
-    for (var oi = 1; oi < oRows.length; oi++) {
-      if (oRows[oi][0] === foundOrderId) {
-        orderDeliveryType = oRows[oi][3];
-        orderNum          = oRows[oi][1];
-        shippingFee       = Number(oRows[oi][9]||0);
-        break;
-      }
-    }
-    if (orderDeliveryType === 'shipping') {
-      // 商品名マップ
-      var prodNameMap = {};
-      try {
-        sheetToObjects(ss.getSheetByName(SH.PRODUCTS)).forEach(function(p){
-          prodNameMap[String(p.id)] = p.name || '';
-        });
-      } catch(e){}
-      // 最新のアイテム行を再取得
-      var freshRows = sh.getDataRange().getValues();
-      var salesItems = [];
-      for (var ii = 1; ii < freshRows.length; ii++) {
-        if (freshRows[ii][1] === foundOrderId) {
-          salesItems.push({
-            pid:           freshRows[ii][2],
-            productName:   prodNameMap[String(freshRows[ii][2])] || '',
-            typeName:      freshRows[ii][12] || '',
-            price:         Number(freshRows[ii][7]) || 0,
-            paymentMethod: freshRows[ii][8] || 'cash'
-          });
-        }
-      }
-      recordSalesForOrder(ss, foundOrderId, orderNum, orderDeliveryType, salesItems, shippingFee, '');
-    }
-  }
-
   return ok({ updated: true });
 }
 
@@ -637,48 +574,6 @@ function handleUpdateOrder(data) {
     }
   }
   return ok({ updated: true });
-}
-
-// ============================================================
-//  売上記録ヘルパー（現地：登録時、郵送：入金確認時に呼ぶ）
-// ============================================================
-function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee, shippingPayment) {
-  // 重複チェック：既に履歴があればスキップ（冪等性）
-  var hSh   = ss.getSheetByName(SH.HISTORY);
-  var hRows = hSh.getDataRange().getValues();
-  for (var hi = 1; hi < hRows.length; hi++) {
-    if (hRows[hi][1] === orderId) return hRows[hi][0]; // 既に記録済み → hId を返す
-  }
-  var now  = new Date().toISOString();
-  var hId  = Utilities.getUuid();
-  var sSh  = ss.getSheetByName(SH.SALES);
-  hSh.appendRow([hId, orderId, num, now, 0, deliveryType]);
-  (items||[]).forEach(function(it){
-    var displayName = it.productName || it.pid || '';
-    if (it.typeName) displayName += ' [' + it.typeName + ']';
-    sSh.appendRow([
-      Utilities.getUuid(), hId, orderId,
-      it.pid, displayName, it.price, it.paymentMethod, now
-    ]);
-  });
-  if (Number(shippingFee||0) > 0) {
-    sSh.appendRow([
-      Utilities.getUuid(), hId, orderId,
-      '', '送料', Number(shippingFee), shippingPayment||'cash', now
-    ]);
-  }
-  return hId;
-}
-
-function handleRecordOrderSales(data) {
-  if (!data.orderId) return err('orderId missing');
-  invalidateCache();
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const hId = recordSalesForOrder(
-    ss, data.orderId, data.num||'', data.deliveryType||'',
-    data.items||[], data.shippingFee||0, data.shippingPayment||''
-  );
-  return ok({ hId: hId });
 }
 
 // ============================================================
@@ -705,45 +600,26 @@ function handleCompleteOrder(data) {
       break;
     }
   }
-
-  // 既に売上記録済み（現地は登録時・郵送は入金時）かチェック
-  var hSh            = ss.getSheetByName(SH.HISTORY);
-  var hRows          = hSh.getDataRange().getValues();
-  var alreadyRecorded = false;
-  var resultHId      = '';
-  for (var hi = 1; hi < hRows.length; hi++) {
-    if (hRows[hi][1] === data.orderId) {
-      alreadyRecorded = true;
-      resultHId = hRows[hi][0];
-      // 完了時刻・待ち時間を更新
-      hSh.getRange(hi+1, 4).setValue(data.completedAt);
-      hSh.getRange(hi+1, 5).setValue(waitMins);
-      break;
-    }
+  const hId = Utilities.getUuid();
+  ss.getSheetByName(SH.HISTORY).appendRow([
+    hId, data.orderId, data.num, data.completedAt, waitMins, data.deliveryType
+  ]);
+  (data.items||[]).forEach(function(it){
+    // タイプがある場合は "商品名 [タイプ名]" で保存
+    var displayName = it.productName || '';
+    if (it.typeName) displayName += ' [' + it.typeName + ']';
+    ss.getSheetByName(SH.SALES).appendRow([
+      Utilities.getUuid(), hId, data.orderId,
+      it.pid, displayName, it.price, it.paymentMethod, data.completedAt
+    ]);
+  });
+  if (Number(data.shippingFee||0) > 0) {
+    ss.getSheetByName(SH.SALES).appendRow([
+      Utilities.getUuid(), hId, data.orderId,
+      '', '送料', Number(data.shippingFee), data.shippingPayment||'cash', data.completedAt
+    ]);
   }
-
-  if (!alreadyRecorded) {
-    // 未記録の場合は従来通り history + sales を作成
-    const hId = Utilities.getUuid();
-    resultHId = hId;
-    hSh.appendRow([hId, data.orderId, data.num, data.completedAt, waitMins, data.deliveryType]);
-    (data.items||[]).forEach(function(it){
-      var displayName = it.productName || '';
-      if (it.typeName) displayName += ' [' + it.typeName + ']';
-      ss.getSheetByName(SH.SALES).appendRow([
-        Utilities.getUuid(), hId, data.orderId,
-        it.pid, displayName, it.price, it.paymentMethod, data.completedAt
-      ]);
-    });
-    if (Number(data.shippingFee||0) > 0) {
-      ss.getSheetByName(SH.SALES).appendRow([
-        Utilities.getUuid(), hId, data.orderId,
-        '', '送料', Number(data.shippingFee), data.shippingPayment||'cash', data.completedAt
-      ]);
-    }
-  }
-
-  return ok({ hId: resultHId });
+  return ok({ hId: hId });
 }
 
 // ============================================================
