@@ -192,7 +192,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .pcard.drag-over{border:2px solid var(--gold);background:rgba(184,134,11,.06)}
 .drag-handle{position:absolute;bottom:7px;right:7px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--dim2);font-size:13px;cursor:grab;touch-action:none;user-select:none;border-radius:4px}
 .drag-handle:active{cursor:grabbing;color:var(--gold)}
-.pcard-name{font-size:13px;font-weight:900;color:var(--blue);padding-right:50px;margin-bottom:3px;word-break:break-all;line-height:1.3}
+.pcard-name{font-size:13px;font-weight:700;color:var(--text);padding-right:50px;margin-bottom:3px}
 .pcard-info{font-size:11px;color:var(--dim);margin-bottom:5px}
 .pcard-stock{font-size:13px;font-weight:700}
 .pcard-stock.low{color:var(--red)}
@@ -233,12 +233,12 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .seg{display:flex;background:var(--s2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:11px}
 .seg-btn{flex:1;padding:9px 5px;font-size:12px;font-weight:700;text-align:center;cursor:pointer;color:var(--dim);touch-action:manipulation;transition:all .13s}
 .seg-btn.on{background:var(--s1);color:var(--gold);box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.ppick{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
-.pp{background:var(--s2);border:1.5px solid var(--border);border-radius:8px;padding:8px;cursor:pointer;touch-action:manipulation;transition:all .13s}
+.ppick{display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:10px}
+.pp{background:var(--s2);border:1.5px solid var(--border);border-radius:8px;padding:9px;cursor:pointer;touch-action:manipulation;transition:all .13s}
 .pp:not(.pp-typed):active{transform:scale(.96)}
 .pp.pp-typed{cursor:default}
 .pp.on{background:rgba(184,134,11,.08);border-color:var(--goldd)}
-.pp-name{font-size:12px;font-weight:900;color:var(--blue);word-break:break-all;line-height:1.3;margin-bottom:3px}
+.pp-name{font-size:13px;font-weight:900;color:var(--blue)}
 .pp.on .pp-name{color:var(--gold)}
 .pp-sub{font-size:10px;color:var(--dim);margin-top:2px}
 .pp-stock{font-size:10px;font-weight:700;margin-top:2px}
@@ -342,6 +342,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 /* TABLET (iPad, 幅768px以上) */
 @media (min-width:768px){
   .page{max-width:900px;margin:0 auto}
+  .ppick{grid-template-columns:1fr 1fr}
   .pgrid{grid-template-columns:repeat(3,1fr)}
   .steps.loc-steps,.steps.ship-steps{gap:5px}
   .sbtn{height:52px}
@@ -1434,16 +1435,16 @@ function renderPPick() {
             ${tCanTransfer
               ? `<button class="opt-chip" style="font-size:10px;padding:4px 10px;touch-action:manipulation" onclick="quickTransferStock('${p.id}','${t.id}',1);event.stopPropagation()">📦 移動</button>`
               : `<div style="display:flex;align-items:center">
-                  <button class="qbtn" style="width:26px;height:26px;font-size:13px" ${isOos?'disabled':''} data-adj-pid="${p.id}" data-adj-tid="${t.id}" data-adj-d="-1">－</button>
-                  <div class="qval" id="tq-${p.id}-${t.id}" style="width:26px;font-size:12px">${qty}</div>
-                  <button class="qbtn" style="width:26px;height:26px;font-size:13px" ${isOos?'disabled':''} data-adj-pid="${p.id}" data-adj-tid="${t.id}" data-adj-d="1">＋</button>
+                  <button class="qbtn" style="width:32px;height:32px;font-size:15px" ${isOos?'disabled':''} data-adj-pid="${p.id}" data-adj-tid="${t.id}" data-adj-d="-1">－</button>
+                  <div class="qval" id="tq-${p.id}-${t.id}" style="width:34px;font-size:14px">${qty}</div>
+                  <button class="qbtn" style="width:32px;height:32px;font-size:15px" ${isOos?'disabled':''} data-adj-pid="${p.id}" data-adj-tid="${t.id}" data-adj-d="1">＋</button>
                 </div>`
             }
           </div>`;
       }).join('');
       b.innerHTML=`
-        <div class="pp-name">${p.name}</div>
-        <div style="display:flex;align-items:center;gap:4px;margin-bottom:5px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <div class="pp-name" style="flex:1">${p.name}</div>
           <div class="pp-sub">¥${Number(p.price||0).toLocaleString()}</div>
           ${stockTxt}
         </div>
@@ -1465,12 +1466,12 @@ function renderPPick() {
       const atMax = qty >= stock; // 在庫上限に達している
       const locHint = locStockVal2>0 ? `（現地${locStockVal2}個）` : '';
       b.innerHTML=`
-        <div class="pp-name">${p.name}</div>
-        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:5px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <div class="pp-name" style="flex:1">${p.name}</div>
           <div class="pp-sub">約${p.totalMinutes}分 ¥${Number(p.price||0).toLocaleString()}</div>
           ${stockTxt}
         </div>
-        <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:4px;gap:4px">
+        <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:6px;gap:6px">
           ${canTransferCard2
             ? `<button class="opt-chip" style="font-size:11px;padding:5px 12px;touch-action:manipulation" onclick="quickTransferStock('${p.id}','',1)">📦 現地→郵送 移動${locHint}</button>`
             : `<button class="qbtn" style="width:28px;height:28px;font-size:14px" onclick="adjProdQty('${p.id}',-1)">－</button>
