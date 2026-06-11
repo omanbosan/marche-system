@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -38,12 +38,12 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .hdr{position:sticky;top:0;z-index:80;background:var(--s1);border-bottom:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;padding:8px 14px}
 .hdr-logo{font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;font-weight:900;color:var(--gold);letter-spacing:.06em;flex-shrink:0}
 .hdr-clock{font-family:'Zen Kaku Gothic New',sans-serif;font-size:21px;font-weight:900;color:var(--text)}
-.hdr-pills{display:flex;gap:5px;margin-left:auto;flex-wrap:nowrap;overflow:hidden}
+.hdr-pills{display:flex;gap:5px;margin-left:auto;flex-wrap:wrap}
 .pill{background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:3px 10px;font-size:11px;color:var(--dim);display:flex;align-items:center;gap:4px}
 .pill b{color:var(--gold);font-size:13px}
 
 /* WAIT BAR */
-.wbar{position:sticky;top:var(--wbar-top,49px);z-index:79;background:var(--s1);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.wbar{position:sticky;top:49px;z-index:79;background:var(--s1);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .wbar-lbl{font-size:10px;color:var(--dim);line-height:1.4}
 .wbar-num{font-family:'Zen Kaku Gothic New',sans-serif;font-size:26px;font-weight:900;color:var(--gold);line-height:1}
 .wbar-num.warn{color:var(--orange)}.wbar-num.alert{color:var(--red)}
@@ -55,7 +55,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .wd.done{background:var(--green);border-color:var(--green)}
 
 /* TABS */
-.tabs{position:sticky;top:var(--tabs-top,131px);z-index:77;background:var(--s1);border-bottom:1px solid var(--border);display:flex;overflow-x:auto}
+.tabs{position:sticky;top:131px;z-index:77;background:var(--s1);border-bottom:1px solid var(--border);display:flex;overflow-x:auto}
 .tabs::-webkit-scrollbar{display:none}
 .tab{padding:9px 14px;font-size:13px;font-weight:700;color:var(--dim);border-bottom:3px solid transparent;white-space:nowrap;cursor:pointer;letter-spacing:.03em;flex-shrink:0;transition:color .15s,border-color .15s}
 .tab.on{color:var(--gold);border-bottom-color:var(--gold)}
@@ -65,7 +65,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .page.on{display:block}
 
 /* BUTTONS */
-.btn-new-wrap{position:sticky;top:var(--btn-top,167px);z-index:76;background:var(--bg);padding:8px 0 6px;margin:-10px -10px 2px;padding-left:10px;padding-right:10px;border-bottom:1px solid var(--border)}
+.btn-new-wrap{position:sticky;top:167px;z-index:76;background:var(--bg);padding:8px 0 6px;margin:-10px -10px 2px;padding-left:10px;padding-right:10px;border-bottom:1px solid var(--border)}
 .btn-new{width:100%;background:var(--gold);color:#fff;border:none;border-radius:10px;padding:13px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:14px;font-weight:900;letter-spacing:.08em;cursor:pointer;transition:background .15s,transform .1s}
 .btn-new:active{transform:scale(.98);background:var(--goldl)}
 .btn-new.ship{background:var(--blue)}
@@ -322,30 +322,6 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .pp-type-btn.on{background:rgba(184,134,11,.1);border-color:var(--goldd);color:var(--gold)}
 .pp-type-btn.low{border-color:rgba(208,48,48,.4);color:var(--red)}
 .pp-type-btn.oos{opacity:.4;pointer-events:none;text-decoration:line-through}
-
-/* SAFE AREA (iPhone X以降のノッチ・ホームバー対応) */
-.page{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
-.toast{bottom:calc(24px + env(safe-area-inset-bottom,0px))}
-.sheet{padding-bottom:calc(30px + env(safe-area-inset-bottom,0px))}
-
-/* SMALL SCREEN (iPhone SE, 幅380px以下) */
-@media (max-width:380px){
-  .hdr-clock{font-size:17px}
-  .hdr-logo{font-size:13px}
-  .pill{padding:3px 6px;font-size:10px}
-  .sbtn{height:40px}
-  .sbtn-lbl{font-size:9px}
-  .pay-btn{font-size:11px;padding:8px 2px}
-  .stat-val{font-size:16px}
-  .och-num{font-size:16px;padding:3px 7px}
-}
-/* TABLET (iPad, 幅768px以上) */
-@media (min-width:768px){
-  .page{max-width:900px;margin:0 auto}
-  .pgrid{grid-template-columns:repeat(3,1fr)}
-  .steps.loc-steps,.steps.ship-steps{gap:5px}
-  .sbtn{height:52px}
-}
 </style>
 </head>
 <body>
@@ -892,22 +868,6 @@ async function tryAutoLogin() {
   } catch(e) { return true; }
 }
 
-// sticky offset を実際の高さから動的計算（デバイスごとのヘッダー高さ差異に対応）
-function updateStickyOffsets() {
-  const hdr  = document.querySelector('.hdr');
-  const wbar = document.querySelector('.wbar');
-  const tabs = document.querySelector('.tabs');
-  if (!hdr || !wbar || !tabs) return;
-  const hH = hdr.offsetHeight;
-  const wH = wbar.offsetHeight;
-  const tH = tabs.offsetHeight;
-  const r = document.documentElement.style;
-  r.setProperty('--wbar-top', hH + 'px');
-  r.setProperty('--tabs-top', (hH + wH) + 'px');
-  r.setProperty('--btn-top',  (hH + wH + tH) + 'px');
-}
-window.addEventListener('resize', updateStickyOffsets);
-
 async function showApp() {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
@@ -926,7 +886,6 @@ async function showApp() {
   } catch(e){}
   await loadAll();
   startClock();
-  requestAnimationFrame(updateStickyOffsets); // レイアウト確定後に計算
 }
 
 // ============================================================
