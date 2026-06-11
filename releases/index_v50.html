@@ -221,7 +221,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 /* MODALS */
 .overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s}
 .overlay.on{opacity:1;pointer-events:all}
-.sheet{background:var(--s1);border-radius:18px 18px 0 0;border-top:1px solid var(--border);width:100%;max-width:640px;padding:18px 15px calc(30px + env(safe-area-inset-bottom,0px));max-height:var(--sheet-max-h,82vh);overflow-y:auto;transform:translateY(36px);transition:transform .22s}
+.sheet{background:var(--s1);border-radius:18px 18px 0 0;border-top:1px solid var(--border);width:100%;max-width:640px;padding:18px 15px 30px;max-height:92vh;overflow-y:auto;transform:translateY(36px);transition:transform .22s}
 .overlay.on .sheet{transform:translateY(0)}
 .sh-title{font-family:'Zen Kaku Gothic New',sans-serif;font-size:16px;font-weight:900;color:var(--gold);margin-bottom:14px}
 .sh-lbl{font-size:11px;font-weight:700;color:var(--dim);letter-spacing:.06em;margin-bottom:5px}
@@ -3123,36 +3123,8 @@ async function quickTransferStock(pid, tid, amt) {
 // ============================================================
 //  OVERLAY / CONFIRM / TOAST
 // ============================================================
-let _savedScrollY = 0;
-function openOverlay(id) {
-  document.getElementById(id).classList.add('on');
-  updateSheetMaxH();
-  // body スクロール禁止（iOS Safari 対応: position:fixed + top で位置を保持）
-  _savedScrollY = window.scrollY;
-  document.body.style.overflow = 'hidden';
-  document.body.style.position = 'fixed';
-  document.body.style.top = `-${_savedScrollY}px`;
-  document.body.style.width = '100%';
-}
-function closeOverlay(id) {
-  document.getElementById(id).classList.remove('on');
-  document.body.style.overflow = '';
-  document.body.style.position = '';
-  document.body.style.top = '';
-  document.body.style.width = '';
-  window.scrollTo(0, _savedScrollY);
-}
-function updateSheetMaxH() {
-  // visualViewport 対応（キーボード表示時の実際の表示高さを使う）
-  const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-  document.documentElement.style.setProperty('--sheet-max-h', Math.round(vh * 0.88) + 'px');
-}
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', () => {
-    updateSheetMaxH();
-    updateStickyOffsets();
-  });
-}
+function openOverlay(id){document.getElementById(id).classList.add('on');}
+function closeOverlay(id){document.getElementById(id).classList.remove('on');}
 document.querySelectorAll('.overlay').forEach(ov=>{ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('on');});});
 let _cfCb=null;
 function showConfirm(title,sub,cb){document.getElementById('cf-title').textContent=title;document.getElementById('cf-sub').textContent=sub;_cfCb=cb;openOverlay('ov-confirm');}
