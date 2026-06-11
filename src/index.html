@@ -54,12 +54,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .wd.hold{background:var(--dim2);border-color:var(--dim2)}
 .wd.done{background:var(--green);border-color:var(--green)}
 
-/* LEGEND */
-.legend{position:sticky;top:98px;z-index:78;background:var(--s1);border-bottom:1px solid var(--border);padding:5px 14px;display:flex;flex-wrap:wrap;gap:8px}
-.lg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim)}
-.lg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.lg b{font-weight:700}
-
 /* TABS */
 .tabs{position:sticky;top:131px;z-index:77;background:var(--s1);border-bottom:1px solid var(--border);display:flex;overflow-x:auto}
 .tabs::-webkit-scrollbar{display:none}
@@ -371,7 +365,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
   <div class="wdots" id="wdots"></div>
 </div>
 
-<div class="legend" id="legend-bar"></div>
 
 <nav class="tabs">
   <div class="tab on" data-tab="local">🏪 現地</div>
@@ -888,7 +881,6 @@ async function showApp() {
   } catch(e){}
   await loadAll();
   startClock();
-  buildLegend();
 }
 
 // ============================================================
@@ -959,12 +951,6 @@ function startClock() {
     const tab = document.querySelector('.tab.on');
     if (tab && (tab.dataset.tab==='local' || tab.dataset.tab==='shipping')) loadAll();
   }, 20000);
-}
-
-function buildLegend() {
-  const el = document.getElementById('legend-bar');
-  const locHtml = LOC_STEPS.map(s=>`<div class="lg"><div class="lg-dot" style="background:${s.color}"></div><b style="color:${s.color}">${s.who}</b> ${s.label}</div>`).join('');
-  el.innerHTML = locHtml;
 }
 
 // ============================================================
