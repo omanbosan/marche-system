@@ -233,7 +233,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .seg{display:flex;background:var(--s2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:11px}
 .seg-btn{flex:1;padding:9px 5px;font-size:12px;font-weight:700;text-align:center;cursor:pointer;color:var(--dim);touch-action:manipulation;transition:all .13s}
 .seg-btn.on{background:var(--s1);color:var(--gold);box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.ppick{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.ppick{display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:10px}
 .pp{background:var(--s2);border:1.5px solid var(--border);border-radius:8px;padding:9px;cursor:pointer;touch-action:manipulation;transition:all .13s}
 .pp:not(.pp-typed):active{transform:scale(.96)}
 .pp.pp-typed{cursor:default}
@@ -342,6 +342,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 /* TABLET (iPad, 幅768px以上) */
 @media (min-width:768px){
   .page{max-width:900px;margin:0 auto}
+  .ppick{grid-template-columns:1fr 1fr}
   .pgrid{grid-template-columns:repeat(3,1fr)}
   .steps.loc-steps,.steps.ship-steps{gap:5px}
   .sbtn{height:52px}
