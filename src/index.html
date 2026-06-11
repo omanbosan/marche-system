@@ -621,6 +621,11 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
   <input class="sh-input" id="inp-pprice" type="number" inputmode="numeric" placeholder="例：1500">
   <div class="sh-lbl">在庫警告ライン</div>
   <input class="sh-input" id="inp-stock-warn" type="number" inputmode="numeric" placeholder="例：3（この数以下で警告）" style="margin-bottom:11px">
+  <div class="sh-lbl">在庫連動先 <span style="font-size:10px;font-weight:400;color:var(--dim)">（別商品と同じ在庫を共有する場合）</span></div>
+  <select class="sh-input" id="sel-shared-stock" style="margin-bottom:11px" onchange="onSharedStockChange()">
+    <option value="">なし（独立管理）</option>
+  </select>
+  <div id="shared-stock-note" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:11px;font-size:12px;color:var(--teal)">🔗 在庫は連動先で管理されます。このページでの在庫設定は不要です。</div>
   <div class="sh-lbl">タイプ・バリエーション <span style="font-size:10px;font-weight:400;color:var(--dim)">（カラー・素材など）</span></div>
   <div id="types-list" style="margin-bottom:8px"></div>
   <div style="display:flex;gap:7px;margin-bottom:11px">
@@ -964,6 +969,7 @@ function normalizeLoadedData() {
       t.stockLoc  = Number(t.stockLoc  || 0);
       t.stockShip = Number(t.stockShip || 0);
     });
+    p.sharedStockWith = p.sharedStockWith ? String(p.sharedStockWith) : '';
   });
 }
 
@@ -1379,6 +1385,43 @@ function calcNextOrderNum() {
   return max+1;
 }
 
+// 在庫連動先を解決：sharedStockWith が設定されている商品は連動先の在庫を使う
+function getEffectiveProduct(p) {
+  if (!p || !p.sharedStockWith) return p;
+  return S.products.find(x => x.id === p.sharedStockWith) || p;
+}
+
+// 商品編集モーダルの「在庫連動先」ドロップダウンを構築
+function populateSharedStockSel(excludePid) {
+  const sel = document.getElementById('sel-shared-stock');
+  const cur = sel.value;
+  // options rebuild
+  while (sel.options.length > 1) sel.remove(1);
+  S.products.forEach(p => {
+    if (p.id === excludePid) return; // 自分自身は除外
+    if (p.sharedStockWith) return;   // 連動先商品は更に別の連動先は持てない（循環防止）
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    if (p.id === cur) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function onSharedStockChange() {
+  const val = document.getElementById('sel-shared-stock').value;
+  const note = document.getElementById('shared-stock-note');
+  const noTypeRow = document.getElementById('no-type-stock-row');
+  if (val) {
+    note.style.display = '';
+    noTypeRow.style.display = 'none';
+  } else {
+    note.style.display = 'none';
+    // no-type-stock-row の表示は renderTypesList が制御するので再描画
+    if (!T.types.length) noTypeRow.style.display = '';
+  }
+}
+
 function renderPPick() {
   const el=document.getElementById('ppick'); el.innerHTML='';
   S.products.forEach(p=>{
@@ -1390,9 +1433,12 @@ function renderPPick() {
 
     // 配送方法に応じた在庫を表示
     const isShipMode = T.delivery === 'shipping';
+    // 在庫連動先がある場合は有効商品（ep）の在庫を使う
+    const ep = getEffectiveProduct(p);
+    const isLinked = !!p.sharedStockWith;
     let stockTxt='';
     let cardOos = false; // カード全体が在庫0か（移動できる場合はfalse）
-    if (hasTypes) {
+    if (hasTypes && !isLinked) {
       const total=(p.types||[]).reduce((s,t)=>s+Number(isShipMode?t.stockShip:t.stockLoc||0),0);
       const label = isShipMode?'郵送在庫':'現地在庫';
       // 郵送モードで在庫0でも移動できる可能性があるのでグレーアウトしない
@@ -1401,11 +1447,13 @@ function renderPPick() {
       else if(isShipMode) stockTxt=`<div class="pp-stock" style="color:var(--gold);font-weight:700">📦 現地から移動可</div>`;
       else stockTxt=`<div class="pp-stock" style="color:var(--red);font-weight:700">⚠ 在庫なし</div>`;
     } else {
-      const stock = isShipMode ? Number(p.stockShip||0) : Number(p.stockLoc||0);
+      // タイプなし、または連動商品（ep の在庫を参照）
+      const stock = isShipMode ? Number(ep.stockShip||0) : Number(ep.stockLoc||0);
       const label = isShipMode?'郵送在庫':'現地在庫';
       // 郵送モードで在庫0でも移動できる可能性があるのでグレーアウトしない
       cardOos = stock===0 && !isShipMode;
-      if(stock>0) stockTxt=`<div class="pp-stock ${stock<=p.stockWarn?'low':'ok'}">${label} ${stock}個</div>`;
+      const warnLine = isLinked ? ep.stockWarn : p.stockWarn;
+      if(stock>0) stockTxt=`<div class="pp-stock ${stock<=warnLine?'low':'ok'}">${isLinked?`🔗 `:''}${label} ${stock}個</div>`;
       else if(isShipMode) stockTxt=`<div class="pp-stock" style="color:var(--gold);font-weight:700">📦 現地から移動可</div>`;
       else stockTxt=`<div class="pp-stock" style="color:var(--red);font-weight:700">⚠ 在庫なし</div>`;
     }
@@ -1459,11 +1507,11 @@ function renderPPick() {
         });
       });
     } else {
-      // タイプなし：商品全体の個数
+      // タイプなし：商品全体の個数（連動商品の場合は ep の在庫を参照）
       b.style.cursor = cardOos ? 'not-allowed' : 'default';
-      const stock = isShipMode ? Number(p.stockShip||0) : Number(p.stockLoc||0);
-      const locStockVal2 = isShipMode ? Number(p.stockLoc||0) : 0;
-      const canTransferCard2 = isShipMode && stock===0; // 郵送モードで在庫0なら移動ボタンを出す
+      const stock = isShipMode ? Number(ep.stockShip||0) : Number(ep.stockLoc||0);
+      const locStockVal2 = isShipMode ? Number(ep.stockLoc||0) : 0;
+      const canTransferCard2 = isShipMode && stock===0 && !isLinked; // 連動商品は移動ボタン非表示
       const qty = T.selProds[p.id]||0;
       const atMax = qty >= stock; // 在庫上限に達している
       const locHint = locStockVal2>0 ? `（現地${locStockVal2}個）` : '';
@@ -1505,11 +1553,12 @@ function adjTypeQty(pid, tid, d) {
 }
 
 function adjProdQty(pid, d) {
-  // ＋方向のとき在庫上限チェック
+  // ＋方向のとき在庫上限チェック（連動商品の場合は連動先の在庫を参照）
   if (d > 0) {
     const p = S.products.find(x=>x.id===pid);
+    const ep = getEffectiveProduct(p);
     const isShip = T.delivery === 'shipping';
-    const stock = isShip ? Number(p?.stockShip||0) : Number(p?.stockLoc||0);
+    const stock = isShip ? Number(ep?.stockShip||0) : Number(ep?.stockLoc||0);
     const current = T.selProds[pid]||0;
     if (current >= stock) { toast('在庫がありません'); return; }
   }
@@ -1559,14 +1608,16 @@ function renderQtyBlock() {
           }
         });
       });
-      // Check no-type products
+      // Check no-type products（連動商品は連動先の在庫を参照）
       Object.entries(T.selProds).forEach(([pid, qty]) => {
         if (qty <= 0) return;
         const p = S.products.find(x=>x.id===pid);
         if (!p || (p.types||[]).length > 0) return;
-        const shipStock = Number(p.stockShip||0);
-        const locStock = Number(p.stockLoc||0);
-        if (shipStock < qty && locStock > 0) {
+        const ep = getEffectiveProduct(p);
+        const shipStock = Number(ep.stockShip||0);
+        const locStock = Number(ep.stockLoc||0);
+        if (shipStock < qty && locStock > 0 && !p.sharedStockWith) {
+          // 連動商品は移動ボタンは出さない（移動は連動先で行う）
           warns.push(`<div style="background:rgba(230,160,40,.1);border:1px solid rgba(230,160,40,.4);border-radius:7px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
             <div style="font-size:12px;color:var(--gold)">⚠️ <b>${p.name}</b> 郵送在庫${shipStock}個（現地${locStock}個）</div>
             <button class="opt-chip" style="font-size:11px;padding:4px 10px;touch-action:manipulation" onclick="quickTransferStock('${p.id}','',1)">現地→郵送 移動</button>
@@ -1745,19 +1796,27 @@ async function saveOrder() {
   }
   if (!sel.length && !selWithTypes.length) { toast('商品を選択してください'); return; }
 
-  // 在庫0チェック（最終バリデーション）
+  // 在庫0チェック（最終バリデーション）連動商品は連動先の在庫を参照
   const isShipFinal = T.delivery === 'shipping';
   for (const [pid, qty] of sel) {
     const p = S.products.find(x=>x.id===pid);
-    const stock = isShipFinal ? Number(p?.stockShip||0) : Number(p?.stockLoc||0);
+    const ep = getEffectiveProduct(p);
+    const stock = isShipFinal ? Number(ep?.stockShip||0) : Number(ep?.stockLoc||0);
     if (stock <= 0) { toast(`「${p?.name||'商品'}」の在庫がありません`); return; }
     if (qty > stock) { toast(`「${p?.name||'商品'}」の在庫が足りません（残${stock}個）`); return; }
   }
   for (const [pid,,tid] of selWithTypes) {
     const p = S.products.find(x=>x.id===pid);
-    const typeObj = (p?.types||[]).find(t=>t.id===tid);
-    const stock = isShipFinal ? Number(typeObj?.stockShip||0) : Number(typeObj?.stockLoc||0);
-    if (stock <= 0) { toast(`「${p?.name||'商品'} [${typeObj?.name||''}]」の在庫がありません`); return; }
+    if (p?.sharedStockWith) {
+      // 連動商品はtype別ではなく連動先の総在庫でチェック
+      const ep = getEffectiveProduct(p);
+      const stock = isShipFinal ? Number(ep?.stockShip||0) : Number(ep?.stockLoc||0);
+      if (stock <= 0) { toast(`「${p?.name||'商品'}」の在庫がありません`); return; }
+    } else {
+      const typeObj = (p?.types||[]).find(t=>t.id===tid);
+      const stock = isShipFinal ? Number(typeObj?.stockShip||0) : Number(typeObj?.stockLoc||0);
+      if (stock <= 0) { toast(`「${p?.name||'商品'} [${typeObj?.name||''}]」の在庫がありません`); return; }
+    }
   }
 
   const orderId=uid(), now=new Date().toISOString();
@@ -1836,19 +1895,20 @@ async function saveOrder() {
   // 同一商品・同一タイプへの複数API呼び出し競合を防ぐため、先にローカル在庫を全件更新してから
   // product/type ごとに1回だけ adjustStock を呼ぶ
   const isShip = T.delivery === 'shipping';
-  // ① ローカル在庫を全アイテム分まとめて引き落とし
+  // ① ローカル在庫を全アイテム分まとめて引き落とし（連動商品は連動先を更新）
   items.forEach(it => {
     const p = S.products.find(x=>x.id===it.pid);
     if (!p) return;
-    if (it.typeId && (p.types||[]).length > 0) {
+    const ep = getEffectiveProduct(p); // 連動先があればそちら、なければ自分
+    if (it.typeId && (p.types||[]).length > 0 && !p.sharedStockWith) {
       const typeObj = p.types.find(t=>t.id===it.typeId);
       if (typeObj) {
         if (isShip) typeObj.stockShip = Math.max(0,(typeObj.stockShip||0)-1);
         else        typeObj.stockLoc  = Math.max(0,(typeObj.stockLoc ||0)-1);
       }
     } else {
-      if (isShip) p.stockShip = Math.max(0,(p.stockShip||0)-1);
-      else        p.stockLoc  = Math.max(0,(p.stockLoc ||0)-1);
+      if (isShip) ep.stockShip = Math.max(0,(ep.stockShip||0)-1);
+      else        ep.stockLoc  = Math.max(0,(ep.stockLoc ||0)-1);
     }
   });
   // ② product/type ごとに1回だけ GAS へ送信（最終値を送るので競合なし）
@@ -2119,10 +2179,11 @@ async function saveItemEdit() {
         o.items = o.items.filter(x=>x.id !== it.id);
         const p = S.products.find(x=>x.id===g.pid);
         if (p) {
-          if (g.tid && (p.types||[]).some(t=>t.id===g.tid)) {
+          const ep2 = getEffectiveProduct(p);
+          if (g.tid && (p.types||[]).some(t=>t.id===g.tid) && !p.sharedStockWith) {
             const t = p.types.find(x=>x.id===g.tid);
             if (t) isShip ? t.stockShip++ : t.stockLoc++;
-          } else { isShip ? p.stockShip++ : p.stockLoc++; }
+          } else { isShip ? ep2.stockShip++ : ep2.stockLoc++; }
         }
         await api('deleteItem', { itemId:it.id, productId:g.pid, typeId:g.tid, isShip }, 1, false);
       }
@@ -2142,10 +2203,11 @@ async function saveItemEdit() {
 
         const p = S.products.find(x=>x.id===g.pid);
         if (p) {
-          if (g.tid && (p.types||[]).some(t=>t.id===g.tid)) {
+          const ep3 = getEffectiveProduct(p);
+          if (g.tid && (p.types||[]).some(t=>t.id===g.tid) && !p.sharedStockWith) {
             const t = p.types.find(x=>x.id===g.tid);
             if (t) isShip ? t.stockShip-- : t.stockLoc--;
-          } else { isShip ? p.stockShip-- : p.stockLoc--; }
+          } else { isShip ? ep3.stockShip-- : ep3.stockLoc--; }
         }
 
         const res = await api('addItemToOrder', {
@@ -2185,7 +2247,8 @@ function confirmDeleteOrder(oid) {
     (o.items||[]).forEach(it => {
       const p = S.products.find(x=>x.id===it.pid);
       if (!p) return;
-      if (it.typeId && (p.types||[]).length > 0) {
+      const ep = getEffectiveProduct(p); // 連動先があればそちら、なければ自分
+      if (it.typeId && (p.types||[]).length > 0 && !p.sharedStockWith) {
         const typeObj = p.types.find(t=>t.id===it.typeId);
         if (typeObj) {
           if (isShipDel) typeObj.stockShip = (typeObj.stockShip||0)+1;
@@ -2194,8 +2257,8 @@ function confirmDeleteOrder(oid) {
             delta:1, isShip:isShipDel, reason:'delete' }, 2, false);
         }
       } else {
-        if (isShipDel) p.stockShip = (p.stockShip||0)+1;
-        else           p.stockLoc  = (p.stockLoc ||0)+1;
+        if (isShipDel) ep.stockShip = (ep.stockShip||0)+1;
+        else           ep.stockLoc  = (ep.stockLoc ||0)+1;
         api('adjustStock',{ productId:p.id,
           delta:1, isShip:isShipDel, reason:'delete' }, 2, false);
       }
@@ -2327,11 +2390,14 @@ function renderMaster() {
         <div class="ico-btn" onclick="openStockAdj('${p.id}')" title="在庫調整">📦</div>
         <div class="ico-btn del" onclick="confirmDeleteProduct('${p.id}')">🗑</div>
       </div>
-      <div class="pcard-name">${p.name}</div>
+      <div class="pcard-name">${p.name}${p.sharedStockWith?` <span style="font-size:10px;color:var(--teal);font-weight:700;border:1px solid var(--teal);border-radius:4px;padding:1px 4px">🔗 連動</span>`:''}</div>
       <div class="pcard-info">¥${Number(p.price||0).toLocaleString()} / 計${p.totalMinutes||0}分</div>
       <div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--blue);font-weight:600">🏪 現地 ${locStock}個</span>
-        <span style="font-size:11px;color:var(--green);font-weight:600">📦 郵送 ${shipStock}個</span>
+        ${p.sharedStockWith
+          ? `<span style="font-size:11px;color:var(--teal);font-weight:600">🔗 ${(S.products.find(x=>x.id===p.sharedStockWith)||{}).name||'連動中'}</span>`
+          : `<span style="font-size:11px;color:var(--blue);font-weight:600">🏪 現地 ${locStock}個</span>
+             <span style="font-size:11px;color:var(--green);font-weight:600">📦 郵送 ${shipStock}個</span>`
+        }
       </div>
       ${hasTypes?`<div style="display:flex;flex-direction:column;gap:3px;margin-top:4px">${(p.types||[]).map(t=>`<div style="font-size:10px;background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:4px 8px"><div style="font-weight:700;margin-bottom:2px">${t.name}</div><div style="display:flex;gap:10px"><span style="color:var(--blue)">🏪 ${t.stockLoc||0}個</span><span style="color:var(--green)">📦 ${t.stockShip||0}個</span></div></div>`).join('')}</div>`:''}
       <div class="pcard-steps">${stepsHtml}</div>
@@ -2351,6 +2417,10 @@ document.getElementById('btn-add-product').addEventListener('click',()=>{
   document.getElementById('stock-loc-val').value='0';
   document.getElementById('stock-ship-val').value='0';
   document.getElementById('inp-type-name').value='';
+  // 在庫連動先ドロップダウンをリセット
+  populateSharedStockSel(null);
+  document.getElementById('sel-shared-stock').value='';
+  onSharedStockChange();
   renderTypesList();
   buildStepTimeGrid(); openOverlay('ov-product');
 });
@@ -2435,6 +2505,10 @@ function editProduct(pid) {
   document.getElementById('stock-loc-val').value=String(T.stockLocVal);
   document.getElementById('stock-ship-val').value=String(T.stockShipVal);
   document.getElementById('inp-type-name').value='';
+  // 在庫連動先ドロップダウンを構築して選択状態を復元
+  populateSharedStockSel(pid);
+  document.getElementById('sel-shared-stock').value = p.sharedStockWith||'';
+  onSharedStockChange();
   renderTypesList();
   buildStepTimeGrid(); openOverlay('ov-product');
 }
@@ -2478,11 +2552,13 @@ document.getElementById('prod-ok').addEventListener('click', async()=>{
   const stockWarnVal=parseInt(document.getElementById('inp-stock-warn').value)||3;
   const total=Object.values(T.stepTimes).reduce((s,v)=>s+Number(v),0);
   const pid=T.editPid||uid();
+  const sharedStockWith = document.getElementById('sel-shared-stock').value || '';
   const product={id:pid,name,price,
     stockLoc:T.types.length?0:T.stockLocVal,
     stockShip:T.types.length?0:T.stockShipVal,
     stock:0, // 後方互換
-    stockWarn:stockWarnVal,types:T.types,stepTimes:T.stepTimes,totalMinutes:total};
+    stockWarn:stockWarnVal,types:T.types,stepTimes:T.stepTimes,totalMinutes:total,
+    sharedStockWith};
   if(T.editPid){const idx=S.products.findIndex(x=>x.id===pid);if(idx>=0)S.products[idx]=product;}
   else S.products.push(product);
   renderMaster(); closeOverlay('ov-product');

@@ -847,17 +847,17 @@ function handleSaveProduct(p) {
   const typesJson = JSON.stringify(p.types     || []);
   for (var i = 1; i < rows.length; i++) {
     if (rows[i][0] === p.id) {
-      sh.getRange(i+1,1,1,11).setValues([[
+      sh.getRange(i+1,1,1,10).setValues([[
         p.id, p.name, p.price, p.totalMinutes, json,
         p.stock||0, p.stockWarn||3, typesJson,
-        p.stockLoc||0, p.stockShip||0, p.sharedStockWith||''
+        p.stockLoc||0, p.stockShip||0
       ]]);
       return ok({ saved: true });
     }
   }
   sh.appendRow([p.id, p.name, p.price, p.totalMinutes, json,
     p.stock||0, p.stockWarn||3, typesJson,
-    p.stockLoc||0, p.stockShip||0, p.sharedStockWith||'']);
+    p.stockLoc||0, p.stockShip||0]);
   return ok({ saved: true });
 }
 
@@ -910,17 +910,6 @@ function handleAdjustStock(data) {
   const sh   = ss.getSheetByName(SH.PRODUCTS);
   const rows = sh.getDataRange().getValues();
   var logLoc = 0, logShip = 0;
-
-  // sharedStockWith の解決：連動先が設定されている場合はそちらを操作する
-  for (var ri = 1; ri < rows.length; ri++) {
-    if (String(rows[ri][0]) === String(data.productId)) {
-      var sharedWith = rows[ri][10]; // col 11: sharedStockWith
-      if (sharedWith) {
-        data = Object.assign({}, data, { productId: String(sharedWith), typeId: null });
-      }
-      break;
-    }
-  }
 
   for (var i = 1; i < rows.length; i++) {
     // String() で型の不一致を防ぐ
@@ -1161,7 +1150,7 @@ function sheetToObjects(sheet) {
 function setup() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   createSheetWithHeaders(ss, SH.CONFIG,    ['key','value']);
-  createSheetWithHeaders(ss, SH.PRODUCTS,  ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith']);
+  createSheetWithHeaders(ss, SH.PRODUCTS,  ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip']);
   createSheetWithHeaders(ss, SH.ORDERS,    ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee']);
   createSheetWithHeaders(ss, SH.ITEMS,     ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize']);
   createSheetWithHeaders(ss, SH.STEPS,     ['id','itemId','stepIndex','done','startedAt','completedAt','durationMins']);
@@ -1210,7 +1199,7 @@ function fixAllSheets() {
   fixHeader(ss,'orders',   ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee']);
   fixHeader(ss,'items',    ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize']);
   fixHeader(ss,'steps',    ['id','itemId','stepIndex','done','startedAt','completedAt','durationMins']);
-  fixHeader(ss,'products', ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith']);
+  fixHeader(ss,'products', ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip']);
   fixHeader(ss,'history',  ['id','orderId','num','completedAt','waitMinutes','deliveryType']);
   fixHeader(ss,'sales',    ['id','historyId','orderId','pid','productName','price','paymentMethod','completedAt']);
   fixHeader(ss,'config',   ['key','value']);
