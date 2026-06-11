@@ -3124,7 +3124,11 @@ async function quickTransferStock(pid, tid, amt) {
 // ============================================================
 let _savedScrollY = 0;
 function openOverlay(id) {
-  document.getElementById(id).classList.add('on');
+  const el = document.getElementById(id);
+  el.classList.add('on');
+  // sheet のスクロール位置を先頭にリセット
+  const sheet = el.querySelector('.sheet');
+  if (sheet) sheet.scrollTop = 0;
   updateSheetMaxH();
   // body スクロール禁止（iOS Safari 対応: position:fixed + top で位置を保持）
   _savedScrollY = window.scrollY;
