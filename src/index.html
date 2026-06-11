@@ -1268,7 +1268,9 @@ function tapStep(btn, deliveryType) {
         const pr = S.products.find(x=>x.id===it.pid);
         return { pid:it.pid, productName:pr?.name||'', typeName:it.typeName||'', price:it.price||pr?.price||0, paymentMethod:it.paymentMethod||'' };
       });
-      apiAsync('completeOrder', { orderId:order.id, num:order.num, completedAt:now, deliveryType:order.deliveryType, channel:order.channel||'marche', items:items4hist, shippingFee:order.shippingFee||0, shippingPayment:order.shippingPayment||order.items?.[0]?.paymentMethod||'cash' });
+      // 送料の支払い方法はアイテムの支払い方法に統一（shippingPaymentは使わない）
+      const orderPayForShipping = items4hist[0]?.paymentMethod || order.items?.[0]?.paymentMethod || 'cash';
+      apiAsync('completeOrder', { orderId:order.id, num:order.num, completedAt:now, deliveryType:order.deliveryType, channel:order.channel||'marche', items:items4hist, shippingFee:order.shippingFee||0, shippingPayment:orderPayForShipping });
     } else {
       const nextItem = (order.items||[]).find(it=>!it.steps.every(s=>s.done));
       if (nextItem) {

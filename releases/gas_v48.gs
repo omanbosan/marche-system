@@ -664,11 +664,9 @@ function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee,
     ]);
   });
   if (Number(shippingFee||0) > 0) {
-    // 送料の支払い方法は注文アイテムと統一する
-    var sfPayment = (items && items.length > 0) ? (items[0].paymentMethod || 'cash') : (shippingPayment || 'cash');
     sSh.appendRow([
       Utilities.getUuid(), hId, orderId,
-      '', '送料', Number(shippingFee), sfPayment, now
+      '', '送料', Number(shippingFee), shippingPayment||'cash', now
     ]);
   }
   return hId;
@@ -740,11 +738,9 @@ function handleCompleteOrder(data) {
       ]);
     });
     if (Number(data.shippingFee||0) > 0) {
-      // 送料の支払い方法はアイテムと統一
-      var sfPayment2 = (data.items && data.items.length > 0) ? (data.items[0].paymentMethod || 'cash') : (data.shippingPayment || 'cash');
       ss.getSheetByName(SH.SALES).appendRow([
         Utilities.getUuid(), hId, data.orderId,
-        '', '送料', Number(data.shippingFee), sfPayment2, data.completedAt
+        '', '送料', Number(data.shippingFee), data.shippingPayment||'cash', data.completedAt
       ]);
     }
   }
