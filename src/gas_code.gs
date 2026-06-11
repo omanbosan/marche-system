@@ -448,7 +448,8 @@ function handleSaveOrderFast(data) {
         paymentMethod: it.paymentMethod||'cash'
       };
     });
-    recordSalesForOrder(ss, data.id, data.num||'', data.deliveryType, salesItems, data.shippingFee||0, '');
+    var firstPayMethod = salesItems.length > 0 ? (salesItems[0].paymentMethod || 'cash') : 'cash';
+    recordSalesForOrder(ss, data.id, data.num||'', data.deliveryType, salesItems, data.shippingFee||0, firstPayMethod);
   }
 
   return ok({ saved: true });
@@ -575,8 +576,8 @@ function handleUpdateItem(data) {
     }
   }
 
-  // 郵送注文で入金確認チェック → 売上記録
-  if (data.paid && foundOrderId) {
+  // 郵送注文で入金確認チェック → 売上記録（paid=true/1 のときのみ）
+  if ((data.paid === true || data.paid === 1) && foundOrderId) {
     var oSh   = ss.getSheetByName(SH.ORDERS);
     var oRows = oSh.getDataRange().getValues();
     var orderDeliveryType = '';
@@ -612,7 +613,8 @@ function handleUpdateItem(data) {
           });
         }
       }
-      recordSalesForOrder(ss, foundOrderId, orderNum, orderDeliveryType, salesItems, shippingFee, '');
+      var orderPayMethod = salesItems.length > 0 ? (salesItems[0].paymentMethod || 'cash') : 'cash';
+      recordSalesForOrder(ss, foundOrderId, orderNum, orderDeliveryType, salesItems, shippingFee, orderPayMethod);
     }
   }
 
