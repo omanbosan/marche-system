@@ -20,7 +20,7 @@
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:15px}
-body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;-webkit-tap-highlight-color:transparent;overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;-webkit-tap-highlight-color:transparent;overflow-x:hidden}
 
 /* LOGIN */
 #login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;padding:24px;z-index:1000}
@@ -61,12 +61,11 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .tab.on{color:var(--gold);border-bottom-color:var(--gold)}
 
 /* PAGE */
-.page{display:none;padding:10px 10px 80px;background:var(--bg)}
+.page{display:none;padding:10px 10px 80px}
 .page.on{display:block}
 
 /* BUTTONS */
-.btn-new-wrap{position:sticky;top:167px;z-index:76;background:var(--bg);padding:8px 0 6px;margin:-10px -10px 2px;padding-left:10px;padding-right:10px;border-bottom:1px solid var(--border)}
-.btn-new{width:100%;background:var(--gold);color:#fff;border:none;border-radius:10px;padding:13px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:14px;font-weight:900;letter-spacing:.08em;cursor:pointer;transition:background .15s,transform .1s}
+.btn-new{width:100%;background:var(--gold);color:#fff;border:none;border-radius:10px;padding:13px;margin-bottom:10px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:14px;font-weight:900;letter-spacing:.08em;cursor:pointer;transition:background .15s,transform .1s}
 .btn-new:active{transform:scale(.98);background:var(--goldl)}
 .btn-new.ship{background:var(--blue)}
 .btn-new.ship:active{background:#3a8ae8}
@@ -377,17 +376,13 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
 <!-- LOCAL PAGE -->
 <div class="page on" id="page-local">
-  <div class="btn-new-wrap">
-    <button class="btn-new" id="btn-new-local">＋ 現地注文を受け付ける</button>
-  </div>
+  <button class="btn-new" id="btn-new-local">＋ 現地注文を受け付ける</button>
   <div id="local-list"></div>
 </div>
 
 <!-- SHIPPING PAGE -->
 <div class="page" id="page-shipping">
-  <div class="btn-new-wrap">
-    <button class="btn-new ship" id="btn-new-shipping">＋ 郵送注文を受け付ける</button>
-  </div>
+  <button class="btn-new ship" id="btn-new-shipping">＋ 郵送注文を受け付ける</button>
   <div id="shipping-list"></div>
 </div>
 
