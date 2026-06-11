@@ -1304,8 +1304,19 @@ function openEditOrder(oid) {
   document.getElementById('inp-num').value  = o.num;
   document.getElementById('inp-note').value = o.note||'';
   setSegVal('seg-channel', T.channel);
-  T.selProds={};
-  (o.items||[]).forEach(it=>{ T.selProds[it.pid]=(T.selProds[it.pid]||0)+1; });
+  T.selProds={}; T.selTypeQty={};
+  (o.items||[]).forEach(it=>{
+    if (it.typeId) {
+      if (!T.selTypeQty[it.pid]) T.selTypeQty[it.pid]={};
+      T.selTypeQty[it.pid][it.typeId] = (T.selTypeQty[it.pid][it.typeId]||0)+1;
+    } else {
+      T.selProds[it.pid]=(T.selProds[it.pid]||0)+1;
+    }
+  });
+  // 支払い方法を既存アイテムから読み込む
+  const firstItem = (o.items||[])[0];
+  orderPayment = firstItem?.paymentMethod || 'cash';
+  document.querySelectorAll('#pay-pick-order .pay-btn').forEach(x=>x.classList.toggle('on', x.dataset.pay===orderPayment));
   // 送料
   T.shippingFee = Number(o.shippingFee||0);
   const sfRow = document.getElementById('shipping-fee-row');
@@ -1685,7 +1696,16 @@ async function saveOrder() {
   if (T.editOrderId) {
     await api('updateOrder',{orderId:T.editOrderId,num,note,deliveryType:T.delivery,channel:T.channel,shippingFee:T.shippingFee||0});
     const o=S.orders.find(x=>x.id===T.editOrderId);
-    if(o){o.num=num;o.note=note;o.deliveryType=T.delivery;o.channel=T.channel;o.shippingFee=T.shippingFee||0;}
+    if(o){
+      o.num=num; o.note=note; o.deliveryType=T.delivery; o.channel=T.channel; o.shippingFee=T.shippingFee||0;
+      // 支払い方法が変わった場合は全アイテムに反映
+      (o.items||[]).forEach(it=>{
+        if(it.paymentMethod !== orderPayment){
+          it.paymentMethod = orderPayment;
+          apiAsync('updateItem',{itemId:it.id, paymentMethod:orderPayment});
+        }
+      });
+    }
     toast('更新しました'); closeOverlay('ov-order'); renderLocal(); renderShipping(); updateWait(); return;
   }
   if (!sel.length && !selWithTypes.length) { toast('商品を選択してください'); return; }
