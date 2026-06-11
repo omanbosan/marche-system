@@ -238,7 +238,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .pp:not(.pp-typed):active{transform:scale(.96)}
 .pp.pp-typed{cursor:default}
 .pp.on{background:rgba(184,134,11,.08);border-color:var(--goldd)}
-.pp-name{font-size:12px;font-weight:700;color:var(--text)}
+.pp-name{font-size:13px;font-weight:900;color:var(--blue)}
 .pp.on .pp-name{color:var(--gold)}
 .pp-sub{font-size:10px;color:var(--dim);margin-top:2px}
 .pp-stock{font-size:10px;font-weight:700;margin-top:2px}
@@ -1430,7 +1430,7 @@ function renderPPick() {
         const locTxt = tLocStock>0?`現地${tLocStock}個`:'現地在庫要確認';
         const statusTxt = isOos?'在庫なし':tCanTransfer?locTxt:isLow?`⚠${tStock}個`:`${tStock}個`;
         return `
-          <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border);opacity:${isOos?0.4:1}">
+          <div style="display:flex;align-items:center;gap:6px;padding:4px 0 4px 1em;border-bottom:1px solid var(--border);opacity:${isOos?0.4:1}">
             <div style="flex:1;font-size:12px;font-weight:600;color:${isLow?'var(--red)':'var(--text)'}">${t.name} <span style="font-weight:400;color:${statusColor}">${statusTxt}</span></div>
             ${tCanTransfer
               ? `<button class="opt-chip" style="font-size:10px;padding:4px 10px;touch-action:manipulation" onclick="quickTransferStock('${p.id}','${t.id}',1);event.stopPropagation()">📦 移動</button>`
