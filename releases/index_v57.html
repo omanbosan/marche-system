@@ -876,10 +876,9 @@ async function doLogin() {
   const res = await api('auth', { password: pw });
   if (!res) { document.getElementById('login-err').style.display='block'; return; }
   token = res.token;
-  // ログイン保持：30日間有効
-  const exp30 = Date.now() + 30 * 24 * 60 * 60 * 1000;
+  const today = new Date(); today.setHours(23,59,59,999);
   localStorage.setItem('mb_token', token);
-  localStorage.setItem('mb_token_exp', exp30.toString());
+  localStorage.setItem('mb_token_exp', today.getTime().toString());
   showApp();
 }
 

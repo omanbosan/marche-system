@@ -121,12 +121,11 @@ function handleAuth(pw) {
   if (hash !== cfg.passwordHash) return err('パスワードが違います');
 
   const newToken = Utilities.getUuid();
-  // ログイン保持：30日間有効
-  var expDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const today = new Date(); today.setHours(23,59,59,999);
   var tokens = [];
   try { tokens = JSON.parse(cfg.sessionTokens || '[]'); } catch(e) { tokens = []; }
   tokens = tokens.filter(function(t){ return t.exp > Date.now(); });
-  tokens.push({ token: newToken, exp: expDate.getTime() });
+  tokens.push({ token: newToken, exp: today.getTime() });
   setConfig('sessionTokens', JSON.stringify(tokens));
   return ok({ token: newToken });
 }
