@@ -1116,6 +1116,23 @@ function renderCard(o, container, deliveryType) {
   const cardClass = isShip?'ship-card':allOnHold?'on-hold':'loc';
   card.className = `ocard ${cardClass}`;
 
+  // 郵送：お客様支払い合計（商品代合計＋送料）
+  let totalAmountHtml = '';
+  if (isShip) {
+    const totalItems = (o.items||[]).reduce((s, it) => {
+      const p2 = S.products.find(x=>x.id===it.pid);
+      return s + Number(it.price || p2?.price || 0);
+    }, 0);
+    const totalAmount = totalItems + Number(o.shippingFee||0);
+    const sfPart = o.shippingFee>0 ? `<span style="color:var(--dim);font-weight:400;font-size:11px">（商品 ¥${totalItems.toLocaleString()} ＋ 送料 ¥${Number(o.shippingFee).toLocaleString()}）</span>` : '';
+    totalAmountHtml = `
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding:7px 10px;background:rgba(40,120,200,.07);border:1px solid rgba(40,120,200,.2);border-radius:8px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--blue);font-weight:700">💰 お支払い合計</span>
+        <span style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:18px;font-weight:900;color:var(--blue)">¥${totalAmount.toLocaleString()}</span>
+        ${sfPart}
+      </div>`;
+  }
+
   card.innerHTML = `
     <div class="och">
       <div class="och-num">#${String(o.num).padStart(3,'0')}</div>
@@ -1125,6 +1142,7 @@ function renderCard(o, container, deliveryType) {
       ${o.shippingFee>0?`<span style="font-size:11px;background:rgba(94,224,127,.1);color:var(--green);border:1px solid rgba(94,224,127,.3);border-radius:4px;padding:1px 6px;font-weight:700">送料 ¥${Number(o.shippingFee).toLocaleString()}</span>`:''}
       <div class="och-info">${o.note?`<div class="och-note">📝 ${o.note}</div>`:''}</div>
       <div class="och-times">${timeHtml}</div>
+      ${totalAmountHtml}
     </div>
   `;
 
