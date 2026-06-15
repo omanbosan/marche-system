@@ -1116,22 +1116,19 @@ function renderCard(o, container, deliveryType) {
   const cardClass = isShip?'ship-card':allOnHold?'on-hold':'loc';
   card.className = `ocard ${cardClass}`;
 
-  // 郵送：お客様支払い合計（商品代合計＋送料）
-  let totalAmountHtml = '';
-  if (isShip) {
-    const totalItems = (o.items||[]).reduce((s, it) => {
-      const p2 = S.products.find(x=>x.id===it.pid);
-      return s + Number(it.price || p2?.price || 0);
-    }, 0);
-    const totalAmount = totalItems + Number(o.shippingFee||0);
-    const sfPart = o.shippingFee>0 ? `<span style="color:var(--dim);font-weight:400;font-size:11px">（商品 ¥${totalItems.toLocaleString()} ＋ 送料 ¥${Number(o.shippingFee).toLocaleString()}）</span>` : '';
-    totalAmountHtml = `
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 15px;background:rgba(40,120,200,.07);border-bottom:1px solid rgba(40,120,200,.15)">
-        <span style="font-size:12px;color:var(--blue);font-weight:700;flex-shrink:0">💰 お支払い合計</span>
-        <span style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:20px;font-weight:900;color:var(--blue);flex-shrink:0">¥${totalAmount.toLocaleString()}</span>
-        ${sfPart}
-      </div>`;
-  }
+  // お客様支払い合計（商品代合計＋送料）
+  const totalItems = (o.items||[]).reduce((s, it) => {
+    const p2 = S.products.find(x=>x.id===it.pid);
+    return s + Number(it.price || p2?.price || 0);
+  }, 0);
+  const totalAmount = totalItems + Number(o.shippingFee||0);
+  const sfPart = o.shippingFee>0 ? `<span style="color:var(--dim);font-weight:400;font-size:11px">（商品 ¥${totalItems.toLocaleString()} ＋ 送料 ¥${Number(o.shippingFee).toLocaleString()}）</span>` : '';
+  const totalAmountHtml = `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 15px;background:rgba(40,120,200,.07);border-bottom:1px solid rgba(40,120,200,.15)">
+      <span style="font-size:12px;color:var(--blue);font-weight:700;flex-shrink:0">💰 お支払い合計</span>
+      <span style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:20px;font-weight:900;color:var(--blue);flex-shrink:0">¥${totalAmount.toLocaleString()}</span>
+      ${sfPart}
+    </div>`;
 
   card.innerHTML = `
     <div class="och">
