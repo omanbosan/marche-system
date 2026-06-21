@@ -1802,13 +1802,45 @@ async function saveOrder() {
     const o=S.orders.find(x=>x.id===T.editOrderId);
     if(o){
       o.num=num; o.note=note; o.deliveryType=T.delivery; o.channel=T.channel; o.shippingFee=T.shippingFee||0;
-      // 支払い方法が変わった場合は全アイテムに反映
-      (o.items||[]).forEach(it=>{
+      // 支払い方法が変わった場合は全アイテムに反映（awaitで確実に保存）
+      for (const it of (o.items||[])) {
         if(it.paymentMethod !== orderPayment){
           it.paymentMethod = orderPayment;
-          apiAsync('updateItem',{itemId:it.id, paymentMethod:orderPayment});
+          await api('updateItem',{itemId:it.id, paymentMethod:orderPayment});
         }
+      }
+      // 商品タイプが変わった場合は各アイテムに反映
+      // T.selTypeQty: {pid: {typeId: qty}} — 編集後の選択状態
+      const flatNew = [];
+      Object.entries(T.selTypeQty).forEach(([pid, typeQtys])=>{
+        Object.entries(typeQtys).forEach(([tid, qty])=>{
+          for (let i=0;i<qty;i++) flatNew.push({pid, tid});
+        });
       });
+      // タイプなし商品も含める
+      Object.entries(T.selProds).filter(([,q])=>q>0).forEach(([pid,qty])=>{
+        for (let i=0;i<qty;i++) flatNew.push({pid, tid:''});
+      });
+      // 既存アイテムとの差分をpidごとにマッチング
+      const itemsByPid = {};
+      (o.items||[]).forEach(it=>{ (itemsByPid[it.pid]=itemsByPid[it.pid]||[]).push(it); });
+      const newByPid = {};
+      flatNew.forEach(n=>{ (newByPid[n.pid]=newByPid[n.pid]||[]).push(n); });
+      for (const pid of Object.keys(itemsByPid)) {
+        const existing = itemsByPid[pid]||[];
+        const updated = newByPid[pid]||[];
+        for (let i=0;i<existing.length;i++) {
+          const it = existing[i];
+          const nu = updated[i];
+          if (nu && nu.tid !== undefined && it.typeId !== nu.tid) {
+            const p = S.products.find(x=>x.id===pid);
+            const typeObj = (p?.types||[]).find(t=>t.id===nu.tid);
+            it.typeId = nu.tid;
+            it.typeName = typeObj?.name||'';
+            await api('updateItem',{itemId:it.id, typeId:nu.tid, typeName:it.typeName});
+          }
+        }
+      }
     }
     toast('更新しました'); closeOverlay('ov-order'); renderLocal(); renderShipping(); updateWait(); return;
   }
