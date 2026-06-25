@@ -4296,10 +4296,7 @@ function renderPricingTable() {
         <input type="number" inputmode="numeric" class="pt-inp" value="${st.costPrice}"
           oninput="onPtChange('${p.id}','costPrice',this.value)" onchange="onPtChange('${p.id}','costPrice',this.value)">
       </td>
-      <td style="text-align:center;padding:4px 5px">
-        <input type="number" inputmode="numeric" class="pt-inp" value="${st.totalMinutes}"
-          oninput="onPtChange('${p.id}','totalMinutes',this.value)" onchange="onPtChange('${p.id}','totalMinutes',this.value)">
-      </td>
+      <td class="pt-calc" style="text-align:center">${st.totalMinutes}分</td>
       <td class="pt-calc">¥${Math.round(labor).toLocaleString()}</td>
       <td class="pt-calc" style="color:var(--orange)">¥${Math.round(totalCost).toLocaleString()}</td>
       <td style="text-align:center;padding:4px 5px">
