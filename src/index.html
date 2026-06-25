@@ -583,6 +583,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
               <th class="pt-r">現在価格<br><span class="pt-unit">(円)</span></th>
               <th class="pt-r" style="background:rgba(24,152,168,.1)">限界利益<br><span class="pt-unit">(円)</span></th>
               <th class="pt-r" style="background:rgba(24,152,168,.1)">限界利益率<br><span class="pt-unit">%</span></th>
+              <th class="pt-r" style="background:rgba(40,160,96,.1)">粗利額<br><span class="pt-unit">(円)</span></th>
               <th class="pt-r" style="background:rgba(40,160,96,.1)">粗利率<br><span class="pt-unit">%（労務費込）</span></th>
               <th class="pt-r">差額<br><span class="pt-unit">(円)</span></th>
               <th class="pt-act"></th>
@@ -4313,6 +4314,7 @@ function renderPricingTable() {
       </td>
       <td id="pt-ml-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;color:${marginalCls};background:rgba(24,152,168,.04)">¥${Math.round(marginal).toLocaleString()}</td>
       <td id="pt-mlr-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:13px;color:${marginalCls};background:rgba(24,152,168,.04)">${marginalRate}%</td>
+      <td id="pt-gp-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;color:${curMarginCls};background:rgba(40,160,96,.04)">¥${Math.round(st.price - totalCost).toLocaleString()}</td>
       <td id="pt-cur-margin-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:13px;color:${curMarginCls};background:rgba(40,160,96,.04)">${curMargin}%</td>
       <td class="${diffCls}">${diffStr}</td>
       <td class="pt-act"><button class="${saveBtnCls}" id="pt-save-${p.id}" onclick="savePricingRow('${p.id}')">${saveBtnTxt}</button></td>
@@ -4338,7 +4340,7 @@ function onPtChange(pid, field, val) {
   if (!row) return;
   const cells = row.querySelectorAll('td');
   // td[3]=労務費, td[4]=総原価, td[6]=適正価格
-  // td[8]=限界利益, td[9]=限界利益率, td[10]=粗利率, td[11]=差額, td[12]=保存
+  // td[8]=限界利益, td[9]=限界利益率, td[10]=粗利額, td[11]=粗利率, td[12]=差額, td[13]=保存
   cells[3].className = 'pt-calc';
   cells[3].textContent = '¥'+Math.round(labor).toLocaleString();
   cells[4].className = 'pt-calc';
@@ -4354,16 +4356,19 @@ function onPtChange(pid, field, val) {
   cells[8].textContent = '¥'+Math.round(marginal).toLocaleString();
   cells[9].style.color = marginalCls;
   cells[9].textContent = marginalRate + '%';
-  // 粗利率（労務費込み）
-  const curMargin = st.price > 0 ? Math.round((st.price - totalCost) / st.price * 1000) / 10 : 0;
+  // 粗利額・粗利率（労務費込み）
+  const grossProfit  = st.price - totalCost;
+  const curMargin    = st.price > 0 ? Math.round(grossProfit / st.price * 1000) / 10 : 0;
   const curMarginColor = curMargin >= 30 ? 'var(--green)' : curMargin >= 0 ? 'var(--orange)' : 'var(--red)';
   cells[10].style.color = curMarginColor;
-  cells[10].textContent = curMargin + '%';
+  cells[10].textContent = '¥'+Math.round(grossProfit).toLocaleString();
+  cells[11].style.color = curMarginColor;
+  cells[11].textContent = curMargin + '%';
   const diffCls = diffRounded > 0 ? 'pt-diff-pos' : diffRounded < 0 ? 'pt-diff-neg' : 'pt-diff-zero';
   const diffStr = diffRounded > 0 ? `+¥${diffRounded.toLocaleString()}` :
                   diffRounded < 0 ? `-¥${Math.abs(diffRounded).toLocaleString()}` : '±0';
-  cells[11].className = diffCls;
-  cells[11].textContent = diffStr;
+  cells[12].className = diffCls;
+  cells[12].textContent = diffStr;
   const saveBtn = document.getElementById(`pt-save-${pid}`);
   if (saveBtn) { saveBtn.className='pt-save-btn'; saveBtn.textContent='保存'; }
 }
