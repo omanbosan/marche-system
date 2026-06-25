@@ -3716,11 +3716,13 @@ function renderAccounting() {
     totalCost   += pl.cost;
     totalLabor  += pl.labor;
   });
-  const totalExpenses = accExpenses.reduce((s,e)=>s+Number(e.amount||0),0);
-  const grossProfit   = totalSales - totalCost - totalLabor;
-  const netProfit     = grossProfit - totalExpenses;
-  const grossMargin   = totalSales>0 ? Math.round(grossProfit/totalSales*1000)/10 : 0;
-  const netMargin     = totalSales>0 ? Math.round(netProfit/totalSales*1000)/10   : 0;
+  const totalExpenses    = accExpenses.reduce((s,e)=>s+Number(e.amount||0),0);
+  const marginalProfit   = totalSales - totalCost;  // 限界利益 = 売上 - 原価（労務費除く）
+  const marginalMargin   = totalSales>0 ? Math.round(marginalProfit/totalSales*1000)/10 : 0;
+  const grossProfit      = totalSales - totalCost - totalLabor;
+  const netProfit        = grossProfit - totalExpenses;
+  const grossMargin      = totalSales>0 ? Math.round(grossProfit/totalSales*1000)/10 : 0;
+  const netMargin        = totalSales>0 ? Math.round(netProfit/totalSales*1000)/10   : 0;
 
   // サマリーカード
   document.getElementById('acc-summary').innerHTML = `
@@ -3744,6 +3746,11 @@ function renderAccounting() {
         <div class="acc-kpi-lbl">🚗 マルシェ費用</div>
         <div class="acc-kpi-val" style="font-size:17px;color:var(--red)">¥${totalExpenses.toLocaleString()}</div>
         <div class="acc-kpi-sub">${accExpenses.length}件</div>
+      </div>
+      <div class="acc-kpi full" style="border-color:rgba(24,152,168,.4);background:rgba(24,152,168,.05)">
+        <div class="acc-kpi-lbl" style="color:var(--teal)">📈 限界利益（売上 − 原価）</div>
+        <div class="acc-kpi-val" style="font-size:22px;color:${marginalProfit>=0?'var(--teal)':'var(--red)'}">¥${Math.round(marginalProfit).toLocaleString()}</div>
+        <div class="acc-kpi-sub">限界利益率 <strong style="font-size:13px;color:${marginalProfit>=0?'var(--teal)':'var(--red)'}">${marginalMargin}%</strong>&nbsp;｜ 労務費・諸経費をこの利益で賄う</div>
       </div>
       <div class="acc-kpi green">
         <div class="acc-kpi-lbl">📊 粗利（売上－原価－労務費）</div>
@@ -3918,6 +3925,8 @@ function renderBizOverview() {
   const totalMarche = accExpenses.reduce((s,e)=>s+Number(e.amount||0),0);
 
   // ④ 集計
+  const marginalProfitBiz  = totalSales - totalCostEst; // 限界利益 = 売上 - 原価（労務費除く）
+  const marginalMarginBiz  = totalSales > 0 ? Math.round(marginalProfitBiz/totalSales*1000)/10 : 0;
   const totalAllCosts = totalCostEst + totalLaborEst + totalFixed + totalMarche;
   const netProfit   = totalSales - totalAllCosts;
   const netMargin   = totalSales > 0 ? Math.round(netProfit/totalSales*1000)/10 : 0;
@@ -3925,18 +3934,22 @@ function renderBizOverview() {
   // P&L テーブル
   const plRows = [
     { label:'💰 売上', val: totalSales,    cls:'var(--blue)',   bold:true },
-    { label:'', val:null }, // separator
+    { label:'', val:null },
     { label:'📦 商品原価（推定）', val:-totalCostEst,   cls:'var(--orange)' },
+    { label:'', val:null },
+    { label:'📈 限界利益（売上－原価）', val:marginalProfitBiz, cls:'var(--teal)', bold:true },
+    { label:`　限界利益率 ${marginalMarginBiz}%`, val:null, cls:'var(--teal)', sub:true },
+    { label:'', val:null },
     { label:'⏱ 労務費（推定）',   val:-totalLaborEst,  cls:'var(--purple)' },
     ...(Object.entries(byFixedCat).map(([cat,amt])=>({
         label: (FIXED_LABELS[cat]||cat), val: -amt, cls:'var(--red)'
     }))),
     { label:'🚗 マルシェ費用',    val:-totalMarche,    cls:'var(--orange)' },
     { label:'', val:null },
-    { label:'📊 経費合計',        val:-totalAllCosts,  cls:'var(--red)',   bold:true },
+    { label:'📊 経費合計（労務費含む）', val:-totalAllCosts, cls:'var(--red)', bold:true },
     { label:'', val:null },
     { label: netProfit>=0 ? '✨ 純利益' : '⚠️ 純損失', val:netProfit, cls: netProfit>=0?'var(--green)':'var(--red)', bold:true, big:true },
-    { label:`　利益率 ${netMargin}%`, val:null, cls:'var(--dim)', sub:true },
+    { label:`　純利益率 ${netMargin}%`, val:null, cls:'var(--dim)', sub:true },
   ];
 
   const plHtml = plRows.map(r => {
