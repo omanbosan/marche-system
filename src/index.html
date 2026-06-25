@@ -218,6 +218,31 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .ssc-lbl{font-size:9px;color:var(--dim)}
 .ssc-val{font-family:'Zen Kaku Gothic New',sans-serif;font-size:16px;font-weight:900;color:var(--gold)}
 
+/* PRICING TABLE */
+.pt-table{width:100%;border-collapse:collapse;font-size:11px;white-space:nowrap;background:var(--s1)}
+.pt-table th{background:var(--s2);color:var(--dim);font-weight:700;padding:7px 8px;text-align:center;border-bottom:2px solid var(--border);border-right:1px solid var(--border);line-height:1.3;position:sticky;top:0;z-index:2}
+.pt-table td{padding:4px 5px;border-bottom:1px solid var(--s3);border-right:1px solid var(--s3);vertical-align:middle}
+.pt-table tr:last-child td{border-bottom:none}
+.pt-table tr:hover td{background:rgba(184,134,11,.04)}
+.pt-name{text-align:left!important;position:sticky!important;left:0;z-index:3!important;background:var(--s2)!important;min-width:90px;max-width:110px}
+.pt-name-td{position:sticky;left:0;z-index:1;background:var(--s1);font-size:11px;font-weight:700;padding:5px 7px!important;min-width:90px;max-width:110px;white-space:normal;line-height:1.3;border-right:1px solid var(--border)!important}
+.pt-table tr:hover .pt-name-td{background:rgba(184,134,11,.04)}
+.pt-r{text-align:center}
+.pt-unit{font-size:9px;font-weight:400;color:var(--dim2)}
+.pt-rec{background:rgba(40,120,200,.07)!important;color:var(--blue)}
+.pt-inp{width:62px;background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:4px 5px;font-size:12px;text-align:right;font-family:'Noto Sans JP',sans-serif;color:var(--text);outline:none;-moz-appearance:textfield}
+.pt-inp::-webkit-inner-spin-button,.pt-inp::-webkit-outer-spin-button{-webkit-appearance:none}
+.pt-inp:focus{border-color:var(--goldd);background:var(--s1)}
+.pt-calc{font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px;color:var(--dim)}
+.pt-rec-val{color:var(--blue);font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:13px;text-align:right;padding:0 5px}
+.pt-diff-pos{color:var(--green);font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px}
+.pt-diff-neg{color:var(--red);font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px}
+.pt-diff-zero{color:var(--dim);font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px}
+.pt-act{text-align:center;min-width:44px}
+.pt-save-btn{font-size:10px;padding:4px 8px;background:var(--gold);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;white-space:nowrap;touch-action:manipulation}
+.pt-save-btn:active{background:var(--goldl)}
+.pt-save-btn.saved{background:var(--green)}
+
 /* ACCOUNTING */
 .acc-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
 .acc-kpi{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:10px 11px}
@@ -522,15 +547,51 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <!-- サマリーカード -->
     <div id="acc-summary"></div>
     <!-- 内部タブ -->
-    <div class="seg" id="seg-acc" style="margin-bottom:12px">
-      <div class="seg-btn on" data-val="orders">案件別</div>
-      <div class="seg-btn"    data-val="products">商品別</div>
-      <div class="seg-btn"    data-val="expenses">費用管理</div>
+    <div class="seg" id="seg-acc" style="margin-bottom:12px;flex-wrap:nowrap">
+      <div class="seg-btn on" data-val="orders" style="font-size:11px">案件別</div>
+      <div class="seg-btn"    data-val="products" style="font-size:11px">商品別</div>
+      <div class="seg-btn"    data-val="pricing" style="font-size:11px">価格設定</div>
+      <div class="seg-btn"    data-val="expenses" style="font-size:11px">費用管理</div>
     </div>
     <!-- 案件別 -->
     <div id="acc-orders-view"></div>
     <!-- 商品別 -->
     <div id="acc-products-view" style="display:none"></div>
+    <!-- 価格設定 -->
+    <div id="acc-pricing-view" style="display:none">
+      <!-- デフォルト利益率 -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--dim);flex-shrink:0">🎯 デフォルト目標利益率</span>
+        <input type="number" inputmode="numeric" id="inp-default-margin" class="sh-input" style="width:72px;margin-bottom:0;padding:5px 9px;font-size:14px;text-align:center" value="50" min="0" max="100">
+        <span style="font-size:12px;color:var(--dim);flex-shrink:0">%</span>
+        <button class="sh-ok" style="padding:5px 12px;font-size:11px;flex-shrink:0" onclick="applyDefaultMargin()">全商品に適用</button>
+        <span style="font-size:10px;color:var(--dim);flex-shrink:0">適正価格 = 総原価 ÷ (1 − 利益率)</span>
+      </div>
+      <!-- テーブルスクロールエリア -->
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:9px;margin-bottom:14px">
+        <table class="pt-table" id="pricing-table">
+          <thead>
+            <tr>
+              <th class="pt-name">商品名</th>
+              <th class="pt-r">原価<br><span class="pt-unit">(円)</span></th>
+              <th class="pt-r">工数<br><span class="pt-unit">(分)</span></th>
+              <th class="pt-r">労務費<br><span class="pt-unit">(円)</span></th>
+              <th class="pt-r">総原価<br><span class="pt-unit">(円)</span></th>
+              <th class="pt-r">目標<br><span class="pt-unit">利益率%</span></th>
+              <th class="pt-r pt-rec">適正価格<br><span class="pt-unit">(円)</span></th>
+              <th class="pt-r">現在価格<br><span class="pt-unit">(円)</span></th>
+              <th class="pt-r">差額<br><span class="pt-unit">(円)</span></th>
+              <th class="pt-act"></th>
+            </tr>
+          </thead>
+          <tbody id="pt-tbody"></tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.7;padding:0 2px">
+        ※ 原価・工数・目標利益率・現在価格を直接編集できます。「保存」で商品マスターに反映されます。<br>
+        ※ 労務費 = 工数(分) ÷ 60 × 時給（時給未設定の場合は¥0）
+      </div>
+    </div>
     <!-- 費用管理 -->
     <div id="acc-expenses-view" style="display:none">
       <div style="background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:12px;margin-bottom:12px">
@@ -3483,7 +3544,9 @@ function initAccounting() {
       accView = b.dataset.val;
       document.getElementById('acc-orders-view').style.display   = accView==='orders'   ? '' : 'none';
       document.getElementById('acc-products-view').style.display = accView==='products' ? '' : 'none';
+      document.getElementById('acc-pricing-view').style.display  = accView==='pricing'  ? '' : 'none';
       document.getElementById('acc-expenses-view').style.display = accView==='expenses' ? '' : 'none';
+      if (accView==='pricing') initPricingView();
       renderAccounting();
     });
   });
@@ -3708,6 +3771,161 @@ async function deleteExpense(id) {
   renderAccounting();
   await api('deleteExpense', { expenseId: id });
   toast('削除しました');
+}
+
+// ============================================================
+//  価格設定テーブル
+// ============================================================
+// 編集中の状態を保持（pid → {costPrice, totalMinutes, targetMargin, price, dirty}）
+let pricingState = {};
+
+function initPricingView() {
+  // S.productsから初期値をロード（既存stateは上書きしない）
+  S.products.forEach(p => {
+    if (!pricingState[p.id]) {
+      pricingState[p.id] = {
+        costPrice:    Number(p.costPrice    || 0),
+        totalMinutes: Number(p.totalMinutes || 0),
+        targetMargin: 50,   // デフォルト50%
+        price:        Number(p.price        || 0),
+        dirty: false,
+      };
+    } else {
+      // 商品マスターから最新価格・工数は反映（編集中のもの以外）
+      if (!pricingState[p.id].dirty) {
+        pricingState[p.id].costPrice    = Number(p.costPrice    || 0);
+        pricingState[p.id].totalMinutes = Number(p.totalMinutes || 0);
+        pricingState[p.id].price        = Number(p.price        || 0);
+      }
+    }
+  });
+  renderPricingTable();
+}
+
+function calcRecommendedPrice(pid) {
+  const st   = pricingState[pid];
+  if (!st) return 0;
+  const rate  = S.laborRatePerHour || 0;
+  const labor = (st.totalMinutes / 60) * rate;
+  const total = st.costPrice + labor;
+  const margin = Math.min(Math.max(Number(st.targetMargin)||0, 0), 99);
+  if (margin >= 100) return 0;
+  return total / (1 - margin / 100);
+}
+
+function renderPricingTable() {
+  const tbody = document.getElementById('pt-tbody');
+  if (!tbody) return;
+  const rate = S.laborRatePerHour || 0;
+
+  tbody.innerHTML = S.products.map(p => {
+    const st = pricingState[p.id];
+    if (!st) return '';
+    const labor    = (st.totalMinutes / 60) * rate;
+    const totalCost= st.costPrice + labor;
+    const recPrice = calcRecommendedPrice(p.id);
+    const diff     = st.price - recPrice;
+    const diffRounded = Math.round(diff);
+    const diffCls  = diffRounded > 0 ? 'pt-diff-pos' : diffRounded < 0 ? 'pt-diff-neg' : 'pt-diff-zero';
+    const diffStr  = diffRounded > 0 ? `+¥${diffRounded.toLocaleString()}` :
+                     diffRounded < 0 ? `-¥${Math.abs(diffRounded).toLocaleString()}` : '±0';
+    const saveBtnCls = st.dirty ? 'pt-save-btn' : 'pt-save-btn saved';
+    const saveBtnTxt = st.dirty ? '保存' : '✓';
+    return `<tr id="pt-row-${p.id}">
+      <td class="pt-name-td">${p.name}</td>
+      <td style="text-align:center;padding:4px 5px">
+        <input type="number" inputmode="numeric" class="pt-inp" value="${st.costPrice}"
+          oninput="onPtChange('${p.id}','costPrice',this.value)" onchange="onPtChange('${p.id}','costPrice',this.value)">
+      </td>
+      <td style="text-align:center;padding:4px 5px">
+        <input type="number" inputmode="numeric" class="pt-inp" value="${st.totalMinutes}"
+          oninput="onPtChange('${p.id}','totalMinutes',this.value)" onchange="onPtChange('${p.id}','totalMinutes',this.value)">
+      </td>
+      <td class="pt-calc">¥${Math.round(labor).toLocaleString()}</td>
+      <td class="pt-calc" style="color:var(--orange)">¥${Math.round(totalCost).toLocaleString()}</td>
+      <td style="text-align:center;padding:4px 5px">
+        <input type="number" inputmode="numeric" class="pt-inp" value="${st.targetMargin}" min="0" max="99"
+          oninput="onPtChange('${p.id}','targetMargin',this.value)" onchange="onPtChange('${p.id}','targetMargin',this.value)">
+        <span style="font-size:10px;color:var(--dim)">%</span>
+      </td>
+      <td class="pt-rec-val">¥${Math.round(recPrice).toLocaleString()}</td>
+      <td style="text-align:center;padding:4px 5px">
+        <input type="number" inputmode="numeric" class="pt-inp" value="${st.price}"
+          oninput="onPtChange('${p.id}','price',this.value)" onchange="onPtChange('${p.id}','price',this.value)">
+      </td>
+      <td class="${diffCls}">${diffStr}</td>
+      <td class="pt-act"><button class="${saveBtnCls}" id="pt-save-${p.id}" onclick="savePricingRow('${p.id}')">${saveBtnTxt}</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function onPtChange(pid, field, val) {
+  const st = pricingState[pid];
+  if (!st) return;
+  st[field] = Number(val) || 0;
+  st.dirty = true;
+
+  // 計算値だけ再描画（入力フォーカスを壊さないようにセル単位で更新）
+  const rate     = S.laborRatePerHour || 0;
+  const labor    = (st.totalMinutes / 60) * rate;
+  const totalCost= st.costPrice + labor;
+  const recPrice = calcRecommendedPrice(pid);
+  const diff     = st.price - recPrice;
+  const diffRounded = Math.round(diff);
+
+  const row = document.getElementById(`pt-row-${pid}`);
+  if (!row) return;
+  const cells = row.querySelectorAll('td');
+  // td[3]=労務費, td[4]=総原価, td[6]=適正価格, td[8]=差額, td[9]=保存ボタン
+  cells[3].className = 'pt-calc';
+  cells[3].textContent = '¥'+Math.round(labor).toLocaleString();
+  cells[4].className = 'pt-calc';
+  cells[4].style.color = 'var(--orange)';
+  cells[4].textContent = '¥'+Math.round(totalCost).toLocaleString();
+  cells[6].className = 'pt-rec-val';
+  cells[6].textContent = '¥'+Math.round(recPrice).toLocaleString();
+  const diffCls = diffRounded > 0 ? 'pt-diff-pos' : diffRounded < 0 ? 'pt-diff-neg' : 'pt-diff-zero';
+  const diffStr = diffRounded > 0 ? `+¥${diffRounded.toLocaleString()}` :
+                  diffRounded < 0 ? `-¥${Math.abs(diffRounded).toLocaleString()}` : '±0';
+  cells[8].className = diffCls;
+  cells[8].textContent = diffStr;
+  const saveBtn = document.getElementById(`pt-save-${pid}`);
+  if (saveBtn) { saveBtn.className='pt-save-btn'; saveBtn.textContent='保存'; }
+}
+
+function applyDefaultMargin() {
+  const margin = parseInt(document.getElementById('inp-default-margin').value)||50;
+  Object.keys(pricingState).forEach(pid => {
+    pricingState[pid].targetMargin = margin;
+    pricingState[pid].dirty = true;
+  });
+  renderPricingTable();
+}
+
+async function savePricingRow(pid) {
+  const st = pricingState[pid];
+  if (!st) return;
+  const p = S.products.find(x=>x.id===pid);
+  if (!p) return;
+
+  // ローカル状態に反映
+  p.costPrice    = st.costPrice;
+  p.totalMinutes = st.totalMinutes;
+  p.price        = st.price;
+  st.dirty = false;
+
+  // 保存ボタンを「保存中…」に
+  const btn = document.getElementById(`pt-save-${pid}`);
+  if (btn) { btn.textContent='…'; btn.disabled=true; }
+
+  // GASに保存（商品マスターを更新）
+  const product = { ...p, costPrice: st.costPrice, totalMinutes: st.totalMinutes, price: st.price };
+  await api('saveProduct', { product });
+
+  if (btn) { btn.className='pt-save-btn saved'; btn.textContent='✓'; btn.disabled=false; }
+  toast(`${p.name} を保存しました`);
+  // 商品マスターにも反映
+  renderMaster();
 }
 </script>
 </body>
