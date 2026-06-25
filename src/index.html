@@ -218,6 +218,29 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .ssc-lbl{font-size:9px;color:var(--dim)}
 .ssc-val{font-family:'Zen Kaku Gothic New',sans-serif;font-size:16px;font-weight:900;color:var(--gold)}
 
+/* ACCOUNTING */
+.acc-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.acc-kpi{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:10px 11px}
+.acc-kpi.full{grid-column:1/-1}
+.acc-kpi.green{border-color:rgba(40,160,96,.3);background:rgba(40,160,96,.04)}
+.acc-kpi.red{border-color:rgba(208,48,48,.2);background:rgba(208,48,48,.03)}
+.acc-kpi-lbl{font-size:10px;color:var(--dim);font-weight:700;letter-spacing:.05em;margin-bottom:2px}
+.acc-kpi-val{font-family:'Zen Kaku Gothic New',sans-serif;font-size:20px;font-weight:900;color:var(--text)}
+.acc-kpi-sub{font-size:10px;color:var(--dim);margin-top:1px}
+.acc-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px}
+.acc-table th{background:var(--s2);color:var(--dim);font-weight:700;padding:6px 7px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+.acc-table td{padding:6px 7px;border-bottom:1px solid var(--s3);vertical-align:middle}
+.acc-table tr:last-child td{border-bottom:none}
+.acc-table .num{text-align:right;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700}
+.acc-table .pos{color:var(--green)}
+.acc-table .neg{color:var(--red)}
+.exp-row{display:flex;align-items:center;gap:8px;padding:9px 11px;background:var(--s1);border:1px solid var(--border);border-radius:8px;margin-bottom:5px}
+.exp-cat{font-size:13px;flex-shrink:0}
+.exp-info{flex:1;min-width:0}
+.exp-date{font-size:10px;color:var(--dim)}
+.exp-name{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exp-amt{font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;font-weight:900;color:var(--orange);flex-shrink:0}
+
 /* MODALS */
 .overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s}
 .overlay.on{opacity:1;pointer-events:all}
@@ -396,6 +419,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
   <div class="tab"    data-tab="shipping">📦 郵送</div>
   <div class="tab"    data-tab="history">📅 履歴</div>
   <div class="tab"    data-tab="analytics">📊 売上</div>
+  <div class="tab"    data-tab="accounting">💹 管理会計</div>
   <div class="tab"    data-tab="master">⚙️ 商品</div>
 </nav>
 
@@ -478,6 +502,69 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <div id="ship-avg-days" style="font-size:22px;font-weight:900;color:var(--blue);padding:8px 0">--</div>
   </div>
   <button class="act-btn" id="csv-btn" style="width:100%;padding:11px;font-size:12px">📥 スプレッドシートで開く</button>
+</div>
+
+<!-- ACCOUNTING PAGE -->
+<div class="page" id="page-accounting">
+  <div style="padding:12px 14px 0">
+    <div class="cal-nav" style="margin-bottom:10px">
+      <div class="cal-arrow" id="acc-prev">‹</div>
+      <div class="cal-mon"   id="acc-mon">----年--月</div>
+      <div class="cal-arrow" id="acc-next">›</div>
+    </div>
+    <!-- 時給設定 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px">
+      <span style="font-size:12px;color:var(--dim);flex-shrink:0">⏱ 時給</span>
+      <span style="font-size:12px;color:var(--dim);flex-shrink:0">¥</span>
+      <input type="number" inputmode="numeric" id="inp-labor-rate" class="sh-input" style="flex:1;margin-bottom:0;padding:6px 10px;font-size:14px" placeholder="例：1000" value="0">
+      <button class="sh-ok" style="flex-shrink:0;padding:6px 14px;font-size:12px" onclick="saveLaborRate()">保存</button>
+    </div>
+    <!-- サマリーカード -->
+    <div id="acc-summary"></div>
+    <!-- 内部タブ -->
+    <div class="seg" id="seg-acc" style="margin-bottom:12px">
+      <div class="seg-btn on" data-val="orders">案件別</div>
+      <div class="seg-btn"    data-val="products">商品別</div>
+      <div class="seg-btn"    data-val="expenses">費用管理</div>
+    </div>
+    <!-- 案件別 -->
+    <div id="acc-orders-view"></div>
+    <!-- 商品別 -->
+    <div id="acc-products-view" style="display:none"></div>
+    <!-- 費用管理 -->
+    <div id="acc-expenses-view" style="display:none">
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px">＋ 費用を追加</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px">
+          <div>
+            <div class="sh-lbl">日付</div>
+            <input type="date" id="inp-exp-date" class="sh-input" style="margin-bottom:0;padding:7px 10px;font-size:13px">
+          </div>
+          <div>
+            <div class="sh-lbl">種別</div>
+            <select id="inp-exp-cat" class="sh-input" style="margin-bottom:0;padding:7px 10px;font-size:13px">
+              <option value="fuel">⛽ 燃料費</option>
+              <option value="expressway">🛣 高速代</option>
+              <option value="accommodation">🏨 宿泊費</option>
+              <option value="other">📦 その他</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px">
+          <div>
+            <div class="sh-lbl">金額（円）</div>
+            <input type="number" inputmode="numeric" id="inp-exp-amount" class="sh-input" style="margin-bottom:0;padding:7px 10px;font-size:13px" placeholder="0">
+          </div>
+          <div>
+            <div class="sh-lbl">備考</div>
+            <input type="text" id="inp-exp-note" class="sh-input" style="margin-bottom:0;padding:7px 10px;font-size:13px" placeholder="任意">
+          </div>
+        </div>
+        <button class="sh-ok" style="width:100%;padding:9px" onclick="addExpense()">追加</button>
+      </div>
+      <div id="acc-expenses-list"></div>
+    </div>
+  </div>
 </div>
 
 <!-- MASTER PAGE -->
@@ -617,8 +704,17 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
   <div class="sh-title" id="prod-title">商品追加</div>
   <div class="sh-lbl">商品名</div>
   <input class="sh-input" id="inp-pname" type="text" inputmode="text" placeholder="例：キーホルダー">
-  <div class="sh-lbl">定価（円）</div>
-  <input class="sh-input" id="inp-pprice" type="number" inputmode="numeric" placeholder="例：1500">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div>
+      <div class="sh-lbl">定価（円）</div>
+      <input class="sh-input" id="inp-pprice" type="number" inputmode="numeric" placeholder="例：1500" style="margin-bottom:0">
+    </div>
+    <div>
+      <div class="sh-lbl">原価（円）<span style="font-size:10px;font-weight:400;color:var(--dim)">材料費</span></div>
+      <input class="sh-input" id="inp-pcost" type="number" inputmode="numeric" placeholder="例：300" style="margin-bottom:0">
+    </div>
+  </div>
+  <div style="margin-bottom:11px"></div>
   <div class="sh-lbl">在庫警告ライン</div>
   <input class="sh-input" id="inp-stock-warn" type="number" inputmode="numeric" placeholder="例：3（この数以下で警告）" style="margin-bottom:11px">
   <div class="sh-lbl">在庫連動先 <span style="font-size:10px;font-weight:400;color:var(--dim)">（別商品と同じ在庫を共有する場合）</span></div>
@@ -773,7 +869,7 @@ const DEFAULT_PRODUCTS = [
 //  STATE
 // ============================================================
 let token = '';
-let S = { orders:[], products:[] };
+let S = { orders:[], products:[], laborRatePerHour:0 };
 let historyData = [];
 let calYear = new Date().getFullYear(), calMonth = new Date().getMonth()+1;
 let anYear  = new Date().getFullYear(), anMonth  = new Date().getMonth()+1;
@@ -971,6 +1067,7 @@ function normalizeLoadedData() {
       t.stockShip = Number(t.stockShip || 0);
     });
     p.sharedStockWith = p.sharedStockWith ? String(p.sharedStockWith) : '';
+    p.costPrice = Number(p.costPrice || 0);
   });
 }
 
@@ -979,6 +1076,7 @@ async function loadAll(showSpinner=false) {
   if (!res) return;
   S.orders   = res.orders || [];
   S.products = (res.products && res.products.length) ? res.products : DEFAULT_PRODUCTS;
+  if (typeof res.laborRatePerHour === 'number') S.laborRatePerHour = res.laborRatePerHour;
   normalizeLoadedData();
   // データをlocalStorageにキャッシュ（次回起動を高速化）
   try {
@@ -2463,6 +2561,7 @@ document.getElementById('btn-add-product').addEventListener('click',()=>{
   document.getElementById('prod-title').textContent='商品追加';
   document.getElementById('inp-pname').value='';
   document.getElementById('inp-pprice').value='';
+  document.getElementById('inp-pcost').value='';
   document.getElementById('inp-stock-warn').value='3';
   document.getElementById('stock-loc-val').value='0';
   document.getElementById('stock-ship-val').value='0';
@@ -2551,6 +2650,7 @@ function editProduct(pid) {
   document.getElementById('prod-title').textContent='商品を編集';
   document.getElementById('inp-pname').value=p.name;
   document.getElementById('inp-pprice').value=p.price||'';
+  document.getElementById('inp-pcost').value=p.costPrice||'';
   document.getElementById('inp-stock-warn').value=p.stockWarn||3;
   document.getElementById('stock-loc-val').value=String(T.stockLocVal);
   document.getElementById('stock-ship-val').value=String(T.stockShipVal);
@@ -2599,11 +2699,12 @@ document.getElementById('prod-ok').addEventListener('click', async()=>{
   const name=document.getElementById('inp-pname').value.trim();
   if(!name){toast('商品名を入力してください');return;}
   const price=parseInt(document.getElementById('inp-pprice').value)||0;
+  const costPrice=parseInt(document.getElementById('inp-pcost').value)||0;
   const stockWarnVal=parseInt(document.getElementById('inp-stock-warn').value)||3;
   const total=Object.values(T.stepTimes).reduce((s,v)=>s+Number(v),0);
   const pid=T.editPid||uid();
   const sharedStockWith = document.getElementById('sel-shared-stock').value || '';
-  const product={id:pid,name,price,
+  const product={id:pid,name,price,costPrice,
     stockLoc:T.types.length?0:T.stockLocVal,
     stockShip:T.types.length?0:T.stockShipVal,
     stock:0, // 後方互換
@@ -3164,6 +3265,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     document.getElementById('page-'+tab.dataset.tab).classList.add('on');
     if(tab.dataset.tab==='history'){historyData=[];renderHistory();}
     if(tab.dataset.tab==='analytics'){anAllHistory=[];window._stepAvgCache={};window._prodAvgCache={};window._shipAvgCache=null;renderAnalytics();}
+    if(tab.dataset.tab==='accounting'){initAccounting();}
   });
 });
 
@@ -3357,6 +3459,256 @@ function elapsedStr(d){const m=Math.floor((Date.now()-new Date(d))/60000);return
   });
 
 })();
+
+// ============================================================
+//  管理会計
+// ============================================================
+let accYear  = new Date().getFullYear();
+let accMonth = new Date().getMonth() + 1;
+let accHistory = [];
+let accExpenses = [];
+let accView = 'orders'; // 'orders' | 'products' | 'expenses'
+
+const EXP_LABELS = { fuel:'⛽ 燃料費', expressway:'🛣 高速代', accommodation:'🏨 宿泊費', other:'📦 その他' };
+
+function initAccounting() {
+  document.getElementById('inp-labor-rate').value = S.laborRatePerHour || 0;
+  renderAccMonth();
+  loadAccData();
+  // 内部タブ
+  document.getElementById('seg-acc').querySelectorAll('.seg-btn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      document.querySelectorAll('#seg-acc .seg-btn').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      accView = b.dataset.val;
+      document.getElementById('acc-orders-view').style.display   = accView==='orders'   ? '' : 'none';
+      document.getElementById('acc-products-view').style.display = accView==='products' ? '' : 'none';
+      document.getElementById('acc-expenses-view').style.display = accView==='expenses' ? '' : 'none';
+      renderAccounting();
+    });
+  });
+  // 月ナビ
+  document.getElementById('acc-prev').onclick = ()=>{ accMonth--; if(accMonth<1){accMonth=12;accYear--;} renderAccMonth(); loadAccData(); };
+  document.getElementById('acc-next').onclick = ()=>{ accMonth++; if(accMonth>12){accMonth=1;accYear++;} renderAccMonth(); loadAccData(); };
+  // 費用日付デフォルト
+  const today = new Date();
+  document.getElementById('inp-exp-date').value = today.toISOString().slice(0,10);
+}
+
+function renderAccMonth() {
+  document.getElementById('acc-mon').textContent = `${accYear}年${accMonth}月`;
+}
+
+async function loadAccData() {
+  const [hRes, eRes] = await Promise.all([
+    api('getHistory', { year: accYear, month: accMonth }),
+    api('getExpenses', { year: accYear, month: accMonth })
+  ]);
+  accHistory  = hRes?.history  || [];
+  accExpenses = eRes?.expenses || [];
+  renderAccounting();
+}
+
+function calcOrderPL(h) {
+  // h.salesItems: [{pid, price, productName, paymentMethod}]
+  const rate = S.laborRatePerHour || 0;
+  let sales=0, cost=0, labor=0;
+  (h.salesItems||[]).forEach(si=>{
+    const amount = Number(si.price||0);
+    sales += amount;
+    if (!si.pid) return; // 送料行はコスト計算なし
+    const p = S.products.find(x=>x.id===si.pid);
+    if (p) {
+      cost  += Number(p.costPrice||0);
+      labor += (Number(p.totalMinutes||0) / 60) * rate;
+    }
+  });
+  const grossProfit = sales - cost - labor;
+  const margin = sales > 0 ? Math.round(grossProfit / sales * 1000) / 10 : 0;
+  return { sales, cost, labor, grossProfit, margin };
+}
+
+function renderAccounting() {
+  const rate = S.laborRatePerHour || 0;
+
+  // 全体集計
+  let totalSales=0, totalCost=0, totalLabor=0;
+  accHistory.forEach(h=>{
+    const pl = calcOrderPL(h);
+    totalSales  += pl.sales;
+    totalCost   += pl.cost;
+    totalLabor  += pl.labor;
+  });
+  const totalExpenses = accExpenses.reduce((s,e)=>s+Number(e.amount||0),0);
+  const grossProfit   = totalSales - totalCost - totalLabor;
+  const netProfit     = grossProfit - totalExpenses;
+  const grossMargin   = totalSales>0 ? Math.round(grossProfit/totalSales*1000)/10 : 0;
+  const netMargin     = totalSales>0 ? Math.round(netProfit/totalSales*1000)/10   : 0;
+
+  // サマリーカード
+  document.getElementById('acc-summary').innerHTML = `
+    <div class="acc-summary-grid">
+      <div class="acc-kpi full">
+        <div class="acc-kpi-lbl">💰 売上合計</div>
+        <div class="acc-kpi-val" style="font-size:26px;color:var(--blue)">¥${totalSales.toLocaleString()}</div>
+        <div class="acc-kpi-sub">${accHistory.length}件</div>
+      </div>
+      <div class="acc-kpi">
+        <div class="acc-kpi-lbl">📦 原価合計</div>
+        <div class="acc-kpi-val" style="font-size:17px;color:var(--orange)">¥${Math.round(totalCost).toLocaleString()}</div>
+        <div class="acc-kpi-sub">原価率 ${totalSales>0?Math.round(totalCost/totalSales*1000)/10:0}%</div>
+      </div>
+      <div class="acc-kpi">
+        <div class="acc-kpi-lbl">⏱ 労務費合計</div>
+        <div class="acc-kpi-val" style="font-size:17px;color:var(--purple)">¥${Math.round(totalLabor).toLocaleString()}</div>
+        <div class="acc-kpi-sub">${rate>0?'¥'+rate.toLocaleString()+'/h':'時給未設定'}</div>
+      </div>
+      <div class="acc-kpi">
+        <div class="acc-kpi-lbl">🚗 マルシェ費用</div>
+        <div class="acc-kpi-val" style="font-size:17px;color:var(--red)">¥${totalExpenses.toLocaleString()}</div>
+        <div class="acc-kpi-sub">${accExpenses.length}件</div>
+      </div>
+      <div class="acc-kpi green">
+        <div class="acc-kpi-lbl">📊 粗利（売上－原価－労務費）</div>
+        <div class="acc-kpi-val" style="color:${grossProfit>=0?'var(--green)':'var(--red)'}">¥${Math.round(grossProfit).toLocaleString()}</div>
+        <div class="acc-kpi-sub">粗利率 ${grossMargin}%</div>
+      </div>
+      <div class="acc-kpi ${netProfit>=0?'green':'red'}">
+        <div class="acc-kpi-lbl">✨ 純利益（粗利－費用）</div>
+        <div class="acc-kpi-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">¥${Math.round(netProfit).toLocaleString()}</div>
+        <div class="acc-kpi-sub">純利益率 ${netMargin}%</div>
+      </div>
+    </div>`;
+
+  // 案件別テーブル
+  if (accView === 'orders') {
+    if (!accHistory.length) {
+      document.getElementById('acc-orders-view').innerHTML = `<div style="text-align:center;padding:24px;color:var(--dim);font-size:13px">この月の完了案件はありません</div>`;
+    } else {
+      const rows = accHistory.map(h=>{
+        const pl = calcOrderPL(h);
+        const d  = new Date(h.completedAt);
+        const dateStr = `${d.getMonth()+1}/${d.getDate()}`;
+        const names = [...new Set((h.salesItems||[]).filter(s=>s.pid).map(s=>s.productName||''))].join('、') || '—';
+        const marginCls = pl.grossProfit>=0?'pos':'neg';
+        return `<tr>
+          <td>${dateStr}</td>
+          <td style="font-weight:700">#${h.num}</td>
+          <td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${names}</td>
+          <td class="num">¥${pl.sales.toLocaleString()}</td>
+          <td class="num" style="color:var(--orange)">¥${Math.round(pl.cost).toLocaleString()}</td>
+          <td class="num" style="color:var(--purple)">¥${Math.round(pl.labor).toLocaleString()}</td>
+          <td class="num ${marginCls}">¥${Math.round(pl.grossProfit).toLocaleString()}</td>
+          <td class="num ${marginCls}">${pl.margin}%</td>
+        </tr>`;
+      }).join('');
+      document.getElementById('acc-orders-view').innerHTML = `
+        <div style="overflow-x:auto">
+          <table class="acc-table">
+            <thead><tr><th>日付</th><th>#</th><th>商品</th><th>売上</th><th>原価</th><th>労務費</th><th>粗利</th><th>率</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+  }
+
+  // 商品別集計
+  if (accView === 'products') {
+    const byProd = {};
+    accHistory.forEach(h=>{
+      const rate2 = S.laborRatePerHour || 0;
+      (h.salesItems||[]).forEach(si=>{
+        if (!si.pid) return;
+        const p = S.products.find(x=>x.id===si.pid);
+        const key = si.pid;
+        if (!byProd[key]) byProd[key] = { name: si.productName||p?.name||si.pid, qty:0, sales:0, cost:0, labor:0 };
+        byProd[key].qty   += 1;
+        byProd[key].sales += Number(si.price||0);
+        byProd[key].cost  += Number(p?.costPrice||0);
+        byProd[key].labor += (Number(p?.totalMinutes||0)/60)*rate2;
+      });
+    });
+    const entries = Object.values(byProd).sort((a,b)=>b.sales-a.sales);
+    if (!entries.length) {
+      document.getElementById('acc-products-view').innerHTML = `<div style="text-align:center;padding:24px;color:var(--dim);font-size:13px">データなし</div>`;
+    } else {
+      const rows = entries.map(e=>{
+        const gp = e.sales - e.cost - e.labor;
+        const marginCls = gp>=0?'pos':'neg';
+        return `<tr>
+          <td style="font-weight:700">${e.name}</td>
+          <td class="num">${e.qty}個</td>
+          <td class="num">¥${e.sales.toLocaleString()}</td>
+          <td class="num" style="color:var(--orange)">¥${Math.round(e.cost).toLocaleString()}</td>
+          <td class="num" style="color:var(--purple)">¥${Math.round(e.labor).toLocaleString()}</td>
+          <td class="num ${marginCls}">¥${Math.round(gp).toLocaleString()}</td>
+        </tr>`;
+      }).join('');
+      document.getElementById('acc-products-view').innerHTML = `
+        <div style="overflow-x:auto">
+          <table class="acc-table">
+            <thead><tr><th>商品</th><th>数量</th><th>売上</th><th>原価</th><th>労務費</th><th>粗利</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+  }
+
+  // 費用一覧
+  if (accView === 'expenses') {
+    const listEl = document.getElementById('acc-expenses-list');
+    if (!accExpenses.length) {
+      listEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--dim);font-size:13px">この月の費用はありません</div>`;
+    } else {
+      listEl.innerHTML = accExpenses.map(e=>`
+        <div class="exp-row">
+          <div class="exp-cat">${(EXP_LABELS[e.category]||'📦 その他').split(' ')[0]}</div>
+          <div class="exp-info">
+            <div class="exp-date">${new Date(e.date).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})}&nbsp;${(EXP_LABELS[e.category]||e.category)}</div>
+            <div class="exp-name">${e.note||'—'}</div>
+          </div>
+          <div class="exp-amt">¥${Number(e.amount||0).toLocaleString()}</div>
+          <div class="ico-btn del" onclick="deleteExpense('${e.id}')">🗑</div>
+        </div>`).join('');
+    }
+    // 合計行
+    document.getElementById('acc-expenses-list').innerHTML +=
+      `<div style="text-align:right;padding:8px 4px;font-size:12px;color:var(--dim)">
+         合計 <strong style="font-size:15px;color:var(--orange)">¥${totalExpenses.toLocaleString()}</strong>
+       </div>`;
+  }
+}
+
+async function saveLaborRate() {
+  const rate = parseInt(document.getElementById('inp-labor-rate').value)||0;
+  S.laborRatePerHour = rate;
+  await api('saveLaborRate', { rate });
+  toast('時給を保存しました');
+  renderAccounting();
+}
+
+async function addExpense() {
+  const date   = document.getElementById('inp-exp-date').value;
+  const cat    = document.getElementById('inp-exp-cat').value;
+  const amount = parseInt(document.getElementById('inp-exp-amount').value)||0;
+  const note   = document.getElementById('inp-exp-note').value.trim();
+  if (!date)    { toast('日付を入力してください'); return; }
+  if (!amount)  { toast('金額を入力してください'); return; }
+  const expense = { id: uid(), date, category: cat, amount, note };
+  accExpenses.push(expense);
+  document.getElementById('inp-exp-amount').value='';
+  document.getElementById('inp-exp-note').value='';
+  renderAccounting();
+  await api('saveExpense', { expense });
+  toast('費用を追加しました');
+}
+
+async function deleteExpense(id) {
+  accExpenses = accExpenses.filter(e=>e.id!==id);
+  renderAccounting();
+  await api('deleteExpense', { expenseId: id });
+  toast('削除しました');
+}
 </script>
 </body>
 </html>
