@@ -446,6 +446,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
   <div class="tab"    data-tab="analytics">📊 売上</div>
   <div class="tab"    data-tab="accounting">💹 管理会計</div>
   <div class="tab"    data-tab="master">⚙️ 商品</div>
+  <div class="tab"    data-tab="pricing">💴 価格設定</div>
 </nav>
 
 <!-- LOCAL PAGE -->
@@ -548,55 +549,15 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <div id="acc-summary"></div>
     <!-- 内部タブ -->
     <div class="seg" id="seg-acc" style="margin-bottom:12px;flex-wrap:nowrap">
-      <div class="seg-btn on" data-val="orders"   style="font-size:10px;padding:8px 3px">案件別</div>
-      <div class="seg-btn"    data-val="products"  style="font-size:10px;padding:8px 3px">商品別</div>
-      <div class="seg-btn"    data-val="pricing"   style="font-size:10px;padding:8px 3px">価格設定</div>
-      <div class="seg-btn"    data-val="expenses"  style="font-size:10px;padding:8px 3px">費用管理</div>
-      <div class="seg-btn"    data-val="biz"       style="font-size:10px;padding:8px 3px">事業全体</div>
+      <div class="seg-btn on" data-val="orders"   style="font-size:11px">案件別</div>
+      <div class="seg-btn"    data-val="products"  style="font-size:11px">商品別</div>
+      <div class="seg-btn"    data-val="expenses"  style="font-size:11px">費用管理</div>
+      <div class="seg-btn"    data-val="biz"       style="font-size:11px">事業全体</div>
     </div>
     <!-- 案件別 -->
     <div id="acc-orders-view"></div>
     <!-- 商品別 -->
     <div id="acc-products-view" style="display:none"></div>
-    <!-- 価格設定 -->
-    <div id="acc-pricing-view" style="display:none">
-      <!-- デフォルト利益率 -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;flex-wrap:wrap">
-        <span style="font-size:12px;color:var(--dim);flex-shrink:0">🎯 デフォルト目標利益率</span>
-        <input type="number" inputmode="numeric" id="inp-default-margin" class="sh-input" style="width:72px;margin-bottom:0;padding:5px 9px;font-size:14px;text-align:center" value="50" min="0" max="100">
-        <span style="font-size:12px;color:var(--dim);flex-shrink:0">%</span>
-        <button class="sh-ok" style="padding:5px 12px;font-size:11px;flex-shrink:0" onclick="applyDefaultMargin()">全商品に適用</button>
-        <span style="font-size:10px;color:var(--dim);flex-shrink:0">適正価格 = 総原価 ÷ (1 − 利益率)</span>
-      </div>
-      <!-- テーブルスクロールエリア -->
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:9px;margin-bottom:14px">
-        <table class="pt-table" id="pricing-table">
-          <thead>
-            <tr>
-              <th class="pt-name">商品名</th>
-              <th class="pt-r">原価<br><span class="pt-unit">(円)</span></th>
-              <th class="pt-r">工数<br><span class="pt-unit">(分)</span></th>
-              <th class="pt-r">労務費<br><span class="pt-unit">(円)</span></th>
-              <th class="pt-r">総原価<br><span class="pt-unit">(円)</span></th>
-              <th class="pt-r">目標<br><span class="pt-unit">利益率%</span></th>
-              <th class="pt-r pt-rec">適正価格<br><span class="pt-unit">(円)</span></th>
-              <th class="pt-r">現在価格<br><span class="pt-unit">(円)</span></th>
-              <th class="pt-r" style="background:rgba(24,152,168,.1)">限界利益<br><span class="pt-unit">(円)</span></th>
-              <th class="pt-r" style="background:rgba(24,152,168,.1)">限界利益率<br><span class="pt-unit">%</span></th>
-              <th class="pt-r" style="background:rgba(40,160,96,.1)">粗利額<br><span class="pt-unit">(円)</span></th>
-              <th class="pt-r" style="background:rgba(40,160,96,.1)">粗利率<br><span class="pt-unit">%（労務費込）</span></th>
-              <th class="pt-r">差額<br><span class="pt-unit">(円)</span></th>
-              <th class="pt-act"></th>
-            </tr>
-          </thead>
-          <tbody id="pt-tbody"></tbody>
-        </table>
-      </div>
-      <div style="font-size:11px;color:var(--dim);line-height:1.7;padding:0 2px">
-        ※ 原価・工数・目標利益率・現在価格を直接編集できます。「保存」で商品マスターに反映されます。<br>
-        ※ 労務費 = 工数(分) ÷ 60 × 時給（時給未設定の場合は¥0）
-      </div>
-    </div>
     <!-- 事業全体 P&L -->
     <div id="acc-biz-view" style="display:none">
       <!-- 固定費・仕入れ入力 -->
@@ -714,6 +675,48 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <div style="display:flex;flex-wrap:wrap;gap:7px">
       <button id="btn-fix-item-types" style="background:var(--orange);color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation">⚠️ 受注データの種類名を修復する</button>
       <button id="btn-fix-type-names" style="background:var(--blue);color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation">過去データ（売上）の種類名を反映する</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRICING PAGE -->
+<div class="page" id="page-pricing">
+  <div style="padding:12px 14px 0">
+    <!-- デフォルト利益率 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--dim);flex-shrink:0">🎯 デフォルト目標利益率</span>
+      <input type="number" inputmode="numeric" id="inp-default-margin" class="sh-input" style="width:72px;margin-bottom:0;padding:5px 9px;font-size:14px;text-align:center" value="50" min="0" max="100">
+      <span style="font-size:12px;color:var(--dim);flex-shrink:0">%</span>
+      <button class="sh-ok" style="padding:5px 12px;font-size:11px;flex-shrink:0" onclick="applyDefaultMargin()">全商品に適用</button>
+      <span style="font-size:10px;color:var(--dim);flex-shrink:0">適正価格 = 総原価 ÷ (1 − 利益率)</span>
+    </div>
+    <!-- テーブル -->
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:9px;margin-bottom:14px">
+      <table class="pt-table" id="pricing-table">
+        <thead>
+          <tr>
+            <th class="pt-name">商品名</th>
+            <th class="pt-r">原価<br><span class="pt-unit">(円)</span></th>
+            <th class="pt-r">工数<br><span class="pt-unit">(分)</span></th>
+            <th class="pt-r">労務費<br><span class="pt-unit">(円)</span></th>
+            <th class="pt-r">総原価<br><span class="pt-unit">(円)</span></th>
+            <th class="pt-r">目標<br><span class="pt-unit">利益率%</span></th>
+            <th class="pt-r pt-rec">適正価格<br><span class="pt-unit">(円)</span></th>
+            <th class="pt-r">現在価格<br><span class="pt-unit">(円)</span></th>
+            <th class="pt-r" style="background:rgba(24,152,168,.1)">限界利益<br><span class="pt-unit">(円)</span></th>
+            <th class="pt-r" style="background:rgba(24,152,168,.1)">限界利益率<br><span class="pt-unit">%</span></th>
+            <th class="pt-r" style="background:rgba(40,160,96,.1)">粗利額<br><span class="pt-unit">(円)</span></th>
+            <th class="pt-r" style="background:rgba(40,160,96,.1)">粗利率<br><span class="pt-unit">%（労務費込）</span></th>
+            <th class="pt-r">差額<br><span class="pt-unit">(円)</span></th>
+            <th class="pt-act"></th>
+          </tr>
+        </thead>
+        <tbody id="pt-tbody"></tbody>
+      </table>
+    </div>
+    <div style="font-size:11px;color:var(--dim);line-height:1.7;padding:0 2px">
+      ※ 原価・目標利益率・現在価格を直接編集できます。「保存」で商品マスターに反映されます。<br>
+      ※ 労務費 = 工数(分) ÷ 60 × 時給（管理会計タブで設定）
     </div>
   </div>
 </div>
@@ -3400,6 +3403,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     if(tab.dataset.tab==='history'){historyData=[];renderHistory();}
     if(tab.dataset.tab==='analytics'){anAllHistory=[];window._stepAvgCache={};window._prodAvgCache={};window._shipAvgCache=null;renderAnalytics();}
     if(tab.dataset.tab==='accounting'){initAccounting();}
+    if(tab.dataset.tab==='pricing'){initPricingView();}
   });
 });
 
@@ -3602,7 +3606,7 @@ let accMonth = new Date().getMonth() + 1;
 let accHistory = [];
 let accExpenses = [];
 let accFixedCosts = [];
-let accView = 'orders'; // 'orders' | 'products' | 'pricing' | 'expenses' | 'biz'
+let accView = 'orders'; // 'orders' | 'products' | 'expenses' | 'biz'
 
 const EXP_LABELS = { fuel:'⛽ 燃料費', expressway:'🛣 高速代', accommodation:'🏨 宿泊費', other:'📦 その他' };
 const FIXED_LABELS = {
@@ -3647,10 +3651,8 @@ function initAccounting() {
       accView = b.dataset.val;
       document.getElementById('acc-orders-view').style.display   = accView==='orders'   ? '' : 'none';
       document.getElementById('acc-products-view').style.display = accView==='products' ? '' : 'none';
-      document.getElementById('acc-pricing-view').style.display  = accView==='pricing'  ? '' : 'none';
       document.getElementById('acc-expenses-view').style.display = accView==='expenses' ? '' : 'none';
       document.getElementById('acc-biz-view').style.display      = accView==='biz'      ? '' : 'none';
-      if (accView==='pricing') initPricingView();
       if (accView==='biz') { loadBizData(); return; }
       renderAccounting();
     });
