@@ -689,6 +689,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
       <span style="font-size:12px;color:var(--dim);flex-shrink:0">%</span>
       <button class="sh-ok" style="padding:5px 12px;font-size:11px;flex-shrink:0" onclick="applyDefaultMargin()">全商品に適用</button>
       <span style="font-size:10px;color:var(--dim);flex-shrink:0">適正価格 = 総原価 ÷ (1 − 利益率)</span>
+      <button id="btn-save-all-pricing" class="sh-ok" style="padding:5px 14px;font-size:12px;font-weight:700;flex-shrink:0;background:var(--green);margin-left:auto" onclick="saveAllPricingRows()">💾 一括保存</button>
     </div>
     <!-- テーブル -->
     <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 200px);-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:9px;margin-bottom:14px">
@@ -4404,6 +4405,32 @@ async function savePricingRow(pid) {
   if (btn) { btn.className='pt-save-btn saved'; btn.textContent='✓'; btn.disabled=false; }
   toast(`${p.name} を保存しました`);
   // 商品マスターにも反映
+  renderMaster();
+}
+
+async function saveAllPricingRows() {
+  const dirtyPids = Object.keys(pricingState).filter(pid => pricingState[pid].dirty);
+  if (dirtyPids.length === 0) { toast('変更された行はありません'); return; }
+  const allBtn = document.getElementById('btn-save-all-pricing');
+  if (allBtn) { allBtn.textContent='保存中…'; allBtn.disabled=true; }
+  let saved = 0;
+  for (const pid of dirtyPids) {
+    const st = pricingState[pid];
+    const p = S.products.find(x=>x.id===pid);
+    if (!p) continue;
+    p.costPrice    = st.costPrice;
+    p.totalMinutes = st.totalMinutes;
+    p.price        = st.price;
+    st.dirty = false;
+    const btn = document.getElementById(`pt-save-${pid}`);
+    if (btn) { btn.textContent='…'; btn.disabled=true; }
+    const product = { ...p, costPrice: st.costPrice, totalMinutes: st.totalMinutes, price: st.price };
+    await api('saveProduct', { product });
+    if (btn) { btn.className='pt-save-btn saved'; btn.textContent='✓'; btn.disabled=false; }
+    saved++;
+  }
+  if (allBtn) { allBtn.textContent='💾 一括保存'; allBtn.disabled=false; }
+  toast(`${saved}件を保存しました`);
   renderMaster();
 }
 </script>
