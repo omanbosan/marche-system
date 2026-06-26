@@ -35,7 +35,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .login-err{font-size:13px;color:var(--red);text-align:center;display:none;margin-top:8px}
 
 /* HEADER */
-.hdr{position:sticky;top:0;z-index:80;background:var(--s1);border-bottom:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;padding:8px 14px}
+.hdr{position:sticky;top:0;z-index:80;background:var(--s1);border-bottom:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;padding:8px 14px;transform:translateZ(0);will-change:transform}
 .hdr-logo{font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;font-weight:900;color:var(--gold);letter-spacing:.06em;flex-shrink:0}
 .hdr-clock{font-family:'Zen Kaku Gothic New',sans-serif;font-size:21px;font-weight:900;color:var(--text)}
 .hdr-pills{display:flex;gap:5px;margin-left:auto;flex-wrap:nowrap;overflow:hidden}
@@ -43,7 +43,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .pill b{color:var(--gold);font-size:13px}
 
 /* WAIT BAR */
-.wbar{position:sticky;top:var(--wbar-top,49px);z-index:79;background:var(--s1);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.wbar{position:sticky;top:var(--wbar-top,49px);z-index:79;background:var(--s1);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:translateZ(0);will-change:transform}
 .wbar-lbl{font-size:10px;color:var(--dim);line-height:1.4}
 .wbar-num{font-family:'Zen Kaku Gothic New',sans-serif;font-size:26px;font-weight:900;color:var(--gold);line-height:1}
 .wbar-num.warn{color:var(--orange)}.wbar-num.alert{color:var(--red)}
@@ -55,7 +55,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .wd.done{background:var(--green);border-color:var(--green)}
 
 /* TABS */
-.tabs{position:sticky;top:var(--tabs-top,131px);z-index:77;background:var(--s1);border-bottom:1px solid var(--border);display:flex;overflow-x:auto}
+.tabs{position:sticky;top:var(--tabs-top,131px);z-index:77;background:var(--s1);border-bottom:1px solid var(--border);display:flex;overflow-x:auto;transform:translateZ(0);will-change:transform}
 .tabs::-webkit-scrollbar{display:none}
 .tab{padding:9px 14px;font-size:13px;font-weight:700;color:var(--dim);border-bottom:3px solid transparent;white-space:nowrap;cursor:pointer;letter-spacing:.03em;flex-shrink:0;transition:color .15s,border-color .15s}
 .tab.on{color:var(--gold);border-bottom-color:var(--gold)}
@@ -65,7 +65,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .page.on{display:block}
 
 /* BUTTONS */
-.btn-new-wrap{position:sticky;top:var(--btn-top,167px);z-index:76;background:var(--bg);padding:8px 0 6px;margin:-10px -10px 2px;padding-left:10px;padding-right:10px;border-bottom:1px solid var(--border)}
+.btn-new-wrap{position:sticky;top:var(--btn-top,167px);z-index:76;background:var(--bg);padding:8px 0 6px;margin:-10px -10px 2px;padding-left:10px;padding-right:10px;border-bottom:1px solid var(--border);transform:translateZ(0);will-change:transform}
 .btn-new{width:100%;background:var(--gold);color:#fff;border:none;border-radius:10px;padding:13px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:14px;font-weight:900;letter-spacing:.08em;cursor:pointer;transition:background .15s,transform .1s}
 .btn-new:active{transform:scale(.98);background:var(--goldl)}
 .btn-new.ship{background:var(--blue)}
@@ -1061,7 +1061,15 @@ async function api(action, data={}, retry=1, forceShow=null) {
       }
     }
     const j = await r.json();
-    if (!j.ok) throw new Error(j.error);
+    if (!j.ok) {
+      // トークン期限切れ → ログイン画面へ（auth以外）
+      if (j.error === 'Unauthorized' && action !== 'auth') {
+        if (showLoad) showLoading(false);
+        showLoginScreen();
+        return null;
+      }
+      throw new Error(j.error);
+    }
     return j.data;
   } catch(e) {
     if (showLoad) showLoading(false);
@@ -1121,15 +1129,25 @@ async function tryAutoLogin() {
   const saved = localStorage.getItem('mb_token');
   const exp   = localStorage.getItem('mb_token_exp');
   if (!saved || !exp) return false;
-  if (Date.now() > parseInt(exp)) { localStorage.removeItem('mb_token'); localStorage.removeItem('mb_token_exp'); return false; }
+  // ローカルの有効期限（30日）だけチェック。pingは行わない
+  // トークン切れは api() 側の Unauthorized 検出で対応
+  if (Date.now() > parseInt(exp)) {
+    localStorage.removeItem('mb_token');
+    localStorage.removeItem('mb_token_exp');
+    return false;
+  }
   token = saved;
-  // ローディング表示なしでpingチェック
-  try {
-    const r = await fetch(`${GAS_URL}?action=ping&token=${encodeURIComponent(token)}`);
-    const j = await r.json();
-    if (!j.ok) { localStorage.removeItem('mb_token'); localStorage.removeItem('mb_token_exp'); token=''; return false; }
-    return true;
-  } catch(e) { return true; }
+  return true;
+}
+
+function showLoginScreen() {
+  token = '';
+  localStorage.removeItem('mb_token');
+  localStorage.removeItem('mb_token_exp');
+  document.getElementById('pw-input').value = '';
+  document.getElementById('login-err').style.display = 'none';
+  document.getElementById('login-screen').style.display = '';
+  document.getElementById('app').style.display = 'none';
 }
 
 // sticky offset を実際の高さから動的計算（デバイスごとのヘッダー高さ差異に対応）
@@ -4238,10 +4256,11 @@ function initPricingView() {
   // S.productsから初期値をロード（既存stateは上書きしない）
   S.products.forEach(p => {
     if (!pricingState[p.id]) {
+      const savedMargin = localStorage.getItem('pt_margin_'+p.id);
       pricingState[p.id] = {
         costPrice:    Number(p.costPrice    || 0),
         totalMinutes: Number(p.totalMinutes || 0),
-        targetMargin: 50,   // デフォルト50%
+        targetMargin: savedMargin !== null ? Number(savedMargin) : 50, // localStorageから復元
         price:        Number(p.price        || 0),
         dirty: false,
       };
@@ -4327,6 +4346,8 @@ function onPtChange(pid, field, val) {
   if (!st) return;
   st[field] = Number(val) || 0;
   st.dirty = true;
+  // targetMarginはlocalStorageに永続保存
+  if (field === 'targetMargin') localStorage.setItem('pt_margin_'+pid, st.targetMargin);
 
   // 計算値だけ再描画（入力フォーカスを壊さないようにセル単位で更新）
   const rate     = S.laborRatePerHour || 0;
@@ -4378,6 +4399,7 @@ function applyDefaultMargin() {
   Object.keys(pricingState).forEach(pid => {
     pricingState[pid].targetMargin = margin;
     pricingState[pid].dirty = true;
+    localStorage.setItem('pt_margin_'+pid, margin);
   });
   renderPricingTable();
 }
@@ -4404,8 +4426,9 @@ async function savePricingRow(pid) {
 
   if (btn) { btn.className='pt-save-btn saved'; btn.textContent='✓'; btn.disabled=false; }
   toast(`${p.name} を保存しました`);
-  // 商品マスターにも反映
+  // 商品マスター・価格設定テーブルに反映
   renderMaster();
+  renderPricingTable();
 }
 
 async function saveAllPricingRows() {
@@ -4432,6 +4455,7 @@ async function saveAllPricingRows() {
   if (allBtn) { allBtn.textContent='💾 一括保存'; allBtn.disabled=false; }
   toast(`${saved}件を保存しました`);
   renderMaster();
+  renderPricingTable();
 }
 </script>
 </body>
