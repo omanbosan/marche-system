@@ -387,6 +387,9 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
   .stat-val{font-size:16px}
   .och-num{font-size:16px;padding:3px 7px}
 }
+/* 価格設定ページは常に全幅 */
+#page-pricing{padding-left:0!important;padding-right:0!important;max-width:none!important}
+
 /* TABLET (iPad, 幅768px以上) */
 @media (min-width:768px){
   .page{max-width:900px;margin:0 auto}
@@ -681,9 +684,9 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
 <!-- PRICING PAGE -->
 <div class="page" id="page-pricing">
-  <div style="padding:12px 14px 0">
-    <!-- デフォルト利益率 -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;flex-wrap:wrap">
+  <!-- ツールバー：左右にpaddingあり -->
+  <div style="padding:10px 10px 8px">
+    <div style="display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;flex-wrap:wrap">
       <span style="font-size:12px;color:var(--dim);flex-shrink:0">🎯 デフォルト目標利益率</span>
       <input type="number" inputmode="numeric" id="inp-default-margin" class="sh-input" style="width:72px;margin-bottom:0;padding:5px 9px;font-size:14px;text-align:center" value="50" min="0" max="100">
       <span style="font-size:12px;color:var(--dim);flex-shrink:0">%</span>
@@ -691,34 +694,35 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
       <span style="font-size:10px;color:var(--dim);flex-shrink:0">適正価格 = 総原価 ÷ (1 − 利益率)</span>
       <button id="btn-save-all-pricing" class="sh-ok" style="padding:5px 14px;font-size:12px;font-weight:700;flex-shrink:0;background:var(--green);margin-left:auto" onclick="saveAllPricingRows()">💾 一括保存</button>
     </div>
-    <!-- テーブル -->
-    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 200px);-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:9px;margin-bottom:14px">
-      <table class="pt-table" id="pricing-table">
-        <thead>
-          <tr>
-            <th class="pt-name">商品名</th>
-            <th class="pt-r">原価<br><span class="pt-unit">(円)</span></th>
-            <th class="pt-r">工数<br><span class="pt-unit">(分)</span></th>
-            <th class="pt-r">労務費<br><span class="pt-unit">(円)</span></th>
-            <th class="pt-r">総原価<br><span class="pt-unit">(円)</span></th>
-            <th class="pt-r">目標<br><span class="pt-unit">利益率%</span></th>
-            <th class="pt-r pt-rec">適正価格<br><span class="pt-unit">(円)</span></th>
-            <th class="pt-r">現在価格<br><span class="pt-unit">(円)</span></th>
-            <th class="pt-r" style="background:#dae7ec">限界利益<br><span class="pt-unit">(円)</span></th>
-            <th class="pt-r" style="background:#dae7ec">限界利益率<br><span class="pt-unit">%</span></th>
-            <th class="pt-r" style="background:#dce8e4">粗利額<br><span class="pt-unit">(円)</span></th>
-            <th class="pt-r" style="background:#dce8e4">粗利率<br><span class="pt-unit">%（労務費込）</span></th>
-            <th class="pt-r">差額<br><span class="pt-unit">(円)</span></th>
-            <th class="pt-act"></th>
-          </tr>
-        </thead>
-        <tbody id="pt-tbody"></tbody>
-      </table>
-    </div>
-    <div style="font-size:11px;color:var(--dim);line-height:1.7;padding:0 2px">
-      ※ 原価・目標利益率・現在価格を直接編集できます。「保存」で商品マスターに反映されます。<br>
-      ※ 労務費 = 工数(分) ÷ 60 × 時給（管理会計タブで設定）
-    </div>
+  </div>
+  <!-- テーブル：画面横幅いっぱい（左右padding 0） -->
+  <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 190px);-webkit-overflow-scrolling:touch;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:0">
+    <table class="pt-table" id="pricing-table">
+      <thead>
+        <tr>
+          <th class="pt-name">商品名</th>
+          <th class="pt-r">原価<br><span class="pt-unit">(円)</span></th>
+          <th class="pt-r">工数<br><span class="pt-unit">(分)</span></th>
+          <th class="pt-r">労務費<br><span class="pt-unit">(円)</span></th>
+          <th class="pt-r">総原価<br><span class="pt-unit">(円)</span></th>
+          <th class="pt-r">目標<br><span class="pt-unit">利益率%</span></th>
+          <th class="pt-r pt-rec">適正価格<br><span class="pt-unit">(円)</span></th>
+          <th class="pt-r">現在価格<br><span class="pt-unit">(円)</span></th>
+          <th class="pt-r" style="background:#dae7ec">限界利益<br><span class="pt-unit">(円)</span></th>
+          <th class="pt-r" style="background:#dae7ec">限界利益率<br><span class="pt-unit">%</span></th>
+          <th class="pt-r" style="background:#dce8e4">粗利額<br><span class="pt-unit">(円)</span></th>
+          <th class="pt-r" style="background:#dce8e4">粗利率<br><span class="pt-unit">%（労務費込）</span></th>
+          <th class="pt-r">差額<br><span class="pt-unit">(円)</span></th>
+          <th class="pt-act"></th>
+        </tr>
+      </thead>
+      <tbody id="pt-tbody"></tbody>
+    </table>
+  </div>
+  <!-- フッターノート -->
+  <div style="padding:6px 10px 0;font-size:11px;color:var(--dim);line-height:1.7">
+    ※ 原価・目標利益率・現在価格を直接編集できます。「保存」で商品マスターに反映されます。<br>
+    ※ 労務費 = 工数(分) ÷ 60 × 時給（管理会計タブで設定）
   </div>
 </div>
 
