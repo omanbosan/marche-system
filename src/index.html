@@ -684,8 +684,8 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
 <!-- PRICING PAGE -->
 <div class="page" id="page-pricing">
-  <!-- ツールバー：左右にpaddingあり -->
-  <div style="padding:10px 10px 8px">
+  <!-- ツールバー：タブ直下に固定 -->
+  <div style="position:sticky;top:var(--btn-top,167px);z-index:6;background:var(--bg);padding:8px 10px 6px;border-bottom:1px solid var(--border);transform:translateZ(0)">
     <div style="display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;flex-wrap:wrap">
       <span style="font-size:12px;color:var(--dim);flex-shrink:0">🎯 デフォルト目標利益率</span>
       <input type="number" inputmode="numeric" id="inp-default-margin" class="sh-input" style="width:72px;margin-bottom:0;padding:5px 9px;font-size:14px;text-align:center" value="50" min="0" max="100">
@@ -696,7 +696,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
     </div>
   </div>
   <!-- テーブル：画面横幅いっぱい（左右padding 0） -->
-  <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 190px);-webkit-overflow-scrolling:touch;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:0">
+  <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - var(--btn-top,167px) - 68px);-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--border);margin-bottom:0">
     <table class="pt-table" id="pricing-table">
       <thead>
         <tr>
