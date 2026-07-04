@@ -15,7 +15,9 @@
 GitHub リポジトリ : https://github.com/omanbosan/marche-system
 GitHub Pages URL  : https://omanbosan.github.io/marche-system/
 GAS URL           : https://script.google.com/macros/s/AKfycbwQ8-M1NueHtjLf8Q1B5I6X-YTfdDUTcczYaFxRIaP4Ocq9UL-gj6rcucHZWNAGF28Ulg/exec
+GAS スクリプトID  : 1Dalr98OYU8tdXNnJ9glby1vqUIohudYxuE4seyC0BFRvAt6IsNNK8fih
 スプレッドシートID : 1-27E8JVuZ3aD-cGsNCiq6WdCB6OemqghRKvx7NhjTQE
+Googleアカウント   : omanbo.monodukuri@gmail.com（スプレッドシート・GASの所有者）
 アプリパスワード   : luke1227mb
 担当               : 美咲（受付・デザイン・撮影・完成連絡）、栄人（2値化・彫刻）
 ```
@@ -173,6 +175,12 @@ GASのSCRIPT_IDはApps Scriptエディタの「プロジェクトの設定」か
 - productsシートのstockLoc/stockShip列があるか確認
 - `fixAllSheets()` を実行してから `migrateStockToLoc()` を実行
 
+### clasp で GAS に自動デプロイしたのに反映されない・「アクセスが拒否されました」になる
+- `clasp push` → `clasp deploy --deploymentId <本番のdeploymentId>` はAPI上は成功してdeploymentConfigも正しく見えるが、実際のWebアプリアクセスが403（アクセス拒否）になることがある（API経由のdeploy更新が反映しきらない既知の不具合）
+- **対処**: Apps Scriptエディタ（https://script.google.com/home/projects/&lt;スクリプトID&gt;/edit）を開き、「デプロイ」→「デプロイを管理」→ 対象デプロイの鉛筆アイコン → バージョンを選択し直して「デプロイ」を押す。これで確実に直る
+- clasp自体は `gas/` ディレクトリにローカルインストール済み（グローバルnpm権限がないため）。`cd gas && npx clasp push` / `npx clasp deploy --deploymentId <id>` で使う
+- `clasp login` は端末のメインGoogleアカウントがデフォルトで選択されがちなので、必ずアカウント選択画面で `omanbo.monodukuri@gmail.com` を明示的に選ぶこと（別アカウントのままだと `The caller does not have permission` エラーになる）
+
 ---
 
 ## 現在の未解決問題（引き継ぎ事項）
@@ -192,3 +200,8 @@ GASのSCRIPT_IDはApps Scriptエディタの「プロジェクトの設定」か
 - 自動同期: 30秒ごと（入力中・モーダル表示中はスキップ）
 - 手動同期: ヘッダーの↺ボタン
 - パスワードを変更する場合は `setup()` を再実行
+
+### 2026-07-04: 受付削除時に売上が残るバグを修正（gas_v52）
+- 現地注文は登録時に即 `history`/`sales` へ売上記録される仕様（`recordSalesForOrder`）だが、`handleDeleteOrder` が `orders`/`items`/`steps` しか消しておらず、削除しても売上に残っていた
+- `handleDeleteOrder` に `history`（col1=orderId）・`sales`（col2=orderId）の削除を追加して修正済み
+- **注意**: この修正より前に「受付」タブから削除された注文は、`sales`/`history` に孤立レコードが残っている可能性がある。売上集計が過去分だけ多い等の報告があれば、sales/historyシートをorderId基準でordersシートに存在しない行がないか確認すること
