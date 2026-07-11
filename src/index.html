@@ -1980,7 +1980,7 @@ function renderQtyBlock() {
     let setPriceHtml = '';
     if (availTiers.length && !setPriceShownPids.has(row.pid)) {
       setPriceShownPids.add(row.pid);
-      const setOn = !!T.setPriceOn[row.pid];
+      const setOn = T.setPriceOn[row.pid] !== false; // 未設定（初回表示）はデフォルトON
       const info  = calcSetPriceInfo(p.setPrices, totalQtyForPid, p.price);
       setPriceHtml = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
         <button class="opt-chip${setOn?' on':''}" onclick="toggleSetPrice('${row.pid}')" style="touch-action:manipulation">🎁 セット価格を使う</button>
@@ -2096,9 +2096,10 @@ function calcSetPriceInfo(setPrices, qty, unitPrice) {
   return { total, saved: saved > 0 ? saved : 0 };
 }
 
-// セット価格は商品単位（タイプ横断）のON/OFF
+// セット価格は商品単位（タイプ横断）のON/OFF。未設定（初回）はデフォルトON扱い
 function toggleSetPrice(pid) {
-  T.setPriceOn[pid] = !T.setPriceOn[pid];
+  const cur = T.setPriceOn[pid] !== false;
+  T.setPriceOn[pid] = !cur;
   renderQtyBlock();
 }
 
@@ -2107,7 +2108,7 @@ function toggleSetPrice(pid) {
 function buildSetPriceQueues(pidTotalQty) {
   const queues = {};
   Object.keys(pidTotalQty).forEach(pid => {
-    if (!T.setPriceOn[pid]) return;
+    if (T.setPriceOn[pid] === false) return; // 未設定はデフォルトONなのでスキップしない
     const p = S.products.find(x=>x.id===pid);
     if (!p || !(p.setPrices||[]).length) return;
     const qty = pidTotalQty[pid];
