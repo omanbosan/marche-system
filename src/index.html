@@ -2156,35 +2156,77 @@ async function saveOrder() {
           await api('updateItem',{itemId:it.id, paymentMethod:orderPayment});
         }
       }
-      // 商品タイプが変わった場合は各アイテムに反映
-      // T.selTypeQty: {pid: {typeId: qty}} — 編集後の選択状態
-      const flatNew = [];
+      // 商品構成（個数・タイプ）が変わった場合は pid×tid の組ごとに個数差分を取り、
+      // 不足分はアイテム追加、超過分はアイテム削除して在庫も追従させる
+      // （旧実装は既存アイテムの並び順にタイプを付け替えるだけで在庫を一切動かしていなかった）
+      const isShipEdit = T.delivery === 'shipping';
+      const nStepsEdit = isShipEdit ? 7 : 6;
+
+      const existGroups = {};
+      (o.items||[]).forEach(it=>{
+        const key = it.pid + '__' + (it.typeId||'');
+        (existGroups[key]=existGroups[key]||[]).push(it);
+      });
+      const targetGroups = {};
       Object.entries(T.selTypeQty).forEach(([pid, typeQtys])=>{
         Object.entries(typeQtys).forEach(([tid, qty])=>{
-          for (let i=0;i<qty;i++) flatNew.push({pid, tid});
+          if (qty>0) targetGroups[pid+'__'+tid] = qty;
         });
       });
-      // タイプなし商品も含める
       Object.entries(T.selProds).filter(([,q])=>q>0).forEach(([pid,qty])=>{
-        for (let i=0;i<qty;i++) flatNew.push({pid, tid:''});
+        targetGroups[pid+'__'] = qty;
       });
-      // 既存アイテムとの差分をpidごとにマッチング
-      const itemsByPid = {};
-      (o.items||[]).forEach(it=>{ (itemsByPid[it.pid]=itemsByPid[it.pid]||[]).push(it); });
-      const newByPid = {};
-      flatNew.forEach(n=>{ (newByPid[n.pid]=newByPid[n.pid]||[]).push(n); });
-      for (const pid of Object.keys(itemsByPid)) {
-        const existing = itemsByPid[pid]||[];
-        const updated = newByPid[pid]||[];
-        for (let i=0;i<existing.length;i++) {
-          const it = existing[i];
-          const nu = updated[i];
-          if (nu && nu.tid !== undefined && it.typeId !== nu.tid) {
-            const p = S.products.find(x=>x.id===pid);
-            const typeObj = (p?.types||[]).find(t=>t.id===nu.tid);
-            it.typeId = nu.tid;
-            it.typeName = typeObj?.name||'';
-            await api('updateItem',{itemId:it.id, typeId:nu.tid, typeName:it.typeName});
+
+      const allGroupKeys = new Set([...Object.keys(existGroups), ...Object.keys(targetGroups)]);
+      for (const key of allGroupKeys) {
+        const sep = key.indexOf('__');
+        const pid = key.slice(0,sep), tid = key.slice(sep+2);
+        const existItems = existGroups[key] || [];
+        const existQty = existItems.length;
+        const tgtQty = targetGroups[key] || 0;
+        if (tgtQty === existQty) continue;
+
+        const p = S.products.find(x=>x.id===pid);
+        if (!p) continue;
+        const ep = getEffectiveProduct(p);
+        const typeObj = tid ? (p.types||[]).find(t=>t.id===tid) : null;
+        const opt = getOption(pid, tid);
+
+        if (tgtQty < existQty) {
+          // 超過分を末尾から削除 + 在庫を戻す
+          const toRemove = existItems.slice(tgtQty);
+          for (const it of toRemove) {
+            o.items = o.items.filter(x=>x.id!==it.id);
+            if (typeObj) { isShipEdit ? typeObj.stockShip++ : typeObj.stockLoc++; }
+            else         { isShipEdit ? ep.stockShip++       : ep.stockLoc++; }
+            await api('deleteItem', { itemId:it.id, productId:pid, typeId:tid||'', isShip:isShipEdit });
+          }
+        } else {
+          // 不足分を追加 + 在庫を引く
+          const addCount = tgtQty - existQty;
+          for (let ai=0; ai<addCount; ai++) {
+            const maxIdx = Math.max(...(o.items||[]).map(x=>x.idx||0), -1);
+            const newId  = 'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+            const now2   = new Date().toISOString();
+            if (typeObj) { isShipEdit ? typeObj.stockShip=Math.max(0,typeObj.stockShip-1) : typeObj.stockLoc=Math.max(0,typeObj.stockLoc-1); }
+            else         { isShipEdit ? ep.stockShip=Math.max(0,ep.stockShip-1)           : ep.stockLoc=Math.max(0,ep.stockLoc-1); }
+            const newPrice = (p.price||0) + (opt.fee>0 ? Number(opt.fee||0) : 0);
+            const res = await api('addItemToOrder', {
+              orderId:o.id, itemId:newId, pid, idx:maxIdx+1,
+              price:newPrice, paymentMethod:orderPayment,
+              typeId:tid||'', typeName:typeObj?.name||'',
+              optionFee:opt.fee>0?opt.fee:0, doubleBinarize:opt.fee>0,
+              deliveryType:o.deliveryType, productId:pid, isShip:isShipEdit
+            });
+            const stepList=[];
+            const stepIds = res?.item?.stepIds || [];
+            for (let si=0; si<nStepsEdit; si++){
+              stepList.push({ id:stepIds[si]||('s'+si), itemId:newId, stepIndex:si,
+                done:si===0, startedAt:si<=1?now2:'', completedAt:si===0?now2:'', durationMins:'' });
+            }
+            o.items.push({ id:newId, orderId:o.id, pid, idx:maxIdx+1, typeId:tid||'', typeName:typeObj?.name||'',
+              price:newPrice, paymentMethod:orderPayment, optionFee:opt.fee>0?opt.fee:0, doubleBinarize:opt.fee>0,
+              skipBinarize:false, skipDesign:false, onHold:false, paid:false, steps:stepList });
           }
         }
       }
