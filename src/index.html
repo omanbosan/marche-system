@@ -1958,6 +1958,14 @@ function renderQtyBlock() {
     }
   });
 
+  // セット価格は商品単位（タイプ横断の合計個数）で判定する
+  const pidTotalQty = {};
+  optRows.forEach(row => {
+    const q = row.tid ? ((T.selTypeQty[row.pid]||{})[row.tid]||0) : (T.selProds[row.pid]||0);
+    pidTotalQty[row.pid] = (pidTotalQty[row.pid]||0) + q;
+  });
+  const setPriceShownPids = new Set();
+
   optEl.innerHTML = optRows.map((row, idx) => {
     const p = S.products.find(x=>x.id===row.pid);
     const opt = getOption(row.pid, row.tid);
@@ -1966,17 +1974,19 @@ function renderQtyBlock() {
     const isLast = idx === optRows.length - 1;
     const isCustomFee = opt.fee > 0 && ![500,700,1000].includes(opt.fee);
 
-    // セット価格トグル: 商品にセット価格が設定されていて個数が最小tier以上のときだけ表示
-    const setKey = row.pid + '__' + (row.tid||'');
-    const availTiers = (p?.setPrices||[]).filter(sp=>sp.qty<=qty);
-    const setPriceHtml = availTiers.length ? (() => {
-      const setOn = !!T.setPriceOn[setKey];
-      const info  = calcSetPriceInfo(p.setPrices, qty, p.price);
-      return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-        <button class="opt-chip${setOn?' on':''}" onclick="toggleSetPrice('${row.pid}','${row.tid}')" style="touch-action:manipulation">🎁 セット価格を使う</button>
-        <span style="font-size:11px;color:var(--dim)">${qty}個 → ¥${info.total.toLocaleString()}${info.saved>0?`（¥${info.saved.toLocaleString()}お得）`:''}</span>
+    // セット価格トグル: 同じ商品ならタイプが違っても合計個数で判定・その商品の最初の行にのみ表示
+    const totalQtyForPid = pidTotalQty[row.pid] || qty;
+    const availTiers = (p?.setPrices||[]).filter(sp=>sp.qty<=totalQtyForPid);
+    let setPriceHtml = '';
+    if (availTiers.length && !setPriceShownPids.has(row.pid)) {
+      setPriceShownPids.add(row.pid);
+      const setOn = !!T.setPriceOn[row.pid];
+      const info  = calcSetPriceInfo(p.setPrices, totalQtyForPid, p.price);
+      setPriceHtml = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="opt-chip${setOn?' on':''}" onclick="toggleSetPrice('${row.pid}')" style="touch-action:manipulation">🎁 セット価格を使う</button>
+        <span style="font-size:11px;color:var(--dim)">${p.name} 計${totalQtyForPid}個 → ¥${info.total.toLocaleString()}${info.saved>0?`（¥${info.saved.toLocaleString()}お得）`:''}</span>
       </div>`;
-    })() : '';
+    }
 
     // 追加料金チップ: [なし][¥500][¥700][¥1,000][任意]
     const feeDefs = [[0,'なし'],[500,'¥500'],[700,'¥700'],[1000,'¥1,000'],[-1,'任意']];
@@ -2086,23 +2096,27 @@ function calcSetPriceInfo(setPrices, qty, unitPrice) {
   return { total, saved: saved > 0 ? saved : 0 };
 }
 
-function toggleSetPrice(pid, tid) {
-  const key = pid + '__' + (tid||'');
-  T.setPriceOn[key] = !T.setPriceOn[key];
+// セット価格は商品単位（タイプ横断）のON/OFF
+function toggleSetPrice(pid) {
+  T.setPriceOn[pid] = !T.setPriceOn[pid];
   renderQtyBlock();
 }
 
-// セット価格ONのとき、qty個ぶんの単価配列（合計がセット価格になるよう端数を先頭個に寄せる）を返す
-function getSetPriceUnitPrices(pid, tid, qty, unitPrice) {
-  const key = pid + '__' + (tid||'');
-  const p = S.products.find(x=>x.id===pid);
-  if (!T.setPriceOn[key] || !(p?.setPrices||[]).length) {
-    return new Array(qty).fill(unitPrice);
-  }
-  const info = calcSetPriceInfo(p.setPrices, qty, unitPrice);
-  const base = Math.floor(info.total / qty);
-  const remainder = info.total - base*qty;
-  return new Array(qty).fill(0).map((_,i)=> i < remainder ? base+1 : base);
+// 商品ごとのセット価格適用個数ぶんの単価キューを作る
+// （タイプが違っても同じ商品なら合計個数で判定し、端数は先頭個に寄せる）
+function buildSetPriceQueues(pidTotalQty) {
+  const queues = {};
+  Object.keys(pidTotalQty).forEach(pid => {
+    if (!T.setPriceOn[pid]) return;
+    const p = S.products.find(x=>x.id===pid);
+    if (!p || !(p.setPrices||[]).length) return;
+    const qty = pidTotalQty[pid];
+    const info = calcSetPriceInfo(p.setPrices, qty, p.price||0);
+    const base = Math.floor(info.total / qty);
+    const remainder = info.total - base*qty;
+    queues[pid] = new Array(qty).fill(0).map((_,i)=> i < remainder ? base+1 : base);
+  });
+  return queues;
 }
 
 document.querySelectorAll('#pay-pick-order .pay-btn').forEach(b=>{
@@ -2205,6 +2219,15 @@ async function saveOrder() {
   const orderId=uid(), now=new Date().toISOString();
   const items=[];
   const stepDefs=getStepDefs(T.delivery);
+  // セット価格は商品単位（タイプ横断の合計個数）で判定するため、先に合計個数を集計してキュー化
+  const pidTotalQtyForSet = {};
+  sel.forEach(([pid,qty])=>{ pidTotalQtyForSet[pid]=(pidTotalQtyForSet[pid]||0)+qty; });
+  selWithTypes.forEach(([pid,qty])=>{ pidTotalQtyForSet[pid]=(pidTotalQtyForSet[pid]||0)+qty; });
+  const setPriceQueues = buildSetPriceQueues(pidTotalQtyForSet);
+  const nextUnitPrice = (pid, fallback) => {
+    const q = setPriceQueues[pid];
+    return (q && q.length) ? q.shift() : fallback;
+  };
   // タイプなし商品
   sel.forEach(([pid,qty])=>{
     const opt=getOption(pid,'');
@@ -2212,7 +2235,6 @@ async function saveOrder() {
     const raw = T.options[pid+'__']?.count;
     const optCount = raw !== undefined ? raw : qty;
     const p=S.products.find(x=>x.id===pid);
-    const unitPrices = getSetPriceUnitPrices(pid,'',qty,p?.price||0);
     for(let i=0;i<qty;i++){
       const iid=uid();
       const steps=stepDefs.map((_,si)=>({
@@ -2222,7 +2244,7 @@ async function saveOrder() {
       // count=0の場合は1個目のみオプション料金を載せる（1オーダーあたりの追加料金）
       const applyOpt = optCount===0 ? i===0 : i<optCount;
       const hasOption= applyOpt && (opt.fee>0||!!opt.note);
-      const basePrice=unitPrices[i]+(hasOption?Number(opt.fee||0):0);
+      const basePrice=nextUnitPrice(pid,p?.price||0)+(hasOption?Number(opt.fee||0):0);
       items.push({id:iid,pid,idx:i,totalOf:qty,skipBinarize:false,skipDesign:false,
         price:basePrice,paymentMethod:orderPayment,paid:false,onHold:false,
         typeId:'',typeName:'',
@@ -2238,7 +2260,6 @@ async function saveOrder() {
     const optCount2 = raw2 !== undefined ? raw2 : qty;
     const p=S.products.find(x=>x.id===pid);
     const typeObj=(p?.types||[]).find(t=>t.id===tid);
-    const unitPrices2 = getSetPriceUnitPrices(pid,tid,qty,p?.price||0);
     for(let i=0;i<qty;i++){
       const iid=uid();
       const steps=stepDefs.map((_,si)=>({
@@ -2247,7 +2268,7 @@ async function saveOrder() {
       }));
       const applyOpt2 = optCount2===0 ? i===0 : i<optCount2;
       const hasOption2= applyOpt2 && (opt2.fee>0||!!opt2.note);
-      const basePrice2=unitPrices2[i]+(hasOption2?Number(opt2.fee||0):0);
+      const basePrice2=nextUnitPrice(pid,p?.price||0)+(hasOption2?Number(opt2.fee||0):0);
       items.push({id:iid,pid,idx:i,totalOf:qty,skipBinarize:false,skipDesign:false,
         price:basePrice2,paymentMethod:orderPayment,paid:false,onHold:false,
         typeId:tid,typeName:typeObj?.name||'',
@@ -2277,42 +2298,36 @@ async function saveOrder() {
   localStorage.setItem('mb_last_num',String(num));
 
   // 注文登録時に在庫を引き落とし
-  // 同一商品・同一タイプへの複数API呼び出し競合を防ぐため、先にローカル在庫を全件更新してから
-  // product/type ごとに1回だけ adjustStock を呼ぶ
+  // 同一商品・同一タイプへの複数API呼び出し競合を防ぐため、個数を集計してから
+  // product/type ごとに1回だけ、合計delta分をまとめて送る
   const isShip = T.delivery === 'shipping';
-  // ① ローカル在庫を全アイテム分まとめて引き落とし（連動商品は連動先を更新）
+  const adjMap = new Map(); // key -> {pid, tid, count}
   items.forEach(it => {
     const p = S.products.find(x=>x.id===it.pid);
     if (!p) return;
     const ep = getEffectiveProduct(p); // 連動先があればそちら、なければ自分
-    if (it.typeId && (p.types||[]).length > 0 && !p.sharedStockWith) {
+    const hasType = it.typeId && (p.types||[]).length > 0 && !p.sharedStockWith;
+    if (hasType) {
       const typeObj = p.types.find(t=>t.id===it.typeId);
-      if (typeObj) {
-        if (isShip) typeObj.stockShip = Math.max(0,(typeObj.stockShip||0)-1);
-        else        typeObj.stockLoc  = Math.max(0,(typeObj.stockLoc ||0)-1);
-      }
+      if (!typeObj) return;
+      if (isShip) typeObj.stockShip = Math.max(0,(typeObj.stockShip||0)-1);
+      else        typeObj.stockLoc  = Math.max(0,(typeObj.stockLoc ||0)-1);
+      const key = `${p.id}__${it.typeId}`;
+      if (!adjMap.has(key)) adjMap.set(key, { pid:p.id, tid:it.typeId, count:0 });
+      adjMap.get(key).count++;
     } else {
       if (isShip) ep.stockShip = Math.max(0,(ep.stockShip||0)-1);
       else        ep.stockLoc  = Math.max(0,(ep.stockLoc ||0)-1);
+      if (!adjMap.has(p.id)) adjMap.set(p.id, { pid:p.id, tid:'', count:0 });
+      adjMap.get(p.id).count++;
     }
   });
-  // ② product/type ごとに1回だけ GAS へ送信（最終値を送るので競合なし）
-  const adjSent = new Set();
-  items.forEach(it => {
-    const p = S.products.find(x=>x.id===it.pid);
-    if (!p) return;
-    if (it.typeId && (p.types||[]).length > 0) {
-      const key = `${p.id}__${it.typeId}`;
-      if (adjSent.has(key)) return;
-      adjSent.add(key);
-      const typeObj = p.types.find(t=>t.id===it.typeId);
-      if (typeObj) api('adjustStock',{ productId:p.id, typeId:it.typeId,
-        delta:-1, isShip, reason:'order' }, 2, false);
+  // product/type ごとに1回だけ GAS へ送信（合計個数ぶんのdeltaを送るので競合なし）
+  adjMap.forEach(({pid, tid, count}) => {
+    if (tid) {
+      api('adjustStock',{ productId:pid, typeId:tid, delta:-count, isShip, reason:'order' }, 2, false);
     } else {
-      if (adjSent.has(p.id)) return;
-      adjSent.add(p.id);
-      api('adjustStock',{ productId:p.id,
-        delta:-1, isShip, reason:'order' }, 2, false);
+      api('adjustStock',{ productId:pid, delta:-count, isShip, reason:'order' }, 2, false);
     }
   });
 
@@ -2627,25 +2642,34 @@ async function saveItemEdit() {
 function confirmDeleteOrder(oid) {
   const o=S.orders.find(x=>x.id===oid);
   showConfirm(`#${String(o?.num||'').padStart(3,'0')} を削除しますか？`,'削除後は元に戻せません',async()=>{
-    // 在庫を戻す（リトライ付き・ローディング非表示）
+    // 在庫を戻す（同一商品・同一タイプは個数を集計して1回だけ送信＝競合防止）
     const isShipDel = o.deliveryType === 'shipping';
+    const adjMapDel = new Map(); // key -> {pid, tid, count}
     (o.items||[]).forEach(it => {
       const p = S.products.find(x=>x.id===it.pid);
       if (!p) return;
       const ep = getEffectiveProduct(p); // 連動先があればそちら、なければ自分
-      if (it.typeId && (p.types||[]).length > 0 && !p.sharedStockWith) {
+      const hasType = it.typeId && (p.types||[]).length > 0 && !p.sharedStockWith;
+      if (hasType) {
         const typeObj = p.types.find(t=>t.id===it.typeId);
-        if (typeObj) {
-          if (isShipDel) typeObj.stockShip = (typeObj.stockShip||0)+1;
-          else           typeObj.stockLoc  = (typeObj.stockLoc ||0)+1;
-          api('adjustStock',{ productId:p.id, typeId:it.typeId,
-            delta:1, isShip:isShipDel, reason:'delete' }, 2, false);
-        }
+        if (!typeObj) return;
+        if (isShipDel) typeObj.stockShip = (typeObj.stockShip||0)+1;
+        else           typeObj.stockLoc  = (typeObj.stockLoc ||0)+1;
+        const key = `${p.id}__${it.typeId}`;
+        if (!adjMapDel.has(key)) adjMapDel.set(key, { pid:p.id, tid:it.typeId, count:0 });
+        adjMapDel.get(key).count++;
       } else {
         if (isShipDel) ep.stockShip = (ep.stockShip||0)+1;
         else           ep.stockLoc  = (ep.stockLoc ||0)+1;
-        api('adjustStock',{ productId:p.id,
-          delta:1, isShip:isShipDel, reason:'delete' }, 2, false);
+        if (!adjMapDel.has(p.id)) adjMapDel.set(p.id, { pid:p.id, tid:'', count:0 });
+        adjMapDel.get(p.id).count++;
+      }
+    });
+    adjMapDel.forEach(({pid, tid, count}) => {
+      if (tid) {
+        api('adjustStock',{ productId:pid, typeId:tid, delta:count, isShip:isShipDel, reason:'delete' }, 2, false);
+      } else {
+        api('adjustStock',{ productId:pid, delta:count, isShip:isShipDel, reason:'delete' }, 2, false);
       }
     });
     S.orders=S.orders.filter(x=>x.id!==oid);
