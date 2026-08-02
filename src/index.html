@@ -2215,7 +2215,7 @@ async function saveOrder() {
             const res = await api('addItemToOrder', {
               orderId:o.id, itemId:newId, pid, idx:maxIdx+1,
               price:newPrice, paymentMethod:orderPayment,
-              typeId:tid||'', typeName:typeObj?.name||'',
+              typeId:tid||'', typeName:typeObj?.name||'', productName:p.name||'',
               optionFee:opt.fee>0?opt.fee:0, doubleBinarize:opt.fee>0,
               deliveryType:o.deliveryType, productId:pid, isShip:isShipEdit
             });
@@ -2656,7 +2656,7 @@ async function saveItemEdit() {
         const res = await api('addItemToOrder', {
           orderId: oid, itemId: newId, pid: g.pid, idx: newIdx,
           price: g.price, paymentMethod: g.payment,
-          typeId: g.tid, typeName: g.typeName,
+          typeId: g.tid, typeName: g.typeName, productName: p?.name||'',
           optionFee: optFee, doubleBinarize: optFee>0,
           deliveryType: o.deliveryType,
           productId: g.pid, isShip

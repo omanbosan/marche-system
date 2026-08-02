@@ -842,29 +842,7 @@ function handleAddItemToOrder(data) {
   if (data.productId) {
     handleAdjustStock({ productId: data.productId, typeId: data.typeId||'', delta: -1, isShip: data.isShip });
   }
-
-  // 既に売上記録済みの注文（現地：登録時、郵送：発送完了時）に追加した場合は、追加分もsalesに反映する
-  appendSalesLineIfRecorded(ss, data.orderId, data.pid, data.productName, data.typeName, data.price, data.paymentMethod, now);
-
   return ok({ item: { id: data.itemId, stepIds: stepIds } });
-}
-
-// 注文が既にhistoryに売上記録済みなら、追加した1点分をsalesに1行追記する（未記録ならまだ売上計上のタイミングではないので何もしない）
-function appendSalesLineIfRecorded(ss, orderId, pid, productName, typeName, price, paymentMethod, now) {
-  var hSh   = ss.getSheetByName(SH.HISTORY);
-  var hRows = hSh.getDataRange().getValues();
-  for (var hi = 1; hi < hRows.length; hi++) {
-    if (hRows[hi][1] === orderId) {
-      var displayName = productName || pid || '';
-      if (typeName) displayName += ' [' + typeName + ']';
-      ss.getSheetByName(SH.SALES).appendRow([
-        Utilities.getUuid(), hRows[hi][0], orderId,
-        pid, displayName, Number(price||0), paymentMethod||'cash', now
-      ]);
-      return true;
-    }
-  }
-  return false;
 }
 
 function handleDeleteHistory(data) {
