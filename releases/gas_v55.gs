@@ -16,7 +16,6 @@ const SH = {
   STOCK_LOG:'stock_log',
   EXPENSES:    'expenses',
   FIXED_COSTS: 'fixed_costs',
-  ADMIN_USERS: 'admin_users',
 };
 
 function ok(data) {
@@ -54,16 +53,6 @@ function assembleChunks(sid, total, lastChunk) {
 function doGet(e) {
   try {
     const action = e.parameter.action || '';
-
-    // action指定が無い場合は「Googleアカウント認証版」のHTML画面を返す。
-    // 既存のGitHub Pages版フロントエンドは必ずaction付きでリクエストするので、
-    // 今までの動作には一切影響しない（このデプロイを新しいURLとして追加した場合のみ使われる）。
-    if (!action) {
-      return HtmlService.createHtmlOutputFromFile('Index')
-        .setTitle('おまんぼさん 受注管理')
-        .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-    }
-
     const token  = e.parameter.token  || '';
     const sid    = e.parameter.sid    || '';
     const ci     = parseInt(e.parameter.ci    || '0');
@@ -122,110 +111,6 @@ function doGet(e) {
 }
 
 function doPost(e) { return err('GETを使用してください'); }
-
-// ============================================================
-//  Googleアカウント認証版（gas/Index.html から google.script.run 経由で呼ばれる）
-//  ・パスワードではなく、ログイン中のGoogleアカウントで判定する
-//  ・このデプロイのURLを「Googleアカウントをお持ちの全員」でアクセス許可した
-//    場合のみ Session.getActiveUser().getEmail() が正しく取得できる仕様
-//    （既存の匿名デプロイ経由では常に空文字になるため、自然にアクセス不可になる）
-//  ・既存のdoGetのswitchとは意図的に別関数(routeAction)にしている。
-//    doGet側の本番動作(トークン認証)には一切触れないようにするため、
-//    アクション追加時はこちらにも忘れず反映すること。
-// ============================================================
-// 初回だけ使う初期値。実際の許可リストはスプレッドシートの admin_users シートで管理する
-// （コードを触らずにスタッフのGoogleアカウントを追加・削除できるようにするため）。
-const MARCHE_ADMIN_EMAILS_SEED = ['omanbosan.lv@gmail.com'];
-
-function ensureAdminUsersSheet() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sh = ss.getSheetByName(SH.ADMIN_USERS);
-  if (!sh) {
-    sh = ss.insertSheet(SH.ADMIN_USERS);
-    sh.getRange(1,1,1,2).setValues([['email','note']]);
-    sh.getRange(1,1,1,2).setBackground('#1a1a2e').setFontColor('#c8a84a').setFontWeight('bold');
-    sh.setFrozenRows(1);
-    MARCHE_ADMIN_EMAILS_SEED.forEach(function(email) {
-      sh.appendRow([email, '初期登録']);
-    });
-  }
-  return sh;
-}
-
-// admin_users シートのemail列を読み、許可されたGoogleアカウント一覧を返す
-function getAllowedAdminEmails() {
-  const sh = ensureAdminUsersSheet();
-  const rows = sh.getDataRange().getValues();
-  var emails = [];
-  for (var i = 1; i < rows.length; i++) {
-    var email = (rows[i][0] || '').toString().trim().toLowerCase();
-    if (email) emails.push(email);
-  }
-  return emails;
-}
-
-function isMarcheAdminUser() {
-  var email = (Session.getActiveUser().getEmail() || '').toLowerCase();
-  return !!email && getAllowedAdminEmails().indexOf(email) !== -1;
-}
-
-function routeAction(action, data) {
-  switch (action) {
-    case 'ping':           return ok({ pong: true });
-    case 'getAll':         return handleGetAll();
-    case 'getHistory':     return handleGetHistory(data.year||'', data.month||'');
-    case 'saveOrderFast':  return handleSaveOrderFast(data);
-    case 'saveOrder':      return handleSaveOrderFast(data.order||data);
-    case 'saveOrderHeader':return handleSaveOrderHeader(data);
-    case 'saveOrderItem':  return handleSaveOrderItem(data);
-    case 'saveOrderStep':  return handleSaveOrderStep(data);
-    case 'updateStep':     return handleUpdateStep(data);
-    case 'updateItem':     return handleUpdateItem(data);
-    case 'updateOrder':    return handleUpdateOrder(data);
-    case 'completeOrder':  return handleCompleteOrder(data);
-    case 'deleteOrder':    return handleDeleteOrder(data.orderId||'');
-    case 'deleteItem':     return handleDeleteItem(data);
-    case 'addItemToOrder': return handleAddItemToOrder(data);
-    case 'deleteHistory':  return handleDeleteHistory(data);
-    case 'saveProduct':     return handleSaveProduct(data.product||data);
-    case 'deleteProduct':   return handleDeleteProduct(data.productId||'');
-    case 'reorderProducts': return handleReorderProducts(data);
-    case 'adjustStock':       return handleAdjustStock(data);
-    case 'transferStock':     return handleTransferStock(data);
-    case 'updateHistory':     return handleUpdateHistory(data);
-    case 'exportCSV':         return handleExportCSV();
-    case 'fixSalesTypeNames': return ok({ result: fixSalesTypeNames() });
-    case 'fixItemTypes':      return handleFixItemTypes();
-    case 'recordOrderSales':  return handleRecordOrderSales(data);
-    case 'getExpenses':       return handleGetExpenses(data.year||'', data.month||'');
-    case 'saveExpense':       return handleSaveExpense(data.expense||data);
-    case 'deleteExpense':     return handleDeleteExpense(data.expenseId||'');
-    case 'saveLaborRate':     return handleSaveLaborRate(data.rate||0);
-    case 'getFixedCosts':     return handleGetFixedCosts(data.year||'', data.month||'');
-    case 'saveFixedCost':     return handleSaveFixedCost(data.cost||data);
-    case 'deleteFixedCost':   return handleDeleteFixedCost(data.costId||'');
-    default:                  return err('Unknown action: ' + action);
-  }
-}
-
-// google.script.run から呼ばれる唯一のエントリポイント。
-function rpc(action, data) {
-  if (!isMarcheAdminUser()) throw new Error('Unauthorized');
-  var result = routeAction(action, data || {});
-  var parsed = JSON.parse(result.getContent());
-  if (!parsed.ok) throw new Error(parsed.error);
-  return parsed.data;
-}
-
-// ページ初期化時に呼ばれる。許可アカウントでなければ例外を投げる
-// （呼び出し側でメッセージをそのまま表示する）。
-function getCurrentUserEmailForApp() {
-  var email = Session.getActiveUser().getEmail();
-  if (!email || getAllowedAdminEmails().indexOf(email.toLowerCase()) === -1) {
-    throw new Error('このアカウント(' + (email || '未ログイン') + ')には権限がありません');
-  }
-  return email;
-}
 
 // ============================================================
 //  認証（複数端末対応）

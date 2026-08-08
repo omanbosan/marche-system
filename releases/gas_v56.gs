@@ -16,7 +16,6 @@ const SH = {
   STOCK_LOG:'stock_log',
   EXPENSES:    'expenses',
   FIXED_COSTS: 'fixed_costs',
-  ADMIN_USERS: 'admin_users',
 };
 
 function ok(data) {
@@ -133,40 +132,11 @@ function doPost(e) { return err('GETを使用してください'); }
 //    doGet側の本番動作(トークン認証)には一切触れないようにするため、
 //    アクション追加時はこちらにも忘れず反映すること。
 // ============================================================
-// 初回だけ使う初期値。実際の許可リストはスプレッドシートの admin_users シートで管理する
-// （コードを触らずにスタッフのGoogleアカウントを追加・削除できるようにするため）。
-const MARCHE_ADMIN_EMAILS_SEED = ['omanbosan.lv@gmail.com'];
-
-function ensureAdminUsersSheet() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sh = ss.getSheetByName(SH.ADMIN_USERS);
-  if (!sh) {
-    sh = ss.insertSheet(SH.ADMIN_USERS);
-    sh.getRange(1,1,1,2).setValues([['email','note']]);
-    sh.getRange(1,1,1,2).setBackground('#1a1a2e').setFontColor('#c8a84a').setFontWeight('bold');
-    sh.setFrozenRows(1);
-    MARCHE_ADMIN_EMAILS_SEED.forEach(function(email) {
-      sh.appendRow([email, '初期登録']);
-    });
-  }
-  return sh;
-}
-
-// admin_users シートのemail列を読み、許可されたGoogleアカウント一覧を返す
-function getAllowedAdminEmails() {
-  const sh = ensureAdminUsersSheet();
-  const rows = sh.getDataRange().getValues();
-  var emails = [];
-  for (var i = 1; i < rows.length; i++) {
-    var email = (rows[i][0] || '').toString().trim().toLowerCase();
-    if (email) emails.push(email);
-  }
-  return emails;
-}
+const MARCHE_ADMIN_EMAILS = ['omanbosan.lv@gmail.com'];
 
 function isMarcheAdminUser() {
-  var email = (Session.getActiveUser().getEmail() || '').toLowerCase();
-  return !!email && getAllowedAdminEmails().indexOf(email) !== -1;
+  var email = Session.getActiveUser().getEmail();
+  return !!email && MARCHE_ADMIN_EMAILS.indexOf(email) !== -1;
 }
 
 function routeAction(action, data) {
@@ -221,7 +191,7 @@ function rpc(action, data) {
 // （呼び出し側でメッセージをそのまま表示する）。
 function getCurrentUserEmailForApp() {
   var email = Session.getActiveUser().getEmail();
-  if (!email || getAllowedAdminEmails().indexOf(email.toLowerCase()) === -1) {
+  if (!email || MARCHE_ADMIN_EMAILS.indexOf(email) === -1) {
     throw new Error('このアカウント(' + (email || '未ログイン') + ')には権限がありません');
   }
   return email;

@@ -183,6 +183,22 @@ GASのSCRIPT_IDはApps Scriptエディタの「プロジェクトの設定」か
 
 ---
 
+## Googleアカウント認証版（2026-08-08追加、GitHub Pages版と併存）
+
+本番のGitHub Pages＋パスワード認証（上記「重要URLs」のGAS URL、deploymentId末尾`...GF28Ulg`固定）とは別に、**GAS自身がHTMLを返すGoogleアカウント認証版**を追加した。
+
+- ソース: `gas/Index.html`（`src/index.html`の派生。通信を`fetch()`から`google.script.run`に置換）
+- サーバー側: `src/gas_code.gs`内の`routeAction`/`rpc`/`isMarcheAdminUser`/`getCurrentUserEmailForApp`
+- `doGet`は`action`パラメータが無い場合だけHTML版を返す分岐なので、既存の`?action=...&token=...`系（GitHub Pages版）には一切影響しない
+- 許可アカウントは`admin_users`シート（email列）で管理。コード直書きの`MARCHE_ADMIN_EMAILS_SEED`はシートが空の時の初期値のみ
+- 管理者用デプロイURL: `https://script.google.com/macros/s/AKfycbyGx2qJ_Q8AKfAfunACHfUTfm2VZ1VlF8AYjWd5cDCLdHwYvdQBSRU0ccWBPQb2VgylLg/exec`（要Googleログイン）
+
+### 重要な制約（2つ）
+1. **`clasp deploy`/`clasp redeploy`でコード更新すると、そのデプロイの「アクセスできるユーザー」設定が`appsscript.json`の`webapp.access`（`ANYONE`）にリセットされる。** コード更新のたびに、Apps Scriptエディタ→デプロイを管理→鉛筆アイコンで「Google アカウントをお持ちの全員」に戻すこと。
+2. **`executeAs: USER_ACCESSING`にしているため、`admin_users`に追加したメールアドレスには、スプレッドシート本体も「編集者」として共有する必要がある**（実行ユーザー本人の権限でシートを読み書きするため）。共有はGoogleスプレッドシートの「共有」ボタンから手動で行う（claspのOAuthトークンでは他人作成ファイルへ権限付与できない）。
+
+---
+
 ## 現在の未解決問題（引き継ぎ事項）
 
 1. **工程別実績時間の2値化が--になる**
