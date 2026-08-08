@@ -194,7 +194,7 @@ GASのSCRIPT_IDはApps Scriptエディタの「プロジェクトの設定」か
 - 管理者用デプロイURL: `https://script.google.com/macros/s/AKfycbyGx2qJ_Q8AKfAfunACHfUTfm2VZ1VlF8AYjWd5cDCLdHwYvdQBSRU0ccWBPQb2VgylLg/exec`（要Googleログイン）
 
 ### 重要な制約（2つ）
-1. **`clasp deploy`/`clasp redeploy`でコード更新すると、そのデプロイの「アクセスできるユーザー」設定が`appsscript.json`の`webapp.access`（`ANYONE`）にリセットされる。** コード更新のたびに、Apps Scriptエディタ→デプロイを管理→鉛筆アイコンで「Google アカウントをお持ちの全員」に戻すこと。
+1. **（2026-08-08訂正）`appsscript.json`の`webapp.access: "ANYONE"`は正しい値。** Google公式マニフェスト仕様では`ANYONE`＝ログイン必須の「Googleアカウントをお持ちの全員」、`ANYONE_ANONYMOUS`＝匿名含む全員、なので`ANYONE`のままでUIの「Googleアカウントをお持ちの全員」と一致する。`clasp push`/`clasp deploy`のたびにUIで手動で戻す必要はない（以前はここに「毎回UIで戻すこと」と書いていたが誤り）。ログイン後もアクセス拒否になる場合は、accessの値ではなく下記「clasp で GAS に自動デプロイしたのに反映されない」の既知の不具合（API経由のデプロイ反映バグ）を疑い、そちらの対処（Apps Scriptエディタでバージョンを選び直してデプロイ）を試すこと。
 2. **`executeAs: USER_ACCESSING`にしているため、`admin_users`に追加したメールアドレスには、スプレッドシート本体も「編集者」として共有する必要がある**（実行ユーザー本人の権限でシートを読み書きするため）。共有はGoogleスプレッドシートの「共有」ボタンから手動で行う（claspのOAuthトークンでは他人作成ファイルへ権限付与できない）。
 
 ---
@@ -221,3 +221,10 @@ GASのSCRIPT_IDはApps Scriptエディタの「プロジェクトの設定」か
 - 現地注文は登録時に即 `history`/`sales` へ売上記録される仕様（`recordSalesForOrder`）だが、`handleDeleteOrder` が `orders`/`items`/`steps` しか消しておらず、削除しても売上に残っていた
 - `handleDeleteOrder` に `history`（col1=orderId）・`sales`（col2=orderId）の削除を追加して修正済み
 - **注意**: この修正より前に「受付」タブから削除された注文は、`sales`/`history` に孤立レコードが残っている可能性がある。売上集計が過去分だけ多い等の報告があれば、sales/historyシートをorderId基準でordersシートに存在しない行がないか確認すること
+
+### 2026-08-08: 完了ボタンを押しても一覧に残るバグを修正（index_v83 / gas_v57、Googleアカウント認証版で発生）
+- 全工程完了時の`completeOrder`呼び出しが`apiAsync`（fire-and-forget、失敗を検知しない）だったため、GAS側の保存が何らかの理由で失敗しても画面には一切通知されなかった
+- 画面上はローカルの楽観的更新で即座に一覧から消えるが、20秒ごとの自動同期（`loadAll`）でサーバー未完了データに上書きされ、「完了を押しても残る」ように見えていた
+- `tapStep`内の`completeOrder`呼び出しを、成功/失敗が分かる`api()`に変更。失敗時は一覧に注文を戻し、トーストで通知するようにした（`gas/Index.html`・`src/index.html`両方）
+- あわせて`apiAsync`全般に`console.error`でのエラーログを追加（次回同様の問題が起きた際、ブラウザの開発者コンソールで原因を特定しやすくするため）
+- **未解決**: 上記は「気づけるようにする」対策であり、GAS側で実際に何が失敗していたか（`executeAs: USER_ACCESSING`環境でのCacheService分離、書き込み権限、実行エラーなど）は未特定。再発したらまずブラウザの開発者コンソールで`apiAsync failed:`ログを確認すること
