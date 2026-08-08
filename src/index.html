@@ -1101,12 +1101,13 @@ async function api(action, data={}, retry=1, forceShow=null) {
 }
 
 // fire-and-forget（ローディング表示なし・画面をブロックしない）
+// 失敗してもUIはブロックしないが、原因調査できるようconsoleにはエラーを残す
 function apiAsync(action, data={}) {
   const dataStr = JSON.stringify(data);
   const MAX = 4000;
   if (dataStr.length <= MAX) {
     const url = `${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&d=${encodeURIComponent(dataStr)}`;
-    fetch(url).catch(()=>{});
+    fetch(url).then(r=>r.json()).then(j=>{ if(!j.ok) console.error('apiAsync failed:', action, j.error); }).catch(e=>console.error('apiAsync network error:', action, e));
   } else {
     // 長いデータは分割して非同期送信
     const sid = uid();
@@ -1116,7 +1117,8 @@ function apiAsync(action, data={}) {
       for (let i = 0; i < chunks.length-1; i++) {
         await fetch(`${GAS_URL}?action=storeChunk&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${i}&d=${encodeURIComponent(chunks[i])}`).catch(()=>{});
       }
-      fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`).catch(()=>{});
+      fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`)
+        .then(r=>r.json()).then(j=>{ if(!j.ok) console.error('apiAsync failed:', action, j.error); }).catch(e=>console.error('apiAsync network error:', action, e));
     })();
   }
 }
@@ -1565,14 +1567,23 @@ function tapStep(btn, deliveryType) {
           // 在庫は注文登録時に引き落とし済みのためここでは不要
         }
       });
-      // GAS完了記録
+      // GAS完了記録（成功/失敗が分かるapi()を使用。サーバー側で失敗した場合は
+      // 一覧に戻して通知する。apiAsyncのままだと失敗が握りつぶされ、
+      // 次回の自動同期でサーバー未完了データに巻き戻り「完了を押しても残る」ように見えるため）
       const items4hist = (order.items||[]).map(it => {
         const pr = S.products.find(x=>x.id===it.pid);
         return { pid:it.pid, productName:pr?.name||'', typeName:it.typeName||'', price:it.price||pr?.price||0, paymentMethod:it.paymentMethod||'' };
       });
       // 送料の支払い方法はアイテムの支払い方法に統一（shippingPaymentは使わない）
       const orderPayForShipping = items4hist[0]?.paymentMethod || order.items?.[0]?.paymentMethod || 'cash';
-      apiAsync('completeOrder', { orderId:order.id, num:order.num, completedAt:now, deliveryType:order.deliveryType, channel:order.channel||'marche', items:items4hist, shippingFee:order.shippingFee||0, shippingPayment:orderPayForShipping });
+      api('completeOrder', { orderId:order.id, num:order.num, completedAt:now, deliveryType:order.deliveryType, channel:order.channel||'marche', items:items4hist, shippingFee:order.shippingFee||0, shippingPayment:orderPayForShipping }, 1, false).then(res => {
+        if (!res) {
+          // 保存失敗：一覧に戻してユーザーに知らせる
+          if (!S.orders.find(o2=>o2.id===order.id)) S.orders.push(order);
+          toast(`⚠️ #${String(order.num).padStart(3,'0')} の完了保存に失敗しました。もう一度お試しください`);
+          renderLocal(); renderShipping(); updateWait(); renderMaster();
+        }
+      });
     } else {
       const nextItem = (order.items||[]).find(it=>!it.steps.every(s=>s.done));
       if (nextItem) {
