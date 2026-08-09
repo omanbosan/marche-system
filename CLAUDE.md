@@ -3,7 +3,7 @@
 ## プロジェクト概要
 
 レーザー工房向けの受注管理システム。
-- **フロントエンド**: GitHub Pages（静的HTML/JS/CSS 単一ファイル）
+- **フロントエンド**: GAS自身がHTMLを返す直配信版（`gas/Index.html`）が本流。GitHub Pages版（静的HTML/JS/CSS 単一ファイル）は2026-08-09にリポジトリを非公開化したため配信停止中（GitHub Free は非公開リポジトリでPagesを配信できない）
 - **バックエンド**: Google Apps Script（GAS）
 - **データ**: Googleスプレッドシート
 
@@ -12,9 +12,10 @@
 ## 重要URLs・認証情報
 
 ```
-GitHub リポジトリ : https://github.com/omanbosan/marche-system
-GitHub Pages URL  : https://omanbosan.github.io/marche-system/
-GAS URL           : https://script.google.com/macros/s/AKfycbwQ8-M1NueHtjLf8Q1B5I6X-YTfdDUTcczYaFxRIaP4Ocq9UL-gj6rcucHZWNAGF28Ulg/exec
+GitHub リポジトリ : https://github.com/omanbosan/marche-system （2026-08-09〜非公開）
+GitHub Pages URL  : https://omanbosan.github.io/marche-system/ （非公開化により404・現在配信停止中）
+GAS URL（本流）    : https://script.google.com/macros/s/AKfycbyGx2qJ_Q8AKfAfunACHfUTfm2VZ1VlF8AYjWd5cDCLdHwYvdQBSRU0ccWBPQb2VgylLg/exec （gas/Index.html・パスワード認証）
+GAS URL（旧・GitHub Pages用API）: https://script.google.com/macros/s/AKfycbwQ8-M1NueHtjLf8Q1B5I6X-YTfdDUTcczYaFxRIaP4Ocq9UL-gj6rcucHZWNAGF28Ulg/exec
 GAS スクリプトID  : 1Dalr98OYU8tdXNnJ9glby1vqUIohudYxuE4seyC0BFRvAt6IsNNK8fih
 スプレッドシートID : 1-27E8JVuZ3aD-cGsNCiq6WdCB6OemqghRKvx7NhjTQE
 Googleアカウント   : omanbo.monodukuri@gmail.com（スプレッドシート・GASの所有者）
