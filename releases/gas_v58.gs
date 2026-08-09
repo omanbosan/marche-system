@@ -125,16 +125,16 @@ function doPost(e) { return err('GETを使用してください'); }
 
 // ============================================================
 //  Googleアカウント認証版（gas/Index.html から google.script.run 経由で呼ばれる）
-//  2026-08-09: Googleログイン認証が不安定だったため、GitHub Pages版と同じ
-//  パスワード＋トークン認証（verifyToken、下記rpc参照）に統一した。
+//  ・パスワードではなく、ログイン中のGoogleアカウントで判定する
+//  ・このデプロイのURLを「Googleアカウントをお持ちの全員」でアクセス許可した
+//    場合のみ Session.getActiveUser().getEmail() が正しく取得できる仕様
+//    （既存の匿名デプロイ経由では常に空文字になるため、自然にアクセス不可になる）
 //  ・既存のdoGetのswitchとは意図的に別関数(routeAction)にしている。
 //    doGet側の本番動作(トークン認証)には一切触れないようにするため、
 //    アクション追加時はこちらにも忘れず反映すること。
-//
-//  以下のGoogleアカウント判定用の関数群（〜isMarcheAdminUserまで）は
-//  現在未使用（呼び出し元なし）。admin_usersシートによるアカウント単位の
-//  許可制に戻す場合のために残してある。
 // ============================================================
+// 初回だけ使う初期値。実際の許可リストはスプレッドシートの admin_users シートで管理する
+// （コードを触らずにスタッフのGoogleアカウントを追加・削除できるようにするため）。
 const MARCHE_ADMIN_EMAILS_SEED = ['omanbosan.lv@gmail.com'];
 
 function ensureAdminUsersSheet() {
@@ -171,7 +171,6 @@ function isMarcheAdminUser() {
 
 function routeAction(action, data) {
   switch (action) {
-    case 'auth':           return handleAuth(data.password || '');
     case 'ping':           return ok({ pong: true });
     case 'getAll':         return handleGetAll();
     case 'getHistory':     return handleGetHistory(data.year||'', data.month||'');
@@ -210,14 +209,22 @@ function routeAction(action, data) {
 }
 
 // google.script.run から呼ばれる唯一のエントリポイント。
-// GitHub Pages版のdoGet同様、'auth'以外はtoken必須（パスワード認証）。
 function rpc(action, data) {
-  data = data || {};
-  if (action !== 'auth' && !verifyToken(data.token || '')) throw new Error('Unauthorized');
-  var result = routeAction(action, data);
+  if (!isMarcheAdminUser()) throw new Error('Unauthorized');
+  var result = routeAction(action, data || {});
   var parsed = JSON.parse(result.getContent());
   if (!parsed.ok) throw new Error(parsed.error);
   return parsed.data;
+}
+
+// ページ初期化時に呼ばれる。許可アカウントでなければ例外を投げる
+// （呼び出し側でメッセージをそのまま表示する）。
+function getCurrentUserEmailForApp() {
+  var email = Session.getActiveUser().getEmail();
+  if (!email || getAllowedAdminEmails().indexOf(email.toLowerCase()) === -1) {
+    throw new Error('このアカウント(' + (email || '未ログイン') + ')には権限がありません');
+  }
+  return email;
 }
 
 // ============================================================

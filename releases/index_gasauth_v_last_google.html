@@ -402,17 +402,15 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 </head>
 <body>
 
-<!-- LOGIN（2026-08-09: Googleログイン認証が不安定だったため、パスワード認証に戻した） -->
+<!-- LOGIN（Googleアカウント認証版：パスワード入力欄は無し。アクセス権の確認結果を表示するだけ） -->
 <div id="login-screen">
   <div>
     <div class="login-logo">おまんぼさん</div>
     <div class="login-sub">受注管理システム</div>
   </div>
   <div class="login-box">
-    <div class="login-lbl">パスワード</div>
-    <input class="login-inp" id="pw-input" type="password" inputmode="text" autocomplete="current-password" placeholder="••••••••">
-    <button class="login-btn" id="pw-btn">ログイン</button>
-    <div class="login-err" id="login-err">パスワードが違います</div>
+    <div class="login-lbl" id="login-status">Googleアカウントを確認中...</div>
+    <div class="login-err" id="login-err" style="display:none"></div>
   </div>
 </div>
 
@@ -1058,27 +1056,26 @@ async function api(action, data={}, retry=1, forceShow=null) {
   const showLoad = forceShow !== null ? forceShow : !['updateStep','updateItem','ping','getAll','getHistory'].includes(action);
   if (showLoad) showLoading(true);
   try {
-    const payload = Object.assign({}, data, { token });
     const result = await new Promise((resolve, reject) => {
       google.script.run
         .withSuccessHandler(resolve)
         .withFailureHandler(reject)
-        .rpc(action, payload);
+        .rpc(action, data);
     });
     return result;
   } catch(e) {
     if (showLoad) showLoading(false);
     // 権限なし・未ログイン → ログイン画面へ
-    if (e && e.message === 'Unauthorized' && action !== 'auth') {
+    if (e && e.message === 'Unauthorized') {
       showLoginScreen();
       return null;
     }
-    // 1回リトライ（authは再試行しない）
-    if (retry > 0 && action !== 'auth') {
+    // 1回リトライ
+    if (retry > 0) {
       await new Promise(res => setTimeout(res, 1500));
       return api(action, data, retry - 1);
     }
-    if (action !== 'auth') toast('❌ ' + (e && e.message ? e.message : e));
+    toast('❌ ' + (e && e.message ? e.message : e));
     return null;
   } finally {
     if (showLoad) showLoading(false);
@@ -1088,50 +1085,32 @@ async function api(action, data={}, retry=1, forceShow=null) {
 // fire-and-forget（ローディング表示なし・画面をブロックしない）
 // 失敗してもUIはブロックしないが、原因調査できるようconsoleにはエラーを残す
 function apiAsync(action, data={}) {
-  const payload = Object.assign({}, data, { token });
-  google.script.run.withFailureHandler((e)=>{ console.error('apiAsync failed:', action, e); }).rpc(action, payload);
+  google.script.run.withFailureHandler((e)=>{ console.error('apiAsync failed:', action, e); }).rpc(action, data);
 }
 
 // ============================================================
-//  AUTH（2026-08-09: パスワード認証に戻した。src/index.html＝GitHub Pages版と同じ方式）
+//  AUTH（パスワードではなく、ログイン中のGoogleアカウントで判定）
 // ============================================================
-document.getElementById('pw-btn').addEventListener('click', doLogin);
-document.getElementById('pw-input').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
-
-async function doLogin() {
-  const pw = document.getElementById('pw-input').value;
-  if (!pw) return;
-  const res = await api('auth', { password: pw });
-  if (!res) { document.getElementById('login-err').style.display='block'; return; }
-  token = res.token;
-  // ログイン保持：30日間有効
-  const exp30 = Date.now() + 30 * 24 * 60 * 60 * 1000;
-  localStorage.setItem('mb_token', token);
-  localStorage.setItem('mb_token_exp', exp30.toString());
-  showApp();
-}
-
 async function tryAutoLogin() {
-  const saved = localStorage.getItem('mb_token');
-  const exp   = localStorage.getItem('mb_token_exp');
-  if (!saved || !exp) return false;
-  // ローカルの有効期限（30日）だけチェック。pingは行わない
-  // トークン切れは api() 側の Unauthorized 検出で対応
-  if (Date.now() > parseInt(exp)) {
-    localStorage.removeItem('mb_token');
-    localStorage.removeItem('mb_token_exp');
+  try {
+    await new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        .getCurrentUserEmailForApp();
+    });
+    token = 'ok'; // 既存コードのtruthy判定(if(!token)...)との互換用フラグ
+    return true;
+  } catch(e) {
+    document.getElementById('login-err').textContent = (e && e.message) || 'アクセス権がありません';
+    document.getElementById('login-err').style.display = 'block';
+    document.getElementById('login-status').textContent = 'ログインできませんでした';
     return false;
   }
-  token = saved;
-  return true;
 }
 
 function showLoginScreen() {
   token = '';
-  localStorage.removeItem('mb_token');
-  localStorage.removeItem('mb_token_exp');
-  document.getElementById('pw-input').value = '';
-  document.getElementById('login-err').style.display = 'none';
   document.getElementById('login-screen').style.display = '';
   document.getElementById('app').style.display = 'none';
 }

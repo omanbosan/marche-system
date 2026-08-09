@@ -183,17 +183,30 @@ GASのSCRIPT_IDはApps Scriptエディタの「プロジェクトの設定」か
 
 ---
 
-## Googleアカウント認証版（2026-08-08追加、GitHub Pages版と併存）
+## Googleアカウント認証版（2026-08-08追加、GitHub Pages版と併存）→ 2026-08-09にパスワード認証へ変更
 
-本番のGitHub Pages＋パスワード認証（上記「重要URLs」のGAS URL、deploymentId末尾`...GF28Ulg`固定）とは別に、**GAS自身がHTMLを返すGoogleアカウント認証版**を追加した。
+本番のGitHub Pages＋パスワード認証（上記「重要URLs」のGAS URL、deploymentId末尾`...GF28Ulg`固定）とは別に、**GAS自身がHTMLを返す版**を追加した（現在は下記の通りパスワード認証）。
 
 - ソース: `gas/Index.html`（`src/index.html`の派生。通信を`fetch()`から`google.script.run`に置換）
-- サーバー側: `src/gas_code.gs`内の`routeAction`/`rpc`/`isMarcheAdminUser`/`getCurrentUserEmailForApp`
+- サーバー側: `src/gas_code.gs`内の`routeAction`/`rpc`
 - `doGet`は`action`パラメータが無い場合だけHTML版を返す分岐なので、既存の`?action=...&token=...`系（GitHub Pages版）には一切影響しない
-- 許可アカウントは`admin_users`シート（email列）で管理。コード直書きの`MARCHE_ADMIN_EMAILS_SEED`はシートが空の時の初期値のみ
-- 管理者用デプロイURL: `https://script.google.com/macros/s/AKfycbyGx2qJ_Q8AKfAfunACHfUTfm2VZ1VlF8AYjWd5cDCLdHwYvdQBSRU0ccWBPQb2VgylLg/exec`（要Googleログイン）
+- 管理者用デプロイURL: `https://script.google.com/macros/s/AKfycbyGx2qJ_Q8AKfAfunACHfUTfm2VZ1VlF8AYjWd5cDCLdHwYvdQBSRU0ccWBPQb2VgylLg/exec`
 
-### 重要な制約（2つ）
+### 2026-08-09: Googleログイン認証が不安定だったためパスワード認証に統一
+Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（＝ログイン必須の「Googleアカウントをお持ちの全員」）と組み合わさり、アプリを開くたびにGoogleアカウント選択が挟まる構成だった。これがログイン不安定の主因と見て、GitHub Pages版と同じ「パスワード＋トークン認証」に統一した。
+
+- `rpc(action, data)`は`isMarcheAdminUser()`ではなく`verifyToken(data.token)`で判定するよう変更（`action==='auth'`のみtoken不要）
+- `routeAction`に`case 'auth': return handleAuth(data.password||'');`を追加
+- `gas/Index.html`のログイン画面・`api()`/`apiAsync()`/`tryAutoLogin()`/`doLogin()`/`showLoginScreen()`を`src/index.html`と同じ実装に置き換え（`localStorage`の`mb_token`/`mb_token_exp`で30日保持）
+- `gas/appsscript.json`を`executeAs: "USER_DEPLOYING"` / `access: "ANYONE_ANONYMOUS"`に変更（匿名アクセス可・スプレッドシートは開発者権限でアクセス。GitHub Pages版と同じ実行モデル）
+- パスワードはGitHub Pages版と共通（`config`シートの`passwordHash`）
+- `isMarcheAdminUser`/`getCurrentUserEmailForApp`/`ensureAdminUsersSheet`/`getAllowedAdminEmails`/`admin_users`シート関連は未使用のまま`src/gas_code.gs`に残置
+- clasp push後、`clasp deploy --deploymentId AKfycbyGx2qJ...`で管理者用デプロイのみ更新済み（GitHub Pages版のdeploymentId`...GF28Ulg`には触れていない）。匿名curlで`pw-input`を含むログイン画面が返ることを確認済み
+
+**How to apply**: 今後この管理者用デプロイURLの認証まわりを触る場合は、GitHub Pages版のtoken認証ロジック（`verifyToken`/`handleAuth`）を流用する方針を踏襲すること。Googleアカウント判定に戻す要望が出たら、上記の未使用関数群を`rpc`から再度呼ぶ形に戻せばよい。
+
+（以下、旧・Googleアカウント認証版の制約メモ。参考として残置）
+
 1. **（2026-08-08訂正）`appsscript.json`の`webapp.access: "ANYONE"`は正しい値。** Google公式マニフェスト仕様では`ANYONE`＝ログイン必須の「Googleアカウントをお持ちの全員」、`ANYONE_ANONYMOUS`＝匿名含む全員、なので`ANYONE`のままでUIの「Googleアカウントをお持ちの全員」と一致する。`clasp push`/`clasp deploy`のたびにUIで手動で戻す必要はない（以前はここに「毎回UIで戻すこと」と書いていたが誤り）。ログイン後もアクセス拒否になる場合は、accessの値ではなく下記「clasp で GAS に自動デプロイしたのに反映されない」の既知の不具合（API経由のデプロイ反映バグ）を疑い、そちらの対処（Apps Scriptエディタでバージョンを選び直してデプロイ）を試すこと。
 2. **`executeAs: USER_ACCESSING`にしているため、`admin_users`に追加したメールアドレスには、スプレッドシート本体も「編集者」として共有する必要がある**（実行ユーザー本人の権限でシートを読み書きするため）。共有はGoogleスプレッドシートの「共有」ボタンから手動で行う（claspのOAuthトークンでは他人作成ファイルへ権限付与できない）。
 
