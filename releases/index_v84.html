@@ -402,7 +402,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 </head>
 <body>
 
-<!-- LOGIN（2026-08-09: Googleログイン認証が不安定だったため、パスワード認証に戻した） -->
+<!-- LOGIN -->
 <div id="login-screen">
   <div>
     <div class="login-logo">おまんぼさん</div>
@@ -982,10 +982,8 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 <script>
 // ============================================================
 //  CONFIG
-//  ※ このファイルはsrc/index.html(GitHub Pages版・パスワード認証)の派生版。
-//    このファイル自身がGASにホストされ、通信はfetch()ではなくgoogle.script.run
-//    (同一スクリプトのサーバー関数呼び出し)を使う。GAS_URLは不要。
 // ============================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwQ8-M1NueHtjLf8Q1B5I6X-YTfdDUTcczYaFxRIaP4Ocq9UL-gj6rcucHZWNAGF28Ulg/exec';
 
 // ============================================================
 //  CONSTANTS
@@ -1051,34 +1049,51 @@ let T = {
 let orderPayment = 'cash';
 
 // ============================================================
-//  GAS API（google.script.run 経由。fetch()・チャンク分割は不要）
+//  GAS API
 // ============================================================
 async function api(action, data={}, retry=1, forceShow=null) {
   // 軽微な操作はローディング非表示
   const showLoad = forceShow !== null ? forceShow : !['updateStep','updateItem','ping','getAll','getHistory'].includes(action);
   if (showLoad) showLoading(true);
   try {
-    const payload = Object.assign({}, data, { token });
-    const result = await new Promise((resolve, reject) => {
-      google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler(reject)
-        .rpc(action, payload);
-    });
-    return result;
+    let r;
+    if (action === 'auth') {
+      r = await fetch(`${GAS_URL}?action=auth&password=${encodeURIComponent(data.password||'')}`);
+    } else {
+      const dataStr = JSON.stringify(data);
+      const MAX = 4000; // GAS URLの安全な上限（4000文字以下ならチャンク不要）
+      if (dataStr.length <= MAX) {
+        r = await fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&d=${encodeURIComponent(dataStr)}`);
+      } else {
+        // 分割送信
+        const sid = uid();
+        const chunks = [];
+        for (let i = 0; i < dataStr.length; i += MAX) chunks.push(dataStr.slice(i, i+MAX));
+        for (let i = 0; i < chunks.length-1; i++) {
+          await fetch(`${GAS_URL}?action=storeChunk&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${i}&d=${encodeURIComponent(chunks[i])}`);
+        }
+        r = await fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`);
+      }
+    }
+    const j = await r.json();
+    if (!j.ok) {
+      // トークン期限切れ → ログイン画面へ（auth以外）
+      if (j.error === 'Unauthorized' && action !== 'auth') {
+        if (showLoad) showLoading(false);
+        showLoginScreen();
+        return null;
+      }
+      throw new Error(j.error);
+    }
+    return j.data;
   } catch(e) {
     if (showLoad) showLoading(false);
-    // 権限なし・未ログイン → ログイン画面へ
-    if (e && e.message === 'Unauthorized' && action !== 'auth') {
-      showLoginScreen();
-      return null;
-    }
-    // 1回リトライ（authは再試行しない）
+    // 1回リトライ
     if (retry > 0 && action !== 'auth') {
       await new Promise(res => setTimeout(res, 1500));
       return api(action, data, retry - 1);
     }
-    if (action !== 'auth') toast('❌ ' + (e && e.message ? e.message : e));
+    toast('❌ ' + e.message);
     return null;
   } finally {
     if (showLoad) showLoading(false);
@@ -1088,12 +1103,28 @@ async function api(action, data={}, retry=1, forceShow=null) {
 // fire-and-forget（ローディング表示なし・画面をブロックしない）
 // 失敗してもUIはブロックしないが、原因調査できるようconsoleにはエラーを残す
 function apiAsync(action, data={}) {
-  const payload = Object.assign({}, data, { token });
-  google.script.run.withFailureHandler((e)=>{ console.error('apiAsync failed:', action, e); }).rpc(action, payload);
+  const dataStr = JSON.stringify(data);
+  const MAX = 4000;
+  if (dataStr.length <= MAX) {
+    const url = `${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&d=${encodeURIComponent(dataStr)}`;
+    fetch(url).then(r=>r.json()).then(j=>{ if(!j.ok) console.error('apiAsync failed:', action, j.error); }).catch(e=>console.error('apiAsync network error:', action, e));
+  } else {
+    // 長いデータは分割して非同期送信
+    const sid = uid();
+    const chunks = [];
+    for (let i = 0; i < dataStr.length; i += MAX) chunks.push(dataStr.slice(i, i+MAX));
+    (async () => {
+      for (let i = 0; i < chunks.length-1; i++) {
+        await fetch(`${GAS_URL}?action=storeChunk&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${i}&d=${encodeURIComponent(chunks[i])}`).catch(()=>{});
+      }
+      fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`)
+        .then(r=>r.json()).then(j=>{ if(!j.ok) console.error('apiAsync failed:', action, j.error); }).catch(e=>console.error('apiAsync network error:', action, e));
+    })();
+  }
 }
 
 // ============================================================
-//  AUTH（2026-08-09: パスワード認証に戻した。src/index.html＝GitHub Pages版と同じ方式）
+//  AUTH
 // ============================================================
 document.getElementById('pw-btn').addEventListener('click', doLogin);
 document.getElementById('pw-input').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
@@ -1236,7 +1267,6 @@ async function loadAll(showSpinner=false) {
   S.orders   = res.orders || [];
   S.products = (res.products && res.products.length) ? res.products : DEFAULT_PRODUCTS;
   if (typeof res.laborRatePerHour === 'number') S.laborRatePerHour = res.laborRatePerHour;
-  if (typeof res.maxOrderNum === 'number') S.maxOrderNum = res.maxOrderNum;
   normalizeLoadedData();
   // データをlocalStorageにキャッシュ（次回起動を高速化）
   try {
@@ -1663,9 +1693,7 @@ document.getElementById('seg-channel').querySelectorAll('.seg-btn').forEach(b=>{
 });
 
 function calcNextOrderNum() {
-  // サーバーが返す maxOrderNum は完了済み注文も含めた全注文の最大番号（一番信頼できる基準）
-  let max = Number(S.maxOrderNum||0);
-  // 未完了注文（S.orders）とlocalStorageは、オフライン直後などmaxOrderNum未取得時の保険として併用
+  let max=0;
   S.orders.forEach(o=>{ if(Number(o.num)>max) max=Number(o.num); });
   const saved=parseInt(localStorage.getItem('mb_last_num')||'0');
   if (saved>max) max=saved;

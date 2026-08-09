@@ -1267,6 +1267,7 @@ async function loadAll(showSpinner=false) {
   S.orders   = res.orders || [];
   S.products = (res.products && res.products.length) ? res.products : DEFAULT_PRODUCTS;
   if (typeof res.laborRatePerHour === 'number') S.laborRatePerHour = res.laborRatePerHour;
+  if (typeof res.maxOrderNum === 'number') S.maxOrderNum = res.maxOrderNum;
   normalizeLoadedData();
   // データをlocalStorageにキャッシュ（次回起動を高速化）
   try {
@@ -1693,7 +1694,9 @@ document.getElementById('seg-channel').querySelectorAll('.seg-btn').forEach(b=>{
 });
 
 function calcNextOrderNum() {
-  let max=0;
+  // サーバーが返す maxOrderNum は完了済み注文も含めた全注文の最大番号（一番信頼できる基準）
+  let max = Number(S.maxOrderNum||0);
+  // 未完了注文（S.orders）とlocalStorageは、オフライン直後などmaxOrderNum未取得時の保険として併用
   S.orders.forEach(o=>{ if(Number(o.num)>max) max=Number(o.num); });
   const saved=parseInt(localStorage.getItem('mb_last_num')||'0');
   if (saved>max) max=saved;

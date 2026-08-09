@@ -348,7 +348,12 @@ function handleGetAll() {
     laborRate = Number(cfg.laborRatePerHour || 0);
   } catch(e){}
 
-  var result = { orders: active, products: products, laborRatePerHour: laborRate };
+  // 次の受付番号を正しく連番にするため、完了済み(done)も含めた全注文の最大番号を返す
+  // （activeだけだとその日の注文が全部完了済みになった時に番号がリセットされてしまうため）
+  var maxOrderNum = 0;
+  orders.forEach(function(o){ if (Number(o.num) > maxOrderNum) maxOrderNum = Number(o.num); });
+
+  var result = { orders: active, products: products, laborRatePerHour: laborRate, maxOrderNum: maxOrderNum };
   // 結果をキャッシュに保存（50秒間）
   // フロント同期が30秒ごとなので、50秒TTLで「30秒→キャッシュヒット→60秒→再読み込み」のサイクルになる
   // 書き込み系操作時は invalidateCache() でキャッシュを即座に消去するため、ステップ更新等は遅延なく反映

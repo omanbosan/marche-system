@@ -241,3 +241,12 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - `tapStep`内の`completeOrder`呼び出しを、成功/失敗が分かる`api()`に変更。失敗時は一覧に注文を戻し、トーストで通知するようにした（`gas/Index.html`・`src/index.html`両方）
 - あわせて`apiAsync`全般に`console.error`でのエラーログを追加（次回同様の問題が起きた際、ブラウザの開発者コンソールで原因を特定しやすくするため）
 - **未解決**: 上記は「気づけるようにする」対策であり、GAS側で実際に何が失敗していたか（`executeAs: USER_ACCESSING`環境でのCacheService分離、書き込み権限、実行エラーなど）は未特定。再発したらまずブラウザの開発者コンソールで`apiAsync failed:`ログを確認すること
+
+### 2026-08-09: 受付番号の連番自動採番が壊れていたバグを修正（index_v84 / gas_v59）
+- `calcNextOrderNum()`が「未完了注文（`S.orders`、`handleGetAll`は`status!=='done'`のみ返す）」と「`localStorage.mb_last_num`」の2つだけを根拠に次番号を計算していたため、その日の注文が全部完了済みになると手がかりが無くなり、次番号が1に戻ってしまっていた
+- 加えて`localStorage`はオリジン（ドメイン）ごとに別管理のため、GitHub Pages版（`omanbosan.github.io`）で貯まった`mb_last_num`は、GASが直接HTMLを返す管理者用デプロイ（`script.google.com`、[[gas/Index.html]]）では参照できず、フロント移行時にこの症状が起きやすかった
+- `handleGetAll`が`status`を問わず全注文（done含む）の最大`num`を`maxOrderNum`として返すよう修正し、`calcNextOrderNum()`はまずこれを基準にするよう変更（`S.orders`・`localStorage`は保険として併用のまま残置）。`src/index.html`・`index.html`・`gas/Index.html`の3ファイル全てに同じ修正を適用済み
+- **調査時に判明した別件**: GitHub Pages（`https://omanbosan.github.io/marche-system/`）が現在404「Site not found」を返す状態だった。CLAUDE.mdでは「本番・今後も触らない」としているURLだが、実際にはPages配信が止まっている可能性が高い。次回このURLに関する相談が来たら、リポジトリのSettings→Pagesの配信設定（ブランチ/フォルダ）を確認すること
+- **調査したが未修正の別件**: `yayoiMap`（弥生会計の勘定科目マッピング）と`pt_margin_<pid>`（価格設定テーブルの目標粗利率）も`localStorage`のみに保存されており、サーバー同期していない。GitHub Pages版とGAS管理者版を併用すると、これらの設定もオリジンが変わるたびに空・デフォルトに戻って見える。実害の報告があればconfigシート等への保存に変更する対応を検討すること
+
+**How to apply**: 「GASに変えてから前は出来ていたことが出来ない」系の相談が来たら、まず`localStorage`に保存している値（`mb_last_num`・`yayoiMap`・`pt_margin_*`・`mb_token`）がオリジン依存で消えていないかを疑うこと。恒久対策はサーバー側（スプレッドシート）に保存先を移すこと。
