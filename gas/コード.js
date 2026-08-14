@@ -323,12 +323,16 @@ function handleGetAll() {
       pMigSh.getRange(1, 14).setValue('productType');
     }
   } catch(eM2){}
-  // itemsシートの自動マイグレーション（engraveOpt列追加）
+  // itemsシートの自動マイグレーション（engraveOpt列・engraveLabel列追加）
   try {
     var iMigSh = ss.getSheetByName(SH.ITEMS);
     if (iMigSh && iMigSh.getLastColumn() < 17) {
       iMigSh.insertColumnsAfter(iMigSh.getLastColumn(), 17 - iMigSh.getLastColumn());
       iMigSh.getRange(1, 17).setValue('engraveOpt');
+    }
+    if (iMigSh && iMigSh.getLastColumn() < 18) {
+      iMigSh.insertColumnsAfter(iMigSh.getLastColumn(), 18 - iMigSh.getLastColumn());
+      iMigSh.getRange(1, 18).setValue('engraveLabel');
     }
   } catch(eM3){}
   const orders   = sheetToObjects(ss.getSheetByName(SH.ORDERS));
@@ -346,6 +350,7 @@ function handleGetAll() {
       it.paid           = (it.paid           == 1 || it.paid           === true);
       it.doubleBinarize = (it.doubleBinarize == 1 || it.doubleBinarize === true);
       it.engraveOpt     = (it.engraveOpt     == 1 || it.engraveOpt     === true);
+      it.engraveLabel   = it.engraveLabel || '';
       it.optionFee      = Number(it.optionFee  || 0);
       it.optionNote     = it.optionNote || '';
       it.steps.forEach(function(s){ s.done = (s.done == 1 || s.done === true); });
@@ -592,7 +597,7 @@ function handleSaveOrderFast(data) {
       0, 0, it.price||0, it.paymentMethod||'', 0, 0,
       it.typeId||'', resolvedTypeName,
       it.optionFee||0, it.optionNote||'', it.doubleBinarize?1:0,
-      it.engraveOpt?1:0
+      it.engraveOpt?1:0, it.engraveLabel||''
     ]);
     var stepIds = it.stepIds || [];
     // 郵送は7ステップ、現地は6ステップ
@@ -615,7 +620,7 @@ function handleSaveOrderFast(data) {
     }
   });
 
-  if (itemRows.length > 0) iSh.getRange(iSh.getLastRow()+1,1,itemRows.length,17).setValues(itemRows);
+  if (itemRows.length > 0) iSh.getRange(iSh.getLastRow()+1,1,itemRows.length,18).setValues(itemRows);
   if (stepRows.length > 0) sSh.getRange(sSh.getLastRow()+1,1,stepRows.length,7).setValues(stepRows);
 
   // 現地注文、または物販のみ（allInstant）の注文は登録時に売上記録
@@ -1002,7 +1007,7 @@ function handleAddItemToOrder(data) {
     0, 0, data.price||0, data.paymentMethod||'',
     0, 0, data.typeId||'', data.typeName||'',
     data.optionFee||0, data.optionNote||'', data.doubleBinarize?1:0,
-    data.engraveOpt?1:0
+    data.engraveOpt?1:0, data.engraveLabel||''
   ]);
 
   // ステップ行追加（受付=step0を自動完了。物販のみ／彫刻オプション不使用なら全工程を完了扱いで作成）
@@ -1401,7 +1406,7 @@ function setup() {
   createSheetWithHeaders(ss, SH.CONFIG,    ['key','value']);
   createSheetWithHeaders(ss, SH.PRODUCTS,  ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith','costPrice','setPricesJson','productType']);
   createSheetWithHeaders(ss, SH.ORDERS,    ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee','discount']);
-  createSheetWithHeaders(ss, SH.ITEMS,     ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize','engraveOpt']);
+  createSheetWithHeaders(ss, SH.ITEMS,     ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize','engraveOpt','engraveLabel']);
   createSheetWithHeaders(ss, SH.STEPS,     ['id','itemId','stepIndex','done','startedAt','completedAt','durationMins']);
   createSheetWithHeaders(ss, SH.HISTORY,   ['id','orderId','num','completedAt','waitMinutes','deliveryType']);
   createSheetWithHeaders(ss, SH.SALES,     ['id','historyId','orderId','pid','productName','price','paymentMethod','completedAt']);
@@ -1449,7 +1454,7 @@ function diagnose() {
 function fixAllSheets() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   fixHeader(ss,'orders',   ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee','discount']);
-  fixHeader(ss,'items',    ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize','engraveOpt']);
+  fixHeader(ss,'items',    ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize','engraveOpt','engraveLabel']);
   fixHeader(ss,'steps',    ['id','itemId','stepIndex','done','startedAt','completedAt','durationMins']);
   fixHeader(ss,'products', ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith','costPrice','setPricesJson','productType']);
   fixHeader(ss,'history',  ['id','orderId','num','completedAt','waitMinutes','deliveryType']);
