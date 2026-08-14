@@ -61,14 +61,22 @@ function doGet(e) {
     // このガードには一切引っかからず今までの動作に影響しない。
     if (!action) {
       var redirectUrl = 'https://omanbosan.github.io/marche-system/';
+      // GASのHtmlServiceはコンテンツをサンドボックス化されたiframe内（googleusercontent.com）に
+      // 表示するため、<meta http-equiv="refresh">だけだとiframe自身しか遷移せず、
+      // タブ本体（script.google.com）はそのまま残ってしまうことがある。
+      // window.top.location を明示的に書き換えて親フレームごと遷移させる。
       var guideHtml = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
         '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-        '<meta http-equiv="refresh" content="2;url=' + redirectUrl + '">' +
         '<title>移転しました</title>' +
         '<style>body{font-family:sans-serif;background:#1a1a2e;color:#eee;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:20px}' +
         'a{color:#c8a84a;font-weight:bold;font-size:18px}p{font-size:14px;color:#aaa}</style></head>' +
-        '<body><div><p>このページは使用を終了しました。<br>2秒後に自動で移動します。</p>' +
-        '<a href="' + redirectUrl + '">' + redirectUrl + '</a></div></body></html>';
+        '<body><div><p>このページは使用を終了しました。<br>移動しない場合は下のリンクをタップしてください。</p>' +
+        '<a href="' + redirectUrl + '" target="_top">' + redirectUrl + '</a></div>' +
+        '<script>' +
+        'try { window.top.location.href = "' + redirectUrl + '"; }' +
+        'catch(e) { try { window.location.href = "' + redirectUrl + '"; } catch(e2) {} }' +
+        '</script>' +
+        '</body></html>';
       return HtmlService.createHtmlOutput(guideHtml)
         .setTitle('移転しました')
         .addMetaTag('viewport', 'width=device-width, initial-scale=1');
