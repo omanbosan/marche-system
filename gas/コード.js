@@ -975,10 +975,27 @@ function handleDeleteOrder(orderId) {
   if (!orderId) return err('orderId missing');
   invalidateCache();
   const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const oSh   = ss.getSheetByName(SH.ORDERS);
   const iSh   = ss.getSheetByName(SH.ITEMS);
+
+  // 削除前に配送方法（現地/郵送）を取得。在庫を戻す先（stockLoc/stockShip）の判定に使う
+  var isShip = false;
+  var oRows = oSh.getDataRange().getValues();
+  for (var oi = 1; oi < oRows.length; oi++) {
+    if (oRows[oi][0] === orderId) { isShip = (oRows[oi][3] === 'shipping'); break; }
+  }
+
   const iRows = iSh.getDataRange().getValues();
-  const ids   = iRows.filter(function(r){ return r[1]===orderId; }).map(function(r){ return r[0]; });
-  deleteRowsWhere(ss.getSheetByName(SH.ORDERS), 0, orderId);
+  const orderItems = iRows.filter(function(r){ return r[1]===orderId; });
+  const ids = orderItems.map(function(r){ return r[0]; });
+
+  // 注文登録時に引き落とした在庫を、削除経路（進捗タブ・履歴タブどちらから消しても）確実に戻す
+  orderItems.forEach(function(r){
+    var pid = r[2], typeId = r[11] || '';
+    handleAdjustStock({ productId: pid, typeId: typeId, delta: 1, isShip: isShip, reason: '注文削除（在庫復元）' });
+  });
+
+  deleteRowsWhere(oSh, 0, orderId);
   deleteRowsWhere(iSh, 1, orderId);
   ids.forEach(function(id){ deleteRowsWhere(ss.getSheetByName(SH.STEPS), 1, id); });
   // 現地注文は登録時に売上・履歴が即記録されるため、削除時にも連動して消す
