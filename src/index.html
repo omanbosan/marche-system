@@ -749,7 +749,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <div id="stock-warn-section"></div>
     <div class="sh-lbl" style="margin-top:4px">オプション追加料金</div>
     <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:11px">
-      <div style="font-size:11px;color:var(--dim);margin-bottom:8px">追加料金をタップで選択。2値化時間が自動で2倍になります。</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:8px">追加料金をタップで選択。彫刻商品は2値化時間が自動で2倍になります（物販+彫刻オプション商品の彫刻追加料金は対象外）。</div>
       <div id="option-section"></div>
     </div>
     <div class="sh-lbl">支払い方法</div>
@@ -2071,7 +2071,7 @@ function renderQtyBlock() {
       return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px;margin-bottom:8px">
         <div style="font-size:12px;color:var(--dim);flex-shrink:0;width:60px">適用個数</div>
         <div style="display:flex;flex-wrap:wrap;gap:5px">${countChipsHtml}</div>
-        <span style="font-size:11px;color:var(--orange);font-weight:700">2値化×2</span>
+        ${p?.productType!=='goods_opt' ? '<span style="font-size:11px;color:var(--orange);font-weight:700">2値化×2</span>' : ''}
       </div>`;
     })() : '';
 
@@ -2292,11 +2292,12 @@ async function saveOrder() {
             const pTypeAdd = p.productType||'engrave';
             const instantAdd = pTypeAdd==='goods' || (pTypeAdd==='goods_opt' && !opt.engrave);
             const engraveOptAdd = pTypeAdd==='goods_opt' && !!opt.engrave;
+            const addDoubleBinarize = opt.fee>0 && pTypeAdd!=='goods_opt';
             const res = await api('addItemToOrder', {
               orderId:o.id, itemId:newId, pid, idx:maxIdx+1,
               price:newPrice, paymentMethod:orderPayment,
               typeId:tid||'', typeName:typeObj?.name||'', productName:p.name||'',
-              optionFee:opt.fee>0?opt.fee:0, doubleBinarize:opt.fee>0, engraveOpt:engraveOptAdd,
+              optionFee:opt.fee>0?opt.fee:0, doubleBinarize:addDoubleBinarize, engraveOpt:engraveOptAdd,
               deliveryType:o.deliveryType, productId:pid, isShip:isShipEdit, allDone:instantAdd
             });
             const stepList=[];
@@ -2306,7 +2307,7 @@ async function saveOrder() {
                 done:instantAdd?true:si===0, startedAt:instantAdd?now2:(si<=1?now2:''), completedAt:instantAdd?now2:(si===0?now2:''), durationMins:'' });
             }
             o.items.push({ id:newId, orderId:o.id, pid, idx:maxIdx+1, typeId:tid||'', typeName:typeObj?.name||'',
-              price:newPrice, paymentMethod:orderPayment, optionFee:opt.fee>0?opt.fee:0, doubleBinarize:opt.fee>0, engraveOpt:engraveOptAdd,
+              price:newPrice, paymentMethod:orderPayment, optionFee:opt.fee>0?opt.fee:0, doubleBinarize:addDoubleBinarize, engraveOpt:engraveOptAdd,
               skipBinarize:false, skipDesign:false, onHold:false, paid:false, steps:stepList });
           }
         }
@@ -2376,7 +2377,9 @@ async function saveOrder() {
         price:basePrice,paymentMethod:orderPayment,paid:false,onHold:false,
         typeId:'',typeName:'',
         optionFee:hasOption?opt.fee||0:0,optionNote:hasOption?opt.note||'':'',
-        doubleBinarize:hasOption,
+        // 彫刻オプション（goods_opt）の追加料金は「彫刻を付けるかどうかの価格」であって
+        // 装飾追加の意味ではないため、2値化×2の対象にはしない
+        doubleBinarize:hasOption && pType!=='goods_opt',
         allDone:instant,engraveOpt:engraveOptFlag,
         steps,stepDefs:steps});
     }
@@ -2404,7 +2407,9 @@ async function saveOrder() {
         price:basePrice2,paymentMethod:orderPayment,paid:false,onHold:false,
         typeId:tid,typeName:typeObj?.name||'',
         optionFee:hasOption2?opt2.fee||0:0,optionNote:hasOption2?opt2.note||'':'',
-        doubleBinarize:hasOption2,
+        // 彫刻オプション（goods_opt）の追加料金は「彫刻を付けるかどうかの価格」であって
+        // 装飾追加の意味ではないため、2値化×2の対象にはしない
+        doubleBinarize:hasOption2 && pType2!=='goods_opt',
         allDone:instant2,engraveOpt:engraveOptFlag2,
         steps,stepDefs:steps});
     }
@@ -2526,10 +2531,13 @@ document.getElementById('item-ok').addEventListener('click',async()=>{
   if(o){
     const sorted=(o.items||[]).slice().sort((a,b)=>(a.idx||0)-(b.idx||0));
     sorted.forEach((it,i)=>{
+      // 彫刻オプション（goods_opt）商品の追加料金は彫刻を付けるかどうかの価格であって
+      // 装飾追加の意味ではないため、2値化×2の対象にはしない
+      const itP = S.products.find(x=>x.id===it.pid);
       it.skipBinarize=T.skipBinarize; it.skipDesign=T.skipDesign;
       it.paymentMethod=T.itemPayment; it.price=price;
       it.optionFee = i<optCount ? optFee : 0;
-      it.doubleBinarize = i<optCount && optFee>0;
+      it.doubleBinarize = i<optCount && optFee>0 && itP?.productType!=='goods_opt';
     });
   }
   // 全アイテムをGASへ保存（idx順に並べてoptionFeeを割り当て）
@@ -2537,7 +2545,9 @@ document.getElementById('item-ok').addEventListener('click',async()=>{
   const sorted2=(o2?.items||[]).slice().sort((a,b)=>(a.idx||0)-(b.idx||0));
   const mainIdx=sorted2.findIndex(x=>x.id===T.editItemId);
   const mainHasOpt=mainIdx<optCount;
-  await api('updateItem',{itemId:T.editItemId,price,skipBinarize:T.skipBinarize,skipDesign:T.skipDesign,paymentMethod:T.itemPayment,optionFee:mainHasOpt?optFee:0,doubleBinarize:mainHasOpt&&optFee>0});
+  const mainItem=sorted2[mainIdx];
+  const mainP=S.products.find(x=>x.id===mainItem?.pid);
+  await api('updateItem',{itemId:T.editItemId,price,skipBinarize:T.skipBinarize,skipDesign:T.skipDesign,paymentMethod:T.itemPayment,optionFee:mainHasOpt?optFee:0,doubleBinarize:mainHasOpt&&optFee>0&&mainP?.productType!=='goods_opt'});
   sorted2.filter(it=>it.id!==T.editItemId).forEach(it=>{
     const i=sorted2.findIndex(x=>x.id===it.id);
     apiAsync('updateItem',{itemId:it.id,paymentMethod:T.itemPayment,optionFee:it.optionFee,doubleBinarize:it.doubleBinarize});
@@ -2703,14 +2713,19 @@ async function saveItemEdit() {
     const tgtQty   = g.targetQty;
 
     // 1. 既存アイテムの価格・支払い・追加料金を更新
+    const gProduct = S.products.find(x=>x.id===g.pid);
+    // 彫刻オプション（goods_opt）商品の追加料金は彫刻を付けるかどうかの価格であって
+    // 装飾追加の意味ではないため、2値化×2の対象にはしない
+    const gDoubleOk = gProduct?.productType !== 'goods_opt';
     g.items.forEach((it, i) => {
       const hasOpt = i < (g.optCount || 0);
       const optFee = (hasOpt && g.optFee > 0) ? g.optFee : 0;
+      const doubleBinarize = optFee > 0 && gDoubleOk;
       it.price = g.price;
       it.paymentMethod = g.payment;
       it.optionFee = optFee;
-      it.doubleBinarize = optFee > 0;
-      apiAsync('updateItem', { itemId:it.id, price:g.price, paymentMethod:g.payment, optionFee:optFee, doubleBinarize:optFee>0, typeId:g.tid, typeName:g.typeName });
+      it.doubleBinarize = doubleBinarize;
+      apiAsync('updateItem', { itemId:it.id, price:g.price, paymentMethod:g.payment, optionFee:optFee, doubleBinarize:doubleBinarize, typeId:g.tid, typeName:g.typeName });
     });
 
     // 2. 削除（末尾から）
@@ -2751,13 +2766,19 @@ async function saveItemEdit() {
           } else { isShip ? ep3.stockShip-- : ep3.stockLoc--; }
         }
 
+        // このモーダルには彫刻オプションのON/OFFを選ぶUIが無いため、
+        // goods_opt商品を追加した場合はデフォルト（彫刻なし＝即完了）扱いにする
+        const gPType = p?.productType || 'engrave';
+        const gInstant = gPType==='goods' || gPType==='goods_opt';
+        const gDoubleBinarize = optFee>0 && gPType!=='goods_opt';
+
         const res = await api('addItemToOrder', {
           orderId: oid, itemId: newId, pid: g.pid, idx: newIdx,
           price: g.price, paymentMethod: g.payment,
           typeId: g.tid, typeName: g.typeName, productName: p?.name||'',
-          optionFee: optFee, doubleBinarize: optFee>0,
+          optionFee: optFee, doubleBinarize: gDoubleBinarize,
           deliveryType: o.deliveryType,
-          productId: g.pid, isShip
+          productId: g.pid, isShip, allDone: gInstant
         }, 1, false);
 
         // ローカルにアイテムを追加
@@ -2765,10 +2786,10 @@ async function saveItemEdit() {
         const stepIds = res?.item?.stepIds || [];
         for (let si = 0; si < nSteps; si++) {
           stepList.push({ id: stepIds[si]||('s'+si), itemId: newId, stepIndex: si,
-            done: si===0, startedAt: si<=1?now:'', completedAt: si===0?now:'', durationMins:'' });
+            done: gInstant?true:si===0, startedAt: gInstant?now:(si<=1?now:''), completedAt: gInstant?now:(si===0?now:''), durationMins:'' });
         }
         o.items.push({ id:newId, orderId:oid, pid:g.pid, idx:newIdx, typeId:g.tid, typeName:g.typeName,
-          price:g.price, paymentMethod:g.payment, optionFee:optFee, doubleBinarize:optFee>0,
+          price:g.price, paymentMethod:g.payment, optionFee:optFee, doubleBinarize:gDoubleBinarize,
           skipBinarize:false, skipDesign:false, onHold:false, paid:false, steps:stepList });
       }
     }
