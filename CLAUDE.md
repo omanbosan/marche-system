@@ -3,19 +3,23 @@
 ## プロジェクト概要
 
 レーザー工房向けの受注管理システム。
-- **フロントエンド**: GAS自身がHTMLを返す直配信版（`gas/Index.html`）が本流。GitHub Pages版（静的HTML/JS/CSS 単一ファイル）は2026-08-09にリポジトリを非公開化したため配信停止中（GitHub Free は非公開リポジトリでPagesを配信できない）
+- **フロントエンド**: 2026-08-14〜 **GitHub Pages版（`index.html`＝`src/index.html`のコピー）が本流に戻った**。GASの動作が重く不安定という現場の声を受け、リポジトリを再度公開化してPages配信を復活させた（GitHub Freeは非公開リポジトリでPagesを配信できないため）。GAS直配信版（`gas/Index.html`）は使用終了。このURLをブラウザで直接開くと、GitHub PagesのURLへ2秒後に自動リダイレクトする案内ページを返すだけになっている（`doGet`の`action`未指定分岐、`src/gas_code.gs`）。**GitHub Pages版のAPI通信先としては引き続きGASが必須**（`action`付きリクエストは今まで通りGASが処理する。案内ページ化はUIの直接アクセス時のみ）
 - **バックエンド**: Google Apps Script（GAS）
 - **データ**: Googleスプレッドシート
 
 ---
 
+## ⚠️ セキュリティ注意事項（2026-08-14）
+
+リポジトリは現在**公開（public）**。このCLAUDE.md自体がリポジトリにコミットされているため、下記のパスワード・IDはgit履歴を含め誰でも閲覧可能な状態。パスワードは公開当時から変更していない（既に漏洩している前提で扱うこと）。パスワード変更の相談が来たら`setup()`の再実行で対応する。
+
 ## 重要URLs・認証情報
 
 ```
-GitHub リポジトリ : https://github.com/omanbosan/marche-system （2026-08-09〜非公開）
-GitHub Pages URL  : https://omanbosan.github.io/marche-system/ （非公開化により404・現在配信停止中）
-GAS URL（本流）    : https://script.google.com/macros/s/AKfycbyGx2qJ_Q8AKfAfunACHfUTfm2VZ1VlF8AYjWd5cDCLdHwYvdQBSRU0ccWBPQb2VgylLg/exec （gas/Index.html・パスワード認証）
-GAS URL（旧・GitHub Pages用API）: https://script.google.com/macros/s/AKfycbwQ8-M1NueHtjLf8Q1B5I6X-YTfdDUTcczYaFxRIaP4Ocq9UL-gj6rcucHZWNAGF28Ulg/exec
+GitHub リポジトリ : https://github.com/omanbosan/marche-system （2026-08-14〜再公開）
+GitHub Pages URL  : https://omanbosan.github.io/marche-system/ （本流フロントエンド）
+GAS URL（本流だったが使用終了・案内ページのみ）: https://script.google.com/macros/s/AKfycbyGx2qJ_Q8AKfAfunACHfUTfm2VZ1VlF8AYjWd5cDCLdHwYvdQBSRU0ccWBPQb2VgylLg/exec
+GAS URL（GitHub Pages用API・本流）: https://script.google.com/macros/s/AKfycbwQ8-M1NueHtjLf8Q1B5I6X-YTfdDUTcczYaFxRIaP4Ocq9UL-gj6rcucHZWNAGF28Ulg/exec
 GAS スクリプトID  : 1Dalr98OYU8tdXNnJ9glby1vqUIohudYxuE4seyC0BFRvAt6IsNNK8fih
 スプレッドシートID : 1-27E8JVuZ3aD-cGsNCiq6WdCB6OemqghRKvx7NhjTQE
 Googleアカウント   : omanbo.monodukuri@gmail.com（スプレッドシート・GASの所有者）
@@ -278,3 +282,9 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
   4. `npx clasp deploy --deploymentId AKfycbyGx2qJ_Q8AKfAfunACHfUTfm2VZ1VlF8AYjWd5cDCLdHwYvdQBSRU0ccWBPQb2VgylLg --description "..."` （API上成功と出ても実際は反映されない既知の不具合があるため、下記5で必ず確認する）
   5. `curl`等で本番URLに実際にアクセスし、変更点の文字列がレスポンスに含まれているか確認する（例：`curl -sS -L "https://script.google.com/macros/s/.../exec" | grep '確認したい文言'`）。反映されていなければApps Scriptエディタで「デプロイを管理」→バージョンを選び直して手動デプロイする
   6. `gas/Index.html`・`gas/コード.js`の変更も忘れずに`git add`してpushしておく（次回`src/`との差分比較の基準にするため）
+
+### 2026-08-14: GAS直配信版の動作が重い・不安定という指摘によりGitHub Pages版へ本流を戻した（index_v85 / gas_v86）
+- ユーザーから「GASページより前のGitHub Pageの方が動作が軽くて安定している」との指摘を受け、リポジトリを再公開してGitHub Pages配信を復活させた（設定変更はユーザー自身がGitHub UIで実施）
+- 併せて「GAS直配信版はもう使わない」との要望により、`doGet`の`action`未指定分岐（＝ブラウザで直接URLを開いた場合）を、フルアプリ表示からGitHub PagesのURLへの案内ページ（2秒後に自動リダイレクト）に変更した。`action`付きリクエスト（GitHub Pages版が`fetch()`で呼ぶAPI）は従来通り動作し、一切影響なし
+- **注意**: リポジトリが公開になったことで、このCLAUDE.md内のパスワード・スプレッドシートID・スクリプトIDはgit履歴ごと誰でも閲覧可能。ユーザーはパスワード変更をしない選択をした（既に長期間公開されていたため今更、との判断）。今後この点について相談があれば、まず現状（公開・パスワード未変更）を伝えること
+- **How to apply**: 今後「GASページの方を直したい」「GAS直配信版を復活させたい」という相談が来たら、まずこの経緯（動作が重い・不安定という理由で意図的に使用終了にした）を伝えること。復活させる場合は`doGet`の案内ページ分岐を元の`HtmlService.createHtmlOutputFromFile('Index')`に戻せばよい
