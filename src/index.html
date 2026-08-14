@@ -1023,6 +1023,13 @@ const SHIP_STEPS = [
   { label:'撮影',    who:'O', color:'var(--ship5)' },
   { label:'発送',    who:'O', color:'var(--ship6)' },
 ];
+// 物販+彫刻オプション（goods_opt）商品の彫刻内容3パターン
+const ENGRAVE_TYPES = [
+  { key:'none',   label:'なし',         fee:0 },
+  { key:'text',   label:'文字のみ',     fee:500 },
+  { key:'illust', label:'イラスト彫刻', fee:1000 },
+  { key:'photo',  label:'写真彫刻',     fee:2000 },
+];
 const PAY_LABELS  = { cash:'現金', airpay:'Airpay', paypay:'PayPay', furikomi:'振込', base:'BASE' };
 const CH_LABELS   = { marche:'マルシェ', net:'ネット', sns:'SNS' };
 const CH_ICONS    = { marche:'🏕', net:'🌐', sns:'📱' };
@@ -1474,6 +1481,7 @@ function renderCard(o, container, deliveryType) {
           ${it.skipBinarize?'<span class="ibadge ib-skip">2値化skip</span>':''}
           ${it.skipDesign  ?'<span class="ibadge ib-skip">デザインskip</span>':''}
           ${it.doubleBinarize?'<span class="ibadge" style="background:rgba(200,96,30,.1);color:var(--orange)">2値化×2</span>':''}
+          ${it.engraveLabel?`<span class="ibadge" style="background:rgba(200,96,30,.1);color:var(--orange)">🔨 ${it.engraveLabel}</span>`:''}
           ${it.optionNote  ?`<span class="ibadge" style="background:rgba(40,120,200,.1);color:var(--blue)">${it.optionNote}</span>`:''}
           ${payLabel       ?`<span class="ibadge ib-pay">${payLabel}</span>`:''}
         </div>
@@ -2075,11 +2083,19 @@ function renderQtyBlock() {
       </div>`;
     })() : '';
 
-    // 物販+彫刻オプション商品のみ：彫刻を追加するかどうかのトグル
+    // 物販+彫刻オプション商品のみ：彫刻内容（3パターン）を「追加料金」とは別枠で選択
+    // ①文字のみ+500円 ②イラスト彫刻+1000円 ③写真彫刻+2000円
+    const engraveType = opt.engraveType || 'none';
+    const engraveChipsHtml = ENGRAVE_TYPES.map(et => {
+      const isOn = engraveType === et.key;
+      const lbl  = et.fee>0 ? `${et.label} +¥${et.fee.toLocaleString()}` : et.label;
+      return `<button class="opt-chip${isOn?' on':''}" onclick="selectEngraveType('${row.pid}','${row.tid}','${et.key}')" style="touch-action:manipulation">${lbl}</button>`;
+    }).join('');
     const engraveToggleHtml = (p?.productType === 'goods_opt') ? `
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-        <button class="opt-chip${opt.engrave?' on':''}" onclick="toggleEngraveOpt('${row.pid}','${row.tid}')" style="touch-action:manipulation">🔨 彫刻オプションを追加</button>
-        <span style="font-size:11px;color:var(--dim)">${opt.engrave?'彫刻工程あり（2値化〜彫刻〜撮影を通します）':'物販のみ（工程管理なし・即完了）'}</span>
+      <div style="background:rgba(200,96,30,.08);border:1px solid rgba(200,96,30,.25);border-radius:8px;padding:8px 10px;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:6px">🔨 彫刻オプション</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px">${engraveChipsHtml}</div>
+        <span style="font-size:11px;color:var(--dim)">${engraveType!=='none'?'彫刻工程あり（2値化〜彫刻〜撮影を通します）':'物販のみ（工程管理なし・即完了）'}</span>
       </div>` : '';
 
     return `
@@ -2147,13 +2163,18 @@ function selectOptCount(pid, tid, val) {
 }
 function getOption(pid, tid) {
   const key = pid + '__' + (tid||'');
-  return T.options[key] || { fee:0, note:'', engrave:false };
+  return T.options[key] || { fee:0, note:'', engrave:false, engraveType:'none', engraveFee:0, engraveLabel:'' };
 }
-function toggleEngraveOpt(pid, tid) {
+// 物販+彫刻オプション（goods_opt）商品の彫刻内容を選択（追加料金とは別枠・3パターン）
+function selectEngraveType(pid, tid, typeKey) {
   const key = pid + '__' + (tid||'');
   const qty = tid ? ((T.selTypeQty[pid]||{})[tid]||1) : (T.selProds[pid]||1);
   if (!T.options[key]) T.options[key] = { fee:0, note:'', count: qty };
-  T.options[key].engrave = !T.options[key].engrave;
+  const et = ENGRAVE_TYPES.find(x=>x.key===typeKey) || ENGRAVE_TYPES[0];
+  T.options[key].engraveType  = et.key;
+  T.options[key].engrave      = et.key !== 'none';
+  T.options[key].engraveFee   = et.fee;
+  T.options[key].engraveLabel = et.key==='none' ? '' : et.label;
   renderQtyBlock();
 }
 
@@ -2288,16 +2309,18 @@ async function saveOrder() {
             const now2   = new Date().toISOString();
             if (typeObj) { isShipEdit ? typeObj.stockShip=Math.max(0,typeObj.stockShip-1) : typeObj.stockLoc=Math.max(0,typeObj.stockLoc-1); }
             else         { isShipEdit ? ep.stockShip=Math.max(0,ep.stockShip-1)           : ep.stockLoc=Math.max(0,ep.stockLoc-1); }
-            const newPrice = (p.price||0) + (opt.fee>0 ? Number(opt.fee||0) : 0);
             const pTypeAdd = p.productType||'engrave';
             const instantAdd = pTypeAdd==='goods' || (pTypeAdd==='goods_opt' && !opt.engrave);
             const engraveOptAdd = pTypeAdd==='goods_opt' && !!opt.engrave;
+            const engraveFeeAdd = engraveOptAdd ? Number(opt.engraveFee||0) : 0;
+            const engraveLabelAdd = engraveOptAdd ? (opt.engraveLabel||'') : '';
+            const newPrice = (p.price||0) + (opt.fee>0 ? Number(opt.fee||0) : 0) + engraveFeeAdd;
             const addDoubleBinarize = opt.fee>0 && pTypeAdd!=='goods_opt';
             const res = await api('addItemToOrder', {
               orderId:o.id, itemId:newId, pid, idx:maxIdx+1,
               price:newPrice, paymentMethod:orderPayment,
               typeId:tid||'', typeName:typeObj?.name||'', productName:p.name||'',
-              optionFee:opt.fee>0?opt.fee:0, doubleBinarize:addDoubleBinarize, engraveOpt:engraveOptAdd,
+              optionFee:opt.fee>0?opt.fee:0, doubleBinarize:addDoubleBinarize, engraveOpt:engraveOptAdd, engraveLabel:engraveLabelAdd,
               deliveryType:o.deliveryType, productId:pid, isShip:isShipEdit, allDone:instantAdd
             });
             const stepList=[];
@@ -2307,7 +2330,7 @@ async function saveOrder() {
                 done:instantAdd?true:si===0, startedAt:instantAdd?now2:(si<=1?now2:''), completedAt:instantAdd?now2:(si===0?now2:''), durationMins:'' });
             }
             o.items.push({ id:newId, orderId:o.id, pid, idx:maxIdx+1, typeId:tid||'', typeName:typeObj?.name||'',
-              price:newPrice, paymentMethod:orderPayment, optionFee:opt.fee>0?opt.fee:0, doubleBinarize:addDoubleBinarize, engraveOpt:engraveOptAdd,
+              price:newPrice, paymentMethod:orderPayment, optionFee:opt.fee>0?opt.fee:0, doubleBinarize:addDoubleBinarize, engraveOpt:engraveOptAdd, engraveLabel:engraveLabelAdd,
               skipBinarize:false, skipDesign:false, onHold:false, paid:false, steps:stepList });
           }
         }
@@ -2372,7 +2395,9 @@ async function saveOrder() {
       // count=0の場合は1個目のみオプション料金を載せる（1オーダーあたりの追加料金）
       const applyOpt = optCount===0 ? i===0 : i<optCount;
       const hasOption= applyOpt && (opt.fee>0||!!opt.note);
-      const basePrice=nextUnitPrice(pid,p?.price||0)+(hasOption?Number(opt.fee||0):0);
+      // 彫刻内容（文字のみ/イラスト/写真）の料金は「追加料金」欄とは別枠で加算する
+      const engraveFeeAmt = engraveOptFlag ? Number(opt.engraveFee||0) : 0;
+      const basePrice=nextUnitPrice(pid,p?.price||0)+(hasOption?Number(opt.fee||0):0)+engraveFeeAmt;
       items.push({id:iid,pid,idx:i,totalOf:qty,skipBinarize:false,skipDesign:false,
         price:basePrice,paymentMethod:orderPayment,paid:false,onHold:false,
         typeId:'',typeName:'',
@@ -2380,7 +2405,7 @@ async function saveOrder() {
         // 彫刻オプション（goods_opt）の追加料金は「彫刻を付けるかどうかの価格」であって
         // 装飾追加の意味ではないため、2値化×2の対象にはしない
         doubleBinarize:hasOption && pType!=='goods_opt',
-        allDone:instant,engraveOpt:engraveOptFlag,
+        allDone:instant,engraveOpt:engraveOptFlag,engraveLabel:engraveOptFlag?(opt.engraveLabel||''):'',
         steps,stepDefs:steps});
     }
   });
@@ -2402,7 +2427,8 @@ async function saveOrder() {
       }));
       const applyOpt2 = optCount2===0 ? i===0 : i<optCount2;
       const hasOption2= applyOpt2 && (opt2.fee>0||!!opt2.note);
-      const basePrice2=nextUnitPrice(pid,p?.price||0)+(hasOption2?Number(opt2.fee||0):0);
+      const engraveFeeAmt2 = engraveOptFlag2 ? Number(opt2.engraveFee||0) : 0;
+      const basePrice2=nextUnitPrice(pid,p?.price||0)+(hasOption2?Number(opt2.fee||0):0)+engraveFeeAmt2;
       items.push({id:iid,pid,idx:i,totalOf:qty,skipBinarize:false,skipDesign:false,
         price:basePrice2,paymentMethod:orderPayment,paid:false,onHold:false,
         typeId:tid,typeName:typeObj?.name||'',
@@ -2410,7 +2436,7 @@ async function saveOrder() {
         // 彫刻オプション（goods_opt）の追加料金は「彫刻を付けるかどうかの価格」であって
         // 装飾追加の意味ではないため、2値化×2の対象にはしない
         doubleBinarize:hasOption2 && pType2!=='goods_opt',
-        allDone:instant2,engraveOpt:engraveOptFlag2,
+        allDone:instant2,engraveOpt:engraveOptFlag2,engraveLabel:engraveOptFlag2?(opt2.engraveLabel||''):'',
         steps,stepDefs:steps});
     }
   });
@@ -2433,7 +2459,7 @@ async function saveOrder() {
     price:it.price,paymentMethod:it.paymentMethod,paid:false,onHold:false,
     typeId:it.typeId||'',typeName:it.typeName||'',
     optionFee:it.optionFee||0,optionNote:it.optionNote||'',
-    doubleBinarize:it.doubleBinarize||false,engraveOpt:it.engraveOpt||false,
+    doubleBinarize:it.doubleBinarize||false,engraveOpt:it.engraveOpt||false,engraveLabel:it.engraveLabel||'',
     stepIds:it.steps.map(s=>s.id),step0Done:true,step0At:now,allDone:!!it.allDone
   }));
   const saved=await api('saveOrderFast',{id:orderId,num,note,deliveryType:T.delivery,channel:T.channel,createdAt:now,items:lightItems,shippingFee:T.shippingFee||0,discount});
