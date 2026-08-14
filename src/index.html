@@ -1803,6 +1803,12 @@ function updateSuggestedOrderNum() {
   if (inp) inp.value = calcNextOrderNum(group);
 }
 
+// 受付番号の表示用フォーマット。物販のみ連番（numGroup==='goods'）には頭文字「BUY」を付ける
+function fmtOrderNum(num, isGoods) {
+  const padded = String(num||'').padStart(3,'0');
+  return isGoods ? `BUY${padded}` : `#${padded}`;
+}
+
 // 在庫連動先を解決：sharedStockWith が設定されている商品は連動先の在庫を使う
 function getEffectiveProduct(p) {
   if (!p || !p.sharedStockWith) return p;
@@ -2553,7 +2559,7 @@ async function saveOrder() {
   });
 
   renderLocal(); renderShipping(); updateWait(); renderMaster();
-  toast(allInstant ? `✅ #${String(num).padStart(3,'0')} 物販受付・完了しました` : `✅ #${String(num).padStart(3,'0')} 受付しました`);
+  toast(allInstant ? `✅ ${fmtOrderNum(num,true)} 物販受付・完了しました` : `✅ ${fmtOrderNum(num,false)} 受付しました`);
 }
 
 // ============================================================
@@ -3464,7 +3470,7 @@ async function renderHistory() {
     card.innerHTML=`<div style="display:flex;align-items:flex-start;gap:9px;width:100%">
       <div class="hcard-check ${isShip?'hc-ship':'hc-loc'}">${isShip?'📦':'✓'}</div>
       <div style="flex:1;min-width:0">
-        <div class="hcard-num">#${String(h.num||'').padStart(3,'0')} <span style="font-size:11px;font-weight:400;color:var(--dim)">${CH_ICONS[h.channel]||''} ${CH_LABELS[h.channel]||''}</span></div>
+        <div class="hcard-num">${fmtOrderNum(h.num, h.numGroup==='goods')} <span style="font-size:11px;font-weight:400;color:var(--dim)">${CH_ICONS[h.channel]||''} ${CH_LABELS[h.channel]||''}</span></div>
         <div class="hcard-items">${itemStr}</div>
         <div class="hcard-wait">${isShip?`受付から完了まで ${h.waitMinutes||'-'}日`:`完了まで ${h.waitMinutes||'-'}分`}</div>
       </div>
@@ -4252,7 +4258,7 @@ function renderAccounting() {
         const marginCls = pl.grossProfit>=0?'pos':'neg';
         return `<tr>
           <td>${dateStr}</td>
-          <td style="font-weight:700">#${h.num}</td>
+          <td style="font-weight:700">${fmtOrderNum(h.num, h.numGroup==='goods')}</td>
           <td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${names}</td>
           <td class="num">¥${pl.sales.toLocaleString()}</td>
           <td class="num" style="color:var(--orange)">¥${Math.round(pl.cost).toLocaleString()}</td>
