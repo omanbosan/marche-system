@@ -2031,7 +2031,7 @@ function renderQtyBlock() {
     const qty = row.tid ? ((T.selTypeQty[row.pid]||{})[row.tid]||1) : (T.selProds[row.pid]||1);
     const optCount = opt.count !== undefined ? opt.count : qty;
     const isLast = idx === optRows.length - 1;
-    const isCustomFee = opt.fee > 0 && ![500,700,1000].includes(opt.fee);
+    const isCustomFee = opt.fee > 0 && ![500,700,1000,2000].includes(opt.fee);
 
     // セット価格トグル: 同じ商品ならタイプが違っても合計個数で判定・その商品の最初の行にのみ表示
     const totalQtyForPid = pidTotalQty[row.pid] || qty;
@@ -2047,8 +2047,8 @@ function renderQtyBlock() {
       </div>`;
     }
 
-    // 追加料金チップ: [なし][¥500][¥700][¥1,000][任意]
-    const feeDefs = [[0,'なし'],[500,'¥500'],[700,'¥700'],[1000,'¥1,000'],[-1,'任意']];
+    // 追加料金チップ: [なし][¥500][¥700][¥1,000][¥2,000][任意]
+    const feeDefs = [[0,'なし'],[500,'¥500'],[700,'¥700'],[1000,'¥1,000'],[2000,'¥2,000'],[-1,'任意']];
     const feeChipsHtml = feeDefs.map(([val,lbl]) => {
       const isOn = val===0 ? opt.fee===0 : (val===-1 ? isCustomFee : opt.fee===val);
       return `<button class="opt-chip${isOn?' on':''}" onclick="selectOptFee('${row.pid}','${row.tid}',${val})" style="touch-action:manipulation">${lbl}</button>`;
@@ -2112,7 +2112,7 @@ function selectOptFee(pid, tid, val) {
     T.options[key].count = qty;
   } else if (val === -1) {
     // 任意: feeを0のままにしてカスタム入力欄を表示させる（暫定で1にして欄を出す）
-    if (T.options[key].fee === 0 || [500,700,1000].includes(T.options[key].fee)) {
+    if (T.options[key].fee === 0 || [500,700,1000,2000].includes(T.options[key].fee)) {
       T.options[key].fee = 1; // 入力欄を出すためのダミー（すぐ上書きされる）
     }
     if (!T.options[key].count) T.options[key].count = qty;
