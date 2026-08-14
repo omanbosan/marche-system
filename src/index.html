@@ -733,7 +733,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 <div class="overlay" id="ov-order">
 <div class="sheet">
   <div class="sh-title" id="order-modal-title">新規注文受付</div>
-  <div class="sh-lbl">受付番号</div>
+  <div class="sh-lbl">受付番号 <span id="num-group-hint" style="font-size:10px;font-weight:400;color:var(--dim)"></span></div>
   <input class="sh-input sh-num" id="inp-num" type="number" inputmode="numeric" placeholder="例：1">
   <div class="sh-lbl">販売チャネル</div>
   <div class="seg" id="seg-channel">
@@ -1070,6 +1070,7 @@ let T = {
   shippingFee: 0,
   xferToShip: true, xferAmt: 1, xferTypeId: '',
   discountType: 'none', discountValue: 0, // 'none'/'amount'/'percent' クーポン割引
+  numManuallyEdited: false, // 受付番号欄をユーザーが手入力で書き換えたか（trueなら自動提案で上書きしない）
 };
 let orderPayment = 'cash';
 
@@ -1293,6 +1294,8 @@ async function loadAll(showSpinner=false) {
   S.products = (res.products && res.products.length) ? res.products : DEFAULT_PRODUCTS;
   if (typeof res.laborRatePerHour === 'number') S.laborRatePerHour = res.laborRatePerHour;
   if (typeof res.maxOrderNum === 'number') S.maxOrderNum = res.maxOrderNum;
+  if (typeof res.maxOrderNumEngrave === 'number') S.maxOrderNumEngrave = res.maxOrderNumEngrave;
+  if (typeof res.maxOrderNumGoods === 'number') S.maxOrderNumGoods = res.maxOrderNumGoods;
   normalizeLoadedData();
   // データをlocalStorageにキャッシュ（次回起動を高速化）
   try {
@@ -1659,6 +1662,7 @@ document.getElementById('btn-new-shipping').addEventListener('click', ()=>openNe
 
 function openNewOrder(deliveryType) {
   T.editOrderId=null; T.selProds={}; T.selTypeQty={}; T.options={}; T.setPriceOn={}; T.delivery=deliveryType;
+  T.numManuallyEdited = false; // 受付番号欄の手入力フラグをリセット（商品選択に応じて自動提案する）
   T.channel = deliveryType==='shipping' ? 'net' : 'marche';
   document.getElementById('order-modal-title').textContent = deliveryType==='shipping' ? '郵送注文受付' : '現地注文受付';
   document.getElementById('inp-note').value = '';
@@ -1675,7 +1679,9 @@ function openNewOrder(deliveryType) {
   selectDiscountType('none');
   document.getElementById('inp-discount-value').value = '';
   renderPPick(); document.getElementById('qty-block').style.display='none';
-  document.getElementById('inp-num').value = calcNextOrderNum();
+  // 商品未選択時点ではレーザー彫刻ありグループを既定の候補にしておく（商品選択後に自動で切り替わる）
+  document.getElementById('inp-num').value = calcNextOrderNum('engrave');
+  document.getElementById('num-group-hint').textContent = '';
   openOverlay('ov-order');
   setTimeout(()=>{ const inp=document.getElementById('inp-num'); inp.select(); }, 300);
 }
@@ -1686,6 +1692,7 @@ function openEditOrder(oid) {
   T.editOrderId=oid; T.delivery=o.deliveryType; T.channel=o.channel||'marche';
   document.getElementById('order-modal-title').textContent = '注文を編集';
   document.getElementById('inp-num').value  = o.num;
+  document.getElementById('num-group-hint').textContent = '';
   document.getElementById('inp-note').value = o.note||'';
   setSegVal('seg-channel', T.channel);
   T.selProds={}; T.selTypeQty={};
@@ -1731,6 +1738,9 @@ document.getElementById('seg-channel').querySelectorAll('.seg-btn').forEach(b=>{
   b.addEventListener('click', ()=>{ T.channel=b.dataset.val; setSegVal('seg-channel',b.dataset.val); });
 });
 
+// 受付番号を手入力したら、以降は商品選択に応じた自動提案で上書きしない
+document.getElementById('inp-num').addEventListener('input', ()=>{ T.numManuallyEdited = true; });
+
 document.getElementById('seg-product-type').querySelectorAll('.seg-btn').forEach(b=>{
   b.addEventListener('click', ()=>{
     T.productType=b.dataset.val; setSegVal('seg-product-type',b.dataset.val);
@@ -1746,14 +1756,51 @@ function updateStepTimeGridVisibility() {
   if (lbl && lbl.classList.contains('sh-lbl')) lbl.style.display = hide ? 'none' : '';
 }
 
-function calcNextOrderNum() {
-  // サーバーが返す maxOrderNum は完了済み注文も含めた全注文の最大番号（一番信頼できる基準）
-  let max = Number(S.maxOrderNum||0);
+// group: 'engrave'（レーザー彫刻あり）/ 'goods'（物販のみ）で受付番号を別連番管理する
+function calcNextOrderNum(group) {
+  const isGoods = group === 'goods';
+  // サーバーが返す maxOrderNumEngrave/maxOrderNumGoods は完了済み注文も含めた各グループの最大番号（一番信頼できる基準）
+  let max = Number((isGoods ? S.maxOrderNumGoods : S.maxOrderNumEngrave) || 0);
   // 未完了注文（S.orders）とlocalStorageは、オフライン直後などmaxOrderNum未取得時の保険として併用
+  // （物販のみ注文は登録と同時にdoneになりS.ordersには乗らないため、実質engraveグループのみ意味を持つ）
   S.orders.forEach(o=>{ if(Number(o.num)>max) max=Number(o.num); });
-  const saved=parseInt(localStorage.getItem('mb_last_num')||'0');
+  const savedKey = isGoods ? 'mb_last_num_goods' : 'mb_last_num_engrave';
+  const saved=parseInt(localStorage.getItem(savedKey)||'0');
   if (saved>max) max=saved;
   return max+1;
+}
+
+// 商品タイプとオプション選択から、この商品が工程スキップ（物販扱い）になるかどうかを判定
+// saveOrder()内のインスタント判定と同じロジック（受付番号の自動提案にも流用する）
+function computeItemInstant(p, opt) {
+  const pType = p?.productType || 'engrave';
+  return pType==='goods' || (pType==='goods_opt' && !opt?.engrave);
+}
+
+// 現在選択中の商品構成が「全て物販のみ扱い」かどうかを判定（未選択ならnull）
+function currentSelectionIsGoodsOnly() {
+  const rows = [];
+  Object.entries(T.selProds).forEach(([pid,qty])=>{ if(qty>0) rows.push([pid,'']); });
+  Object.entries(T.selTypeQty).forEach(([pid, typeQtys])=>{
+    Object.entries(typeQtys).forEach(([tid,qty])=>{ if(qty>0) rows.push([pid,tid]); });
+  });
+  if (!rows.length) return null;
+  return rows.every(([pid,tid])=>{
+    const p = S.products.find(x=>x.id===pid);
+    return computeItemInstant(p, getOption(pid,tid));
+  });
+}
+
+// 選択中の商品構成に応じて受付番号の候補を自動更新する（新規受付時のみ・手入力後は上書きしない）
+function updateSuggestedOrderNum() {
+  if (T.editOrderId) return;
+  const goodsOnly = currentSelectionIsGoodsOnly();
+  const group = goodsOnly ? 'goods' : 'engrave'; // 未選択(null)時はengrave想定のまま
+  const hintEl = document.getElementById('num-group-hint');
+  if (hintEl) hintEl.textContent = goodsOnly===null ? '' : (goodsOnly ? '（物販のみ連番）' : '（彫刻あり連番）');
+  if (T.numManuallyEdited) return;
+  const inp = document.getElementById('inp-num');
+  if (inp) inp.value = calcNextOrderNum(group);
 }
 
 // 在庫連動先を解決：sharedStockWith が設定されている商品は連動先の在庫を使う
@@ -1955,6 +2002,7 @@ function renderQtyBlock() {
   const block=document.getElementById('qty-block');
   block.style.display = hasAny ? '' : 'none';
   document.getElementById('qty-section').innerHTML='';
+  updateSuggestedOrderNum();
 
   // 郵送在庫不足警告
   const warnEl = document.getElementById('stock-warn-section');
@@ -2467,7 +2515,8 @@ async function saveOrder() {
   if (!saved) { toast('❌ 登録失敗。もう一度お試しください'); return; }
   // 物販のみ（全アイテム即完了）の注文は進捗タブ対象外のため S.orders には積まない（次回同期時に履歴へ反映される）
   if (!allInstant) S.orders.push(order);
-  localStorage.setItem('mb_last_num',String(num));
+  // レーザー彫刻あり／物販のみで受付番号を別連番管理するため、保存先キーもグループ別にする
+  localStorage.setItem(allInstant ? 'mb_last_num_goods' : 'mb_last_num_engrave', String(num));
 
   // 注文登録時に在庫を引き落とし
   // 同一商品・同一タイプへの複数API呼び出し競合を防ぐため、個数を集計してから
