@@ -285,14 +285,34 @@ function handleGetAll() {
 
   const ss       = SpreadsheetApp.openById(SPREADSHEET_ID);
 
-  // ordersシートの自動マイグレーション（shippingFee列追加）
+  // ordersシートの自動マイグレーション（shippingFee列・discount列追加）
   try {
     var oMigSh = ss.getSheetByName(SH.ORDERS);
     if (oMigSh && oMigSh.getLastColumn() < 10) {
       if (oMigSh.getLastColumn() < 10) oMigSh.insertColumnsAfter(9, 10 - oMigSh.getLastColumn());
       oMigSh.getRange(1, 10).setValue('shippingFee');
     }
+    if (oMigSh && oMigSh.getLastColumn() < 11) {
+      oMigSh.insertColumnsAfter(10, 11 - oMigSh.getLastColumn());
+      oMigSh.getRange(1, 11).setValue('discount');
+    }
   } catch(eM){}
+  // productsシートの自動マイグレーション（productType列追加）
+  try {
+    var pMigSh = ss.getSheetByName(SH.PRODUCTS);
+    if (pMigSh && pMigSh.getLastColumn() < 14) {
+      pMigSh.insertColumnsAfter(pMigSh.getLastColumn(), 14 - pMigSh.getLastColumn());
+      pMigSh.getRange(1, 14).setValue('productType');
+    }
+  } catch(eM2){}
+  // itemsシートの自動マイグレーション（engraveOpt列追加）
+  try {
+    var iMigSh = ss.getSheetByName(SH.ITEMS);
+    if (iMigSh && iMigSh.getLastColumn() < 17) {
+      iMigSh.insertColumnsAfter(iMigSh.getLastColumn(), 17 - iMigSh.getLastColumn());
+      iMigSh.getRange(1, 17).setValue('engraveOpt');
+    }
+  } catch(eM3){}
   const orders   = sheetToObjects(ss.getSheetByName(SH.ORDERS));
   const items    = sheetToObjects(ss.getSheetByName(SH.ITEMS));
   const steps    = sheetToObjects(ss.getSheetByName(SH.STEPS));
@@ -307,6 +327,7 @@ function handleGetAll() {
       it.onHold         = (it.onHold         == 1 || it.onHold         === true);
       it.paid           = (it.paid           == 1 || it.paid           === true);
       it.doubleBinarize = (it.doubleBinarize == 1 || it.doubleBinarize === true);
+      it.engraveOpt     = (it.engraveOpt     == 1 || it.engraveOpt     === true);
       it.optionFee      = Number(it.optionFee  || 0);
       it.optionNote     = it.optionNote || '';
       it.steps.forEach(function(s){ s.done = (s.done == 1 || s.done === true); });
@@ -327,6 +348,7 @@ function handleGetAll() {
     p.stockShip = Number(p.stockShip || 0);
     p.stockWarn = Number(p.stockWarn || 3);
     p.costPrice = Number(p.costPrice || 0);
+    p.productType = p.productType || 'engrave';
     // typesのstockLoc/stockShipもパース
     if (p.types) {
       p.types.forEach(function(t){
@@ -530,11 +552,14 @@ function handleSaveOrderFast(data) {
     });
   } catch(e){}
 
+  // 物販のみ／彫刻オプション不使用のアイテムだけの注文かどうか（＝即完了・進捗管理タブに出さない）
+  var allInstant = (data.items||[]).length > 0 && (data.items||[]).every(function(it){ return !!it.allDone; });
+
   // 注文ヘッダー
   oSh.appendRow([
     data.id, data.num, data.note||'', data.deliveryType,
-    data.createdAt, '', 'active', '', data.channel||'marche',
-    data.shippingFee||0
+    data.createdAt, allInstant?data.createdAt:'', allInstant?'done':'active', '', data.channel||'marche',
+    data.shippingFee||0, data.discount||0
   ]);
 
   var itemRows = [], stepRows = [];
@@ -548,27 +573,35 @@ function handleSaveOrderFast(data) {
       it.id, data.id, it.pid, it.idx||0, it.totalOf||1,
       0, 0, it.price||0, it.paymentMethod||'', 0, 0,
       it.typeId||'', resolvedTypeName,
-      it.optionFee||0, it.optionNote||'', it.doubleBinarize?1:0
+      it.optionFee||0, it.optionNote||'', it.doubleBinarize?1:0,
+      it.engraveOpt?1:0
     ]);
     var stepIds = it.stepIds || [];
     // 郵送は7ステップ、現地は6ステップ
     var nSteps = data.deliveryType === 'shipping' ? 7 : 6;
     for (var si = 0; si < nSteps; si++) {
-      var isDone      = (si === 0 && it.step0Done) ? 1 : 0;
-      var stepAt      = (si === 0 && it.step0Done) ? (it.step0At||'') : '';
+      var isDone, stepAt;
+      if (it.allDone) {
+        // 物販のみ／彫刻オプション不使用アイテムは全工程を作成時点で完了扱いにする
+        isDone = 1;
+        stepAt = it.step0At || data.createdAt;
+      } else {
+        isDone = (si === 0 && it.step0Done) ? 1 : 0;
+        stepAt = (si === 0 && it.step0Done) ? (it.step0At||'') : '';
+      }
       // 受付完了時は2値化の startedAt も同時に設定（時間計算を正確にするため）
-      var startedAt   = (si === 0) ? stepAt : (si === 1 && it.step0Done ? (it.step0At||'') : '');
-      var completedAt = (si === 0) ? stepAt : '';
+      var startedAt   = it.allDone ? stepAt : ((si === 0) ? stepAt : (si === 1 && it.step0Done ? (it.step0At||'') : ''));
+      var completedAt = it.allDone ? stepAt : ((si === 0) ? stepAt : '');
       var durMins     = isDone ? 0 : '';
       stepRows.push([stepIds[si]||Utilities.getUuid(), it.id, si, isDone, startedAt, completedAt, durMins]);
     }
   });
 
-  if (itemRows.length > 0) iSh.getRange(iSh.getLastRow()+1,1,itemRows.length,16).setValues(itemRows);
+  if (itemRows.length > 0) iSh.getRange(iSh.getLastRow()+1,1,itemRows.length,17).setValues(itemRows);
   if (stepRows.length > 0) sSh.getRange(sSh.getLastRow()+1,1,stepRows.length,7).setValues(stepRows);
 
-  // 現地注文は登録時に売上記録
-  if (data.deliveryType !== 'shipping') {
+  // 現地注文、または物販のみ（allInstant）の注文は登録時に売上記録
+  if (data.deliveryType !== 'shipping' || allInstant) {
     var salesItems = (data.items||[]).map(function(it){
       var resolvedTypeName = it.typeName || (it.typeId ? typeNameMap[String(it.typeId)] || '' : '');
       return {
@@ -580,7 +613,7 @@ function handleSaveOrderFast(data) {
       };
     });
     var firstPayMethod = salesItems.length > 0 ? (salesItems[0].paymentMethod || 'cash') : 'cash';
-    recordSalesForOrder(ss, data.id, data.num||'', data.deliveryType, salesItems, data.shippingFee||0, firstPayMethod);
+    recordSalesForOrder(ss, data.id, data.num||'', data.deliveryType, salesItems, data.shippingFee||0, firstPayMethod, data.discount||0);
   }
 
   return ok({ saved: true });
@@ -766,6 +799,7 @@ function handleUpdateOrder(data) {
       if (data.deliveryType !== undefined) sh.getRange(i+1,4).setValue(data.deliveryType);
       if (data.channel      !== undefined) sh.getRange(i+1,9).setValue(data.channel);
       if (data.shippingFee  !== undefined) sh.getRange(i+1,10).setValue(data.shippingFee||0);
+      if (data.discount     !== undefined) sh.getRange(i+1,11).setValue(data.discount||0);
       break;
     }
   }
@@ -775,7 +809,7 @@ function handleUpdateOrder(data) {
 // ============================================================
 //  売上記録ヘルパー（現地：登録時、郵送：入金確認時に呼ぶ）
 // ============================================================
-function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee, shippingPayment) {
+function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee, shippingPayment, discount) {
   // 重複チェック：既に履歴があればスキップ（冪等性）
   var hSh   = ss.getSheetByName(SH.HISTORY);
   var hRows = hSh.getDataRange().getValues();
@@ -794,12 +828,18 @@ function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee,
       it.pid, displayName, it.price, it.paymentMethod, now
     ]);
   });
+  // 支払い方法は注文アイテムと統一する（送料・割引とも）
+  var commonPayment = (items && items.length > 0) ? (items[0].paymentMethod || 'cash') : (shippingPayment || 'cash');
   if (Number(shippingFee||0) > 0) {
-    // 送料の支払い方法は注文アイテムと統一する
-    var sfPayment = (items && items.length > 0) ? (items[0].paymentMethod || 'cash') : (shippingPayment || 'cash');
     sSh.appendRow([
       Utilities.getUuid(), hId, orderId,
-      '', '送料', Number(shippingFee), sfPayment, now
+      '', '送料', Number(shippingFee), commonPayment, now
+    ]);
+  }
+  if (Number(discount||0) > 0) {
+    sSh.appendRow([
+      Utilities.getUuid(), hId, orderId,
+      '', '割引', -Number(discount), commonPayment, now
     ]);
   }
   return hId;
@@ -811,7 +851,7 @@ function handleRecordOrderSales(data) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const hId = recordSalesForOrder(
     ss, data.orderId, data.num||'', data.deliveryType||'',
-    data.items||[], data.shippingFee||0, data.shippingPayment||''
+    data.items||[], data.shippingFee||0, data.shippingPayment||'', data.discount||0
   );
   return ok({ hId: hId });
 }
@@ -878,6 +918,13 @@ function handleCompleteOrder(data) {
         '', '送料', Number(data.shippingFee), sfPayment2, data.completedAt
       ]);
     }
+    if (Number(data.discount||0) > 0) {
+      var dcPayment = (data.items && data.items.length > 0) ? (data.items[0].paymentMethod || 'cash') : (data.shippingPayment || 'cash');
+      ss.getSheetByName(SH.SALES).appendRow([
+        Utilities.getUuid(), hId, data.orderId,
+        '', '割引', -Number(data.discount), dcPayment, data.completedAt
+      ]);
+    }
   }
 
   return ok({ hId: resultHId });
@@ -936,18 +983,24 @@ function handleAddItemToOrder(data) {
     data.itemId, data.orderId, data.pid, data.idx||0, 1,
     0, 0, data.price||0, data.paymentMethod||'',
     0, 0, data.typeId||'', data.typeName||'',
-    data.optionFee||0, data.optionNote||'', data.doubleBinarize?1:0
+    data.optionFee||0, data.optionNote||'', data.doubleBinarize?1:0,
+    data.engraveOpt?1:0
   ]);
 
-  // ステップ行追加（受付=step0を自動完了）
+  // ステップ行追加（受付=step0を自動完了。物販のみ／彫刻オプション不使用なら全工程を完了扱いで作成）
   var nSteps = data.deliveryType === 'shipping' ? 7 : 6;
   var stepIds = [];
   for (var si = 0; si < nSteps; si++) {
     var sid = Utilities.getUuid();
     stepIds.push(sid);
-    var isDone    = si === 0 ? 1 : 0;
-    var stepAt    = si === 0 ? now : '';
-    var startedAt = si === 0 ? now : (si === 1 ? now : '');
+    var isDone, stepAt, startedAt;
+    if (data.allDone) {
+      isDone = 1; stepAt = now; startedAt = now;
+    } else {
+      isDone    = si === 0 ? 1 : 0;
+      stepAt    = si === 0 ? now : '';
+      startedAt = si === 0 ? now : (si === 1 ? now : '');
+    }
     sSh.appendRow([sid, data.itemId, si, isDone, startedAt, stepAt, isDone ? 0 : '']);
   }
 
@@ -1008,17 +1061,19 @@ function handleSaveProduct(p) {
   const setPricesJson = JSON.stringify(p.setPrices  || []);
   for (var i = 1; i < rows.length; i++) {
     if (rows[i][0] === p.id) {
-      sh.getRange(i+1,1,1,13).setValues([[
+      sh.getRange(i+1,1,1,14).setValues([[
         p.id, p.name, p.price, p.totalMinutes, json,
         p.stock||0, p.stockWarn||3, typesJson,
-        p.stockLoc||0, p.stockShip||0, p.sharedStockWith||'', p.costPrice||0, setPricesJson
+        p.stockLoc||0, p.stockShip||0, p.sharedStockWith||'', p.costPrice||0, setPricesJson,
+        p.productType||'engrave'
       ]]);
       return ok({ saved: true });
     }
   }
   sh.appendRow([p.id, p.name, p.price, p.totalMinutes, json,
     p.stock||0, p.stockWarn||3, typesJson,
-    p.stockLoc||0, p.stockShip||0, p.sharedStockWith||'', p.costPrice||0, setPricesJson]);
+    p.stockLoc||0, p.stockShip||0, p.sharedStockWith||'', p.costPrice||0, setPricesJson,
+    p.productType||'engrave']);
   return ok({ saved: true });
 }
 
@@ -1322,9 +1377,9 @@ function sheetToObjects(sheet) {
 function setup() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   createSheetWithHeaders(ss, SH.CONFIG,    ['key','value']);
-  createSheetWithHeaders(ss, SH.PRODUCTS,  ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith','costPrice','setPricesJson']);
-  createSheetWithHeaders(ss, SH.ORDERS,    ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee']);
-  createSheetWithHeaders(ss, SH.ITEMS,     ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize']);
+  createSheetWithHeaders(ss, SH.PRODUCTS,  ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith','costPrice','setPricesJson','productType']);
+  createSheetWithHeaders(ss, SH.ORDERS,    ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee','discount']);
+  createSheetWithHeaders(ss, SH.ITEMS,     ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize','engraveOpt']);
   createSheetWithHeaders(ss, SH.STEPS,     ['id','itemId','stepIndex','done','startedAt','completedAt','durationMins']);
   createSheetWithHeaders(ss, SH.HISTORY,   ['id','orderId','num','completedAt','waitMinutes','deliveryType']);
   createSheetWithHeaders(ss, SH.SALES,     ['id','historyId','orderId','pid','productName','price','paymentMethod','completedAt']);
@@ -1371,10 +1426,10 @@ function diagnose() {
 
 function fixAllSheets() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  fixHeader(ss,'orders',   ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee']);
-  fixHeader(ss,'items',    ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize']);
+  fixHeader(ss,'orders',   ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee','discount']);
+  fixHeader(ss,'items',    ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize','engraveOpt']);
   fixHeader(ss,'steps',    ['id','itemId','stepIndex','done','startedAt','completedAt','durationMins']);
-  fixHeader(ss,'products', ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith','costPrice','setPricesJson']);
+  fixHeader(ss,'products', ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith','costPrice','setPricesJson','productType']);
   fixHeader(ss,'history',  ['id','orderId','num','completedAt','waitMinutes','deliveryType']);
   fixHeader(ss,'sales',    ['id','historyId','orderId','pid','productName','price','paymentMethod','completedAt']);
   fixHeader(ss,'config',   ['key','value']);

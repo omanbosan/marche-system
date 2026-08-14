@@ -775,6 +775,16 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
         oninput="T.shippingFee=parseInt(this.value)||0">
     </div>
   </div>
+  <div class="sh-lbl">割引（クーポン）</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:11px">
+    <button class="opt-chip on" data-dtype="none"    onclick="selectDiscountType('none')">なし</button>
+    <button class="opt-chip" data-dtype="amount"  onclick="selectDiscountType('amount')">金額</button>
+    <button class="opt-chip" data-dtype="percent" onclick="selectDiscountType('percent')">割合(%)</button>
+    <input id="inp-discount-value" type="number" inputmode="numeric" placeholder="金額 or %"
+      style="display:none;width:90px;background:var(--s1);border:1.5px solid var(--border);border-radius:6px;padding:7px 8px;font-size:14px;font-weight:700;color:var(--red);outline:none;-webkit-appearance:none"
+      oninput="T.discountValue=parseInt(this.value)||0;updateDiscountPreview()">
+    <span id="discount-preview" style="font-size:11px;color:var(--dim)"></span>
+  </div>
   <div class="sh-actions">
     <button class="sh-cancel" id="order-cancel">キャンセル</button>
     <button class="sh-ok"     id="order-ok">受付確定</button>
@@ -847,6 +857,12 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
   <div class="sh-title" id="prod-title">商品追加</div>
   <div class="sh-lbl">商品名</div>
   <input class="sh-input" id="inp-pname" type="text" inputmode="text" placeholder="例：キーホルダー">
+  <div class="sh-lbl">商品種別</div>
+  <div class="seg" id="seg-product-type" style="margin-bottom:11px">
+    <div class="seg-btn on" data-val="engrave">🔨 彫刻あり（通常）</div>
+    <div class="seg-btn"    data-val="goods">📦 物販のみ</div>
+    <div class="seg-btn"    data-val="goods_opt">🔨📦 物販+彫刻オプション</div>
+  </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div>
       <div class="sh-lbl">定価（円）</div>
@@ -1038,6 +1054,7 @@ let T = {
   itemGroups: [], editingOrderId: null,  // 商品変更モーダル用
   skipBinarize: false, skipDesign: false, itemPayment: 'cash', itemPrice: 0,
   editPid: null, stepTimes: {}, stockVal: 0, stockLocVal: 0, stockShipVal: 0, stockWarnVal: 3,
+  productType: 'engrave', // 'engrave'（彫刻あり）/ 'goods'（物販のみ）/ 'goods_opt'（物販+彫刻オプション）
   stockAdjPid: null, stockAdjVal: 0,
   types: [],         // [{id, name, stock}]
   selType: {},       // 旧：{pid: typeId}（後方互換）
@@ -1047,6 +1064,7 @@ let T = {
   editItemOptFee: 0, editItemOptCount: 0, editItemOptTotal: 1,
   shippingFee: 0,
   xferToShip: true, xferAmt: 1, xferTypeId: '',
+  discountType: 'none', discountValue: 0, // 'none'/'amount'/'percent' クーポン割引
 };
 let orderPayment = 'cash';
 
@@ -1379,8 +1397,8 @@ function renderCard(o, container, deliveryType) {
     const p2 = S.products.find(x=>x.id===it.pid);
     return s + Number(it.price || p2?.price || 0);
   }, 0);
-  const totalAmount = totalItems + Number(o.shippingFee||0);
-  const sfPart = o.shippingFee>0 ? `<span style="color:var(--dim);font-weight:400;font-size:11px">（商品 ¥${totalItems.toLocaleString()} ＋ 送料 ¥${Number(o.shippingFee).toLocaleString()}）</span>` : '';
+  const totalAmount = totalItems + Number(o.shippingFee||0) - Number(o.discount||0);
+  const sfPart = o.shippingFee>0 ? `<span style="color:var(--dim);font-weight:400;font-size:11px">（商品 ¥${totalItems.toLocaleString()} ＋ 送料 ¥${Number(o.shippingFee).toLocaleString()}${o.discount>0?` － 割引 ¥${Number(o.discount).toLocaleString()}`:''}）</span>` : (o.discount>0 ? `<span style="color:var(--dim);font-weight:400;font-size:11px">（商品 ¥${totalItems.toLocaleString()} － 割引 ¥${Number(o.discount).toLocaleString()}）</span>` : '');
   const totalAmountHtml = `
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 15px;background:rgba(40,120,200,.07);border-bottom:1px solid rgba(40,120,200,.15)">
       <span style="font-size:12px;color:var(--blue);font-weight:700;flex-shrink:0">💰 お支払い合計</span>
@@ -1395,6 +1413,7 @@ function renderCard(o, container, deliveryType) {
       ${allOnHold?'<span class="badge badge-hold">保留中</span>':''}
       ${o.channel?`<span class="badge badge-ch">${CH_ICONS[o.channel]} ${CH_LABELS[o.channel]||o.channel}</span>`:''}
       ${o.shippingFee>0?`<span style="font-size:11px;background:rgba(94,224,127,.1);color:var(--green);border:1px solid rgba(94,224,127,.3);border-radius:4px;padding:1px 6px;font-weight:700">送料 ¥${Number(o.shippingFee).toLocaleString()}</span>`:''}
+      ${o.discount>0?`<span style="font-size:11px;background:rgba(220,80,80,.1);color:var(--red);border:1px solid rgba(220,80,80,.3);border-radius:4px;padding:1px 6px;font-weight:700">割引 -¥${Number(o.discount).toLocaleString()}</span>`:''}
       <div class="och-info">${o.note?`<div class="och-note">📝 ${o.note}</div>`:''}</div>
       <div class="och-times">${timeHtml}</div>
     </div>
@@ -1546,7 +1565,7 @@ function tapStep(btn, deliveryType) {
       });
       // 送料の支払い方法はアイテムの支払い方法に統一（shippingPaymentは使わない）
       const orderPayForShipping = items4hist[0]?.paymentMethod || order.items?.[0]?.paymentMethod || 'cash';
-      api('completeOrder', { orderId:order.id, num:order.num, completedAt:now, deliveryType:order.deliveryType, channel:order.channel||'marche', items:items4hist, shippingFee:order.shippingFee||0, shippingPayment:orderPayForShipping }, 1, false).then(res => {
+      api('completeOrder', { orderId:order.id, num:order.num, completedAt:now, deliveryType:order.deliveryType, channel:order.channel||'marche', items:items4hist, shippingFee:order.shippingFee||0, discount:order.discount||0, shippingPayment:orderPayForShipping }, 1, false).then(res => {
         if (!res) {
           // 保存失敗：一覧に戻してユーザーに知らせる
           if (!S.orders.find(o2=>o2.id===order.id)) S.orders.push(order);
@@ -1613,6 +1632,9 @@ function openNewOrder(deliveryType) {
   document.getElementById('shipping-fee-row').style.display = deliveryType === 'shipping' ? '' : 'none';
   document.querySelectorAll('[data-sfee]').forEach(b=>b.classList.toggle('on', b.dataset.sfee==='0'));
   document.getElementById('inp-shipping-fee-custom').style.display='none';
+  // 割引初期化
+  selectDiscountType('none');
+  document.getElementById('inp-discount-value').value = '';
   renderPPick(); document.getElementById('qty-block').style.display='none';
   document.getElementById('inp-num').value = calcNextOrderNum();
   openOverlay('ov-order');
@@ -1648,6 +1670,14 @@ function openEditOrder(oid) {
   document.querySelectorAll('[data-sfee]').forEach(b=>b.classList.toggle('on', Number(b.dataset.sfee)===sfVal));
   const custEl = document.getElementById('inp-shipping-fee-custom');
   if (sfVal === -1) { custEl.style.display=''; custEl.value=T.shippingFee; } else { custEl.style.display='none'; }
+  // 割引（登録時の内訳は保存していないため「金額」指定として復元する。focus()を避けるため直接DOM操作）
+  const discVal = Number(o.discount||0);
+  const discValEl = document.getElementById('inp-discount-value');
+  T.discountType = discVal > 0 ? 'amount' : 'none';
+  T.discountValue = discVal > 0 ? discVal : 0;
+  document.querySelectorAll('[data-dtype]').forEach(b=>b.classList.toggle('on', b.dataset.dtype===T.discountType));
+  discValEl.style.display = discVal > 0 ? '' : 'none';
+  discValEl.value = discVal > 0 ? discVal : '';
   renderPPick(); renderQtyBlock();
   openOverlay('ov-order');
 }
@@ -1661,6 +1691,21 @@ function setSegVal(id, val) {
 document.getElementById('seg-channel').querySelectorAll('.seg-btn').forEach(b=>{
   b.addEventListener('click', ()=>{ T.channel=b.dataset.val; setSegVal('seg-channel',b.dataset.val); });
 });
+
+document.getElementById('seg-product-type').querySelectorAll('.seg-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    T.productType=b.dataset.val; setSegVal('seg-product-type',b.dataset.val);
+    updateStepTimeGridVisibility();
+  });
+});
+
+// 「物販のみ」選択時は行程ごとの作業時間設定が不要なので非表示にする
+function updateStepTimeGridVisibility() {
+  const hide = T.productType === 'goods';
+  document.getElementById('step-time-grid').style.display = hide ? 'none' : '';
+  const lbl = document.getElementById('step-time-grid').previousElementSibling;
+  if (lbl && lbl.classList.contains('sh-lbl')) lbl.style.display = hide ? 'none' : '';
+}
 
 function calcNextOrderNum() {
   // サーバーが返す maxOrderNum は完了済み注文も含めた全注文の最大番号（一番信頼できる基準）
@@ -1999,9 +2044,17 @@ function renderQtyBlock() {
       </div>`;
     })() : '';
 
+    // 物販+彫刻オプション商品のみ：彫刻を追加するかどうかのトグル
+    const engraveToggleHtml = (p?.productType === 'goods_opt') ? `
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="opt-chip${opt.engrave?' on':''}" onclick="toggleEngraveOpt('${row.pid}','${row.tid}')" style="touch-action:manipulation">🔨 彫刻オプションを追加</button>
+        <span style="font-size:11px;color:var(--dim)">${opt.engrave?'彫刻工程あり（2値化〜彫刻〜撮影を通します）':'物販のみ（工程管理なし・即完了）'}</span>
+      </div>` : '';
+
     return `
       <div style="${isLast?'':'border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:10px'}">
         <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--gold)">${row.label}</div>
+        ${engraveToggleHtml}
         ${setPriceHtml}
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <div style="font-size:12px;color:var(--dim);flex-shrink:0;width:60px">追加料金</div>
@@ -2016,6 +2069,7 @@ function renderQtyBlock() {
           oninput="updateOptionNote('${row.pid}','${row.tid}',this.value)">
       </div>`;
   }).join('');
+  if (typeof updateDiscountPreview === 'function') updateDiscountPreview();
 }
 
 function selectOptFee(pid, tid, val) {
@@ -2062,7 +2116,14 @@ function selectOptCount(pid, tid, val) {
 }
 function getOption(pid, tid) {
   const key = pid + '__' + (tid||'');
-  return T.options[key] || { fee:0, note:'' };
+  return T.options[key] || { fee:0, note:'', engrave:false };
+}
+function toggleEngraveOpt(pid, tid) {
+  const key = pid + '__' + (tid||'');
+  const qty = tid ? ((T.selTypeQty[pid]||{})[tid]||1) : (T.selProds[pid]||1);
+  if (!T.options[key]) T.options[key] = { fee:0, note:'', count: qty };
+  T.options[key].engrave = !T.options[key].engrave;
+  renderQtyBlock();
 }
 
 // セット価格の合計金額を計算（大きいセットから貪欲に当てはめ、余りは単価）
@@ -2129,10 +2190,12 @@ async function saveOrder() {
   });
 
   if (T.editOrderId) {
-    await api('updateOrder',{orderId:T.editOrderId,num,note,deliveryType:T.delivery,channel:T.channel,shippingFee:T.shippingFee||0});
+    const editSubtotal = calcOrderSubtotalForDiscount();
+    const editDiscount = calcDiscountAmount(editSubtotal);
+    await api('updateOrder',{orderId:T.editOrderId,num,note,deliveryType:T.delivery,channel:T.channel,shippingFee:T.shippingFee||0,discount:editDiscount});
     const o=S.orders.find(x=>x.id===T.editOrderId);
     if(o){
-      o.num=num; o.note=note; o.deliveryType=T.delivery; o.channel=T.channel; o.shippingFee=T.shippingFee||0;
+      o.num=num; o.note=note; o.deliveryType=T.delivery; o.channel=T.channel; o.shippingFee=T.shippingFee||0; o.discount=editDiscount;
       // 支払い方法が変わった場合は全アイテムに反映（awaitで確実に保存）
       for (const it of (o.items||[])) {
         if(it.paymentMethod !== orderPayment){
@@ -2195,21 +2258,24 @@ async function saveOrder() {
             if (typeObj) { isShipEdit ? typeObj.stockShip=Math.max(0,typeObj.stockShip-1) : typeObj.stockLoc=Math.max(0,typeObj.stockLoc-1); }
             else         { isShipEdit ? ep.stockShip=Math.max(0,ep.stockShip-1)           : ep.stockLoc=Math.max(0,ep.stockLoc-1); }
             const newPrice = (p.price||0) + (opt.fee>0 ? Number(opt.fee||0) : 0);
+            const pTypeAdd = p.productType||'engrave';
+            const instantAdd = pTypeAdd==='goods' || (pTypeAdd==='goods_opt' && !opt.engrave);
+            const engraveOptAdd = pTypeAdd==='goods_opt' && !!opt.engrave;
             const res = await api('addItemToOrder', {
               orderId:o.id, itemId:newId, pid, idx:maxIdx+1,
               price:newPrice, paymentMethod:orderPayment,
               typeId:tid||'', typeName:typeObj?.name||'', productName:p.name||'',
-              optionFee:opt.fee>0?opt.fee:0, doubleBinarize:opt.fee>0,
-              deliveryType:o.deliveryType, productId:pid, isShip:isShipEdit
+              optionFee:opt.fee>0?opt.fee:0, doubleBinarize:opt.fee>0, engraveOpt:engraveOptAdd,
+              deliveryType:o.deliveryType, productId:pid, isShip:isShipEdit, allDone:instantAdd
             });
             const stepList=[];
             const stepIds = res?.item?.stepIds || [];
             for (let si=0; si<nStepsEdit; si++){
               stepList.push({ id:stepIds[si]||('s'+si), itemId:newId, stepIndex:si,
-                done:si===0, startedAt:si<=1?now2:'', completedAt:si===0?now2:'', durationMins:'' });
+                done:instantAdd?true:si===0, startedAt:instantAdd?now2:(si<=1?now2:''), completedAt:instantAdd?now2:(si===0?now2:''), durationMins:'' });
             }
             o.items.push({ id:newId, orderId:o.id, pid, idx:maxIdx+1, typeId:tid||'', typeName:typeObj?.name||'',
-              price:newPrice, paymentMethod:orderPayment, optionFee:opt.fee>0?opt.fee:0, doubleBinarize:opt.fee>0,
+              price:newPrice, paymentMethod:orderPayment, optionFee:opt.fee>0?opt.fee:0, doubleBinarize:opt.fee>0, engraveOpt:engraveOptAdd,
               skipBinarize:false, skipDesign:false, onHold:false, paid:false, steps:stepList });
           }
         }
@@ -2261,11 +2327,15 @@ async function saveOrder() {
     const raw = T.options[pid+'__']?.count;
     const optCount = raw !== undefined ? raw : qty;
     const p=S.products.find(x=>x.id===pid);
+    const pType = p?.productType||'engrave';
+    // 物販のみ／彫刻オプション未選択の物販+彫刻オプション商品は工程を通さず即完了にする
+    const instant = pType==='goods' || (pType==='goods_opt' && !opt.engrave);
+    const engraveOptFlag = pType==='goods_opt' && !!opt.engrave;
     for(let i=0;i<qty;i++){
       const iid=uid();
       const steps=stepDefs.map((_,si)=>({
         id:uid(),itemId:iid,stepIndex:si,
-        done:si===0,startedAt:si===0?now:'',completedAt:si===0?now:'',durationMins:0
+        done:instant?true:si===0,startedAt:instant?now:(si===0?now:''),completedAt:instant?now:(si===0?now:''),durationMins:0
       }));
       // count=0の場合は1個目のみオプション料金を載せる（1オーダーあたりの追加料金）
       const applyOpt = optCount===0 ? i===0 : i<optCount;
@@ -2276,6 +2346,7 @@ async function saveOrder() {
         typeId:'',typeName:'',
         optionFee:hasOption?opt.fee||0:0,optionNote:hasOption?opt.note||'':'',
         doubleBinarize:hasOption,
+        allDone:instant,engraveOpt:engraveOptFlag,
         steps,stepDefs:steps});
     }
   });
@@ -2286,11 +2357,14 @@ async function saveOrder() {
     const optCount2 = raw2 !== undefined ? raw2 : qty;
     const p=S.products.find(x=>x.id===pid);
     const typeObj=(p?.types||[]).find(t=>t.id===tid);
+    const pType2 = p?.productType||'engrave';
+    const instant2 = pType2==='goods' || (pType2==='goods_opt' && !opt2.engrave);
+    const engraveOptFlag2 = pType2==='goods_opt' && !!opt2.engrave;
     for(let i=0;i<qty;i++){
       const iid=uid();
       const steps=stepDefs.map((_,si)=>({
         id:uid(),itemId:iid,stepIndex:si,
-        done:si===0,startedAt:si===0?now:'',completedAt:si===0?now:'',durationMins:0
+        done:instant2?true:si===0,startedAt:instant2?now:(si===0?now:''),completedAt:instant2?now:(si===0?now:''),durationMins:0
       }));
       const applyOpt2 = optCount2===0 ? i===0 : i<optCount2;
       const hasOption2= applyOpt2 && (opt2.fee>0||!!opt2.note);
@@ -2300,11 +2374,20 @@ async function saveOrder() {
         typeId:tid,typeName:typeObj?.name||'',
         optionFee:hasOption2?opt2.fee||0:0,optionNote:hasOption2?opt2.note||'':'',
         doubleBinarize:hasOption2,
+        allDone:instant2,engraveOpt:engraveOptFlag2,
         steps,stepDefs:steps});
     }
   });
 
-  const order={id:orderId,num,note,deliveryType:T.delivery,channel:T.channel,createdAt:now,status:'active',items,shippingFee:T.shippingFee||0};
+  // クーポン割引（商品合計＋送料に対して1回）
+  const itemsTotalForDiscount = items.reduce((s,it)=>s+Number(it.price||0),0);
+  const discountSubtotal = itemsTotalForDiscount + Number(T.shippingFee||0);
+  const discount = calcDiscountAmount(discountSubtotal);
+  // 全アイテムが物販のみ／彫刻オプション未選択なら、受付と同時に完了扱い（進捗タブに出さない）
+  const allInstant = items.length>0 && items.every(it=>it.allDone);
+
+  const order={id:orderId,num,note,deliveryType:T.delivery,channel:T.channel,createdAt:now,
+    status:allInstant?'done':'active',completedAt:allInstant?now:'',items,shippingFee:T.shippingFee||0,discount};
   isSaving=true;
   closeOverlay('ov-order');
   toast('⏳ 登録中...');
@@ -2314,13 +2397,14 @@ async function saveOrder() {
     price:it.price,paymentMethod:it.paymentMethod,paid:false,onHold:false,
     typeId:it.typeId||'',typeName:it.typeName||'',
     optionFee:it.optionFee||0,optionNote:it.optionNote||'',
-    doubleBinarize:it.doubleBinarize||false,
-    stepIds:it.steps.map(s=>s.id),step0Done:true,step0At:now
+    doubleBinarize:it.doubleBinarize||false,engraveOpt:it.engraveOpt||false,
+    stepIds:it.steps.map(s=>s.id),step0Done:true,step0At:now,allDone:!!it.allDone
   }));
-  const saved=await api('saveOrderFast',{id:orderId,num,note,deliveryType:T.delivery,channel:T.channel,createdAt:now,items:lightItems,shippingFee:T.shippingFee||0});
+  const saved=await api('saveOrderFast',{id:orderId,num,note,deliveryType:T.delivery,channel:T.channel,createdAt:now,items:lightItems,shippingFee:T.shippingFee||0,discount});
   isSaving=false;
   if (!saved) { toast('❌ 登録失敗。もう一度お試しください'); return; }
-  S.orders.push(order);
+  // 物販のみ（全アイテム即完了）の注文は進捗タブ対象外のため S.orders には積まない（次回同期時に履歴へ反映される）
+  if (!allInstant) S.orders.push(order);
   localStorage.setItem('mb_last_num',String(num));
 
   // 注文登録時に在庫を引き落とし
@@ -2358,7 +2442,7 @@ async function saveOrder() {
   });
 
   renderLocal(); renderShipping(); updateWait(); renderMaster();
-  toast(`✅ #${String(num).padStart(3,'0')} 受付しました`);
+  toast(allInstant ? `✅ #${String(num).padStart(3,'0')} 物販受付・完了しました` : `✅ #${String(num).padStart(3,'0')} 受付しました`);
 }
 
 // ============================================================
@@ -2813,19 +2897,22 @@ function renderMaster() {
     const shipStock = hasTypes ? (p.types||[]).reduce((s,t)=>s+Number(t.stockShip||0),0) : Number(p.stockShip||0);
     const totalStock = locStock + shipStock;
     const isLow = totalStock>0 && totalStock<=p.stockWarn;
-    const stepsHtml=LOC_STEPS.map((st,si)=>`
+    const pType = p.productType||'engrave';
+    const stepsHtml = pType==='goods' ? '' : LOC_STEPS.map((st,si)=>`
       <div class="pcard-step-row">
         <div class="pcard-step-dot" style="background:${st.color}"></div>
         <div style="flex:1;color:var(--dim)">${st.label}</div>
         <div style="color:var(--gold);font-weight:700">${p.stepTimes?.[si]||0}分</div>
       </div>`).join('');
+    const typeBadge = pType==='goods' ? `<span style="font-size:10px;color:var(--dim);font-weight:700;border:1px solid var(--dim);border-radius:4px;padding:1px 4px">📦 物販のみ</span>`
+      : pType==='goods_opt' ? `<span style="font-size:10px;color:var(--orange);font-weight:700;border:1px solid var(--orange);border-radius:4px;padding:1px 4px">🔨📦 彫刻オプション</span>` : '';
     card.innerHTML=`
       <div class="pcard-btns" style="justify-content:flex-end;margin-bottom:4px">
         <div class="ico-btn" onclick="editProduct('${p.id}')">✏️</div>
         <div class="ico-btn" onclick="openStockAdj('${p.id}')" title="在庫調整">📦</div>
         <div class="ico-btn del" onclick="confirmDeleteProduct('${p.id}')">🗑</div>
       </div>
-      <div class="pcard-name">${p.name}${p.sharedStockWith?` <span style="font-size:10px;color:var(--teal);font-weight:700;border:1px solid var(--teal);border-radius:4px;padding:1px 4px">🔗 連動</span>`:''}${(p.setPrices||[]).length?` <span style="font-size:10px;color:var(--gold);font-weight:700;border:1px solid var(--gold);border-radius:4px;padding:1px 4px">🎁 セット価格</span>`:''}</div>
+      <div class="pcard-name">${p.name}${typeBadge?` ${typeBadge}`:''}${p.sharedStockWith?` <span style="font-size:10px;color:var(--teal);font-weight:700;border:1px solid var(--teal);border-radius:4px;padding:1px 4px">🔗 連動</span>`:''}${(p.setPrices||[]).length?` <span style="font-size:10px;color:var(--gold);font-weight:700;border:1px solid var(--gold);border-radius:4px;padding:1px 4px">🎁 セット価格</span>`:''}</div>
       <div class="pcard-info">¥${Number(p.price||0).toLocaleString()} / 計${p.totalMinutes||0}分</div>
       <div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap">
         ${p.sharedStockWith
@@ -2844,6 +2931,7 @@ function renderMaster() {
 
 document.getElementById('btn-add-product').addEventListener('click',()=>{
   T.editPid=null; T.stepTimes={}; T.types=[]; T.setPrices=[]; T.stockLocVal=0; T.stockShipVal=0;
+  T.productType='engrave'; setSegVal('seg-product-type','engrave'); updateStepTimeGridVisibility();
   LOC_STEPS.forEach((_,si)=>T.stepTimes[si]=5);
   document.getElementById('prod-title').textContent='商品追加';
   document.getElementById('inp-pname').value='';
@@ -2970,6 +3058,7 @@ document.getElementById('btn-add-setprice').addEventListener('click', () => {
 function editProduct(pid) {
   const p=S.products.find(x=>x.id===pid); if(!p) return;
   T.editPid=pid; T.stepTimes={...p.stepTimes};
+  T.productType=p.productType||'engrave'; setSegVal('seg-product-type',T.productType); updateStepTimeGridVisibility();
   T.stockLocVal=p.stockLoc||0; T.stockShipVal=p.stockShip||0;
   T.types = JSON.parse(JSON.stringify(p.types||[]));
   T.setPrices = JSON.parse(JSON.stringify(p.setPrices||[]));
@@ -3030,7 +3119,8 @@ document.getElementById('prod-ok').addEventListener('click', async()=>{
   const price=parseInt(document.getElementById('inp-pprice').value)||0;
   const costPrice=parseInt(document.getElementById('inp-pcost').value)||0;
   const stockWarnVal=parseInt(document.getElementById('inp-stock-warn').value)||3;
-  const total=Object.values(T.stepTimes).reduce((s,v)=>s+Number(v),0);
+  const isGoodsOnly = T.productType === 'goods';
+  const total = isGoodsOnly ? 0 : Object.values(T.stepTimes).reduce((s,v)=>s+Number(v),0);
   const pid=T.editPid||uid();
   const sharedStockWith = document.getElementById('sel-shared-stock').value || '';
   const product={id:pid,name,price,costPrice,
@@ -3038,7 +3128,7 @@ document.getElementById('prod-ok').addEventListener('click', async()=>{
     stockShip:T.types.length?0:T.stockShipVal,
     stock:0, // 後方互換
     stockWarn:stockWarnVal,types:T.types,setPrices:T.setPrices,stepTimes:T.stepTimes,totalMinutes:total,
-    sharedStockWith};
+    sharedStockWith, productType:T.productType||'engrave'};
   if(T.editPid){const idx=S.products.findIndex(x=>x.id===pid);if(idx>=0)S.products[idx]=product;}
   else S.products.push(product);
   renderMaster(); closeOverlay('ov-product');
@@ -3613,6 +3703,67 @@ function selectShippingFee(val) {
     custEl.style.display = 'none';
     T.shippingFee = val;
   }
+  if (typeof updateDiscountPreview === 'function') updateDiscountPreview();
+}
+
+// ============================================================
+//  クーポン割引
+// ============================================================
+function selectDiscountType(type) {
+  T.discountType = type;
+  document.querySelectorAll('[data-dtype]').forEach(b=>b.classList.toggle('on', b.dataset.dtype===type));
+  const valEl = document.getElementById('inp-discount-value');
+  if (type === 'none') {
+    valEl.style.display = 'none';
+    T.discountValue = 0;
+    valEl.value = '';
+  } else {
+    valEl.style.display = '';
+    valEl.placeholder = type === 'percent' ? '例：10' : '例：500';
+    valEl.focus();
+  }
+  updateDiscountPreview();
+}
+
+// 現在の選択商品合計＋送料（割引適用対象の元金額）を計算
+function calcOrderSubtotalForDiscount() {
+  let total = 0;
+  Object.entries(T.selProds).forEach(([pid,qty])=>{
+    if (qty<=0) return;
+    const p = S.products.find(x=>x.id===pid);
+    const opt = getOption(pid,'');
+    total += (p?.price||0) * qty + (opt.fee>0 ? Number(opt.fee||0) : 0);
+  });
+  Object.entries(T.selTypeQty).forEach(([pid, typeQtys])=>{
+    Object.entries(typeQtys).forEach(([tid, qty])=>{
+      if (qty<=0) return;
+      const p = S.products.find(x=>x.id===pid);
+      const opt = getOption(pid, tid);
+      total += (p?.price||0) * qty + (opt.fee>0 ? Number(opt.fee||0) : 0);
+    });
+  });
+  return total + Number(T.shippingFee||0);
+}
+
+// 割引種別・値から最終的な割引額（円）を計算。合計を超えない・マイナスにならないよう丸める
+function calcDiscountAmount(subtotal) {
+  if (T.discountType === 'amount') {
+    return Math.max(0, Math.min(subtotal, Number(T.discountValue||0)));
+  }
+  if (T.discountType === 'percent') {
+    const pct = Math.max(0, Math.min(100, Number(T.discountValue||0)));
+    return Math.floor(subtotal * pct / 100);
+  }
+  return 0;
+}
+
+function updateDiscountPreview() {
+  const el = document.getElementById('discount-preview');
+  if (!el) return;
+  if (T.discountType === 'none' || !T.discountValue) { el.textContent=''; return; }
+  const subtotal = calcOrderSubtotalForDiscount();
+  const amt = calcDiscountAmount(subtotal);
+  el.textContent = amt>0 ? `-¥${amt.toLocaleString()}` : '';
 }
 
 // ============================================================
