@@ -55,12 +55,22 @@ function doGet(e) {
   try {
     const action = e.parameter.action || '';
 
-    // action指定が無い場合は「Googleアカウント認証版」のHTML画面を返す。
+    // action指定が無い場合＝このURLをブラウザで直接開いた場合。
+    // GAS直配信版は使用終了とし、GitHub Pages版へ誘導する案内ページを返す。
     // 既存のGitHub Pages版フロントエンドは必ずaction付きでリクエストするので、
-    // 今までの動作には一切影響しない（このデプロイを新しいURLとして追加した場合のみ使われる）。
+    // このガードには一切引っかからず今までの動作に影響しない。
     if (!action) {
-      return HtmlService.createHtmlOutputFromFile('Index')
-        .setTitle('おまんぼさん 受注管理')
+      var redirectUrl = 'https://omanbosan.github.io/marche-system/';
+      var guideHtml = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+        '<meta http-equiv="refresh" content="2;url=' + redirectUrl + '">' +
+        '<title>移転しました</title>' +
+        '<style>body{font-family:sans-serif;background:#1a1a2e;color:#eee;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:20px}' +
+        'a{color:#c8a84a;font-weight:bold;font-size:18px}p{font-size:14px;color:#aaa}</style></head>' +
+        '<body><div><p>このページは使用を終了しました。<br>2秒後に自動で移動します。</p>' +
+        '<a href="' + redirectUrl + '">' + redirectUrl + '</a></div></body></html>';
+      return HtmlService.createHtmlOutput(guideHtml)
+        .setTitle('移転しました')
         .addMetaTag('viewport', 'width=device-width, initial-scale=1');
     }
 
