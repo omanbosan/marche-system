@@ -326,3 +326,9 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - フロント側は`calcNextOrderNum(group)`をグループ引数対応にし、`localStorage`のキーも`mb_last_num_engrave`/`mb_last_num_goods`に分離。受付モーダルでは商品を選択するたびに`updateSuggestedOrderNum()`が現在の選択構成（`computeItemInstant`で商品ごとに判定）から該当グループを推測し、受付番号欄を自動的に候補値へ更新する（ユーザーが手入力した場合は`T.numManuallyEdited`フラグでそれ以降上書きしない）。商品未選択時点ではengraveグループを既定候補として表示
 - 受付番号ラベル横に`num-group-hint`で「（彫刻あり連番）」「（物販のみ連番）」の小さい注記を表示し、どちらのグループの番号が提案されているか分かるようにした
 - **注意**: 現地/郵送の区別は従来通りグループを分けていない（彫刻あり/物販のみの2区分のみ）。もし現地/郵送でも別連番にしたいという要望が来たら、`numGroup`を`engrave_local`/`engrave_ship`/`goods_local`/`goods_ship`のような4区分に拡張する方針で対応する
+
+### 2026-08-14: 物販のみ連番の受付番号表示に頭文字「BUY」を付与（v91）
+- 表示専用の変更。`num`列自体は引き続き数値のまま保存・連番計算するが、`fmtOrderNum(num, isGoods)`（`src/index.html`）が`numGroup==='goods'`のとき`BUY001`のように頭文字を付けて表示する。彫刻ありは従来通り`#001`
+- 適用箇所：受付完了時のトースト・履歴タブのカード・管理会計タブの案件別テーブル。進捗管理タブ（現地/郵送のアクティブ一覧）は物販のみ注文が表示されないため対象外
+- 履歴データに`numGroup`を持たせる際、`history`シートへの列追加はせず、`handleGetHistory`が既存の`orderMap`（`orderId`→`orders`行）から`numGroup`を都度引いて`h.numGroup`に付加する方式にした（スキーマ変更なしで実現）
+- **How to apply**: 今後プレフィックス文字列や桁数を変えたい場合は`fmtOrderNum()`だけを直せばよい。表示箇所を増やす場合も同関数を使い回すこと（生の`#${num}`を直書きしない）
