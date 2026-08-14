@@ -100,7 +100,7 @@ clasp deploy --versionNumber N --description "変更内容"
 | シート名 | 主な列 |
 |---------|--------|
 | orders | id, num, note, deliveryType, createdAt, completedAt, status, sharedImageRef, channel, shippingFee, discount |
-| items | id, orderId, pid, idx, totalOf, skipBinarize, skipDesign, price, paymentMethod, onHold, paid, typeId, typeName, optionFee, optionNote, doubleBinarize, engraveOpt |
+| items | id, orderId, pid, idx, totalOf, skipBinarize, skipDesign, price, paymentMethod, onHold, paid, typeId, typeName, optionFee, optionNote, doubleBinarize, engraveOpt, engraveLabel |
 | steps | id, itemId, stepIndex, done, startedAt, completedAt, durationMins |
 | products | id, name, price, totalMinutes, stepTimesJson, stock, stockWarn, typesJson, stockLoc, stockShip, sharedStockWith, costPrice, setPricesJson, productType |
 | history | id, orderId, num, completedAt, waitMinutes, deliveryType |
@@ -311,3 +311,10 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - `handleGetAll`は結果を50秒間`CacheService`にキャッシュしており、画面は20秒ごとに自動同期（`loadAll`）で`S.products`をサーバー応答で丸ごと上書きする。保存直後にキャッシュが無効化されないと、次の自動同期が古いキャッシュを取得して`S.products`が保存前の状態に巻き戻ってしまう
 - 4つのハンドラすべての先頭に`invalidateCache();`を追加。`clasp deploy`は今回から両デプロイID（案内ページ用・GitHub Pages API用）に対して実施し、`clasp deployments`で両方が同じバージョンにピン留めされていることを確認済み
 - **How to apply**: 今後「保存したのに画面を開き直すと反映されていない／数秒後に元に戻る」系の相談が来たら、まず該当のGASハンドラに`invalidateCache()`があるか確認すること。特に商品・在庫関連（`products`シートを書き換える処理）は要注意
+
+### 2026-08-14: 彫刻オプション（goods_opt）を「追加料金」欄とは別枠の3パターン選択に変更（v89）
+- 従来は「🔨 彫刻オプションを追加」という単純なON/OFFトグルで、彫刻の有無を選んだ後は既存の汎用「追加料金」チップ（¥500/¥700/¥1,000/¥2,000/任意）を流用して金額を決めていた
+- 実際の料金体系は①文字のみ（+¥500）②イラスト彫刻（+¥1,000）③写真彫刻（+¥2,000）の3パターン固定と判明。汎用の追加料金欄と混同しないよう、`goods_opt`商品の行には専用の「🔨 彫刻オプション」ボックス（オレンジ枠）を追加料金欄の**上に別枠で**表示し、そこでこの3パターン＋「なし」を選ぶ方式に変更
+- データ的には`T.options[key]`に`engraveType`('none'/'text'/'illust'/'photo')・`engraveFee`・`engraveLabel`を新設し、既存の汎用`fee`/`note`とは完全に独立させた（両方同時に使うことも可能＝彫刻代+汎用の追加料金を両方乗せられる）
+- `items`シートに`engraveLabel`列を追加（18列目）。`handleGetAll`の自動マイグレーション・`handleSaveOrderFast`・`handleAddItemToOrder`をそれぞれ対応させた。アイテムバッジにも選んだ彫刻内容（例：🔨 写真彫刻）を表示するようにした
+- **How to apply**: 今後、彫刻オプション商品の料金体系が変わったら`src/index.html`の`ENGRAVE_TYPES`定数（4件の配列）を編集するだけでよい。バックエンド側はfee/labelを汎用フィールドとして受け取っているだけなので変更不要
