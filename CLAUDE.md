@@ -332,3 +332,10 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - 適用箇所：受付完了時のトースト・履歴タブのカード・管理会計タブの案件別テーブル。進捗管理タブ（現地/郵送のアクティブ一覧）は物販のみ注文が表示されないため対象外
 - 履歴データに`numGroup`を持たせる際、`history`シートへの列追加はせず、`handleGetHistory`が既存の`orderMap`（`orderId`→`orders`行）から`numGroup`を都度引いて`h.numGroup`に付加する方式にした（スキーマ変更なしで実現）
 - **How to apply**: 今後プレフィックス文字列や桁数を変えたい場合は`fmtOrderNum()`だけを直せばよい。表示箇所を増やす場合も同関数を使い回すこと（生の`#${num}`を直書きしない）
+
+### 2026-08-14: 【重大】履歴タブから注文を削除しても在庫が戻らないバグを発見・修正（v92）
+- 「彫刻無しで登録して間違えたので履歴から削除した場合、在庫はどうなるか」との質問を受けて調査した結果、**在庫を戻す処理はサーバー側の`handleDeleteOrder`には一切入っておらず、進捗タブ側のフロント（`confirmDeleteOrder`）が独自に`adjustStock`を呼んで戻していただけ**と判明。履歴タブ側の削除（`confirmDeleteHistory`→`handleDeleteHistory`→`handleDeleteOrder`）はこの経路を通らないため、在庫が戻らないまま欠品扱いになっていた（今回の機能追加以前からの既存バグ）
+- 物販のみ（彫刻なし）注文は受付と同時に完了扱いになり進捗タブに一切表示されないため、**削除できる経路が履歴タブしかなく、このバグの影響を100%受ける**状態だった
+- `handleDeleteOrder`を修正し、注文削除前に対象注文の`items`（pid・typeId）と`deliveryType`を読み取り、`handleAdjustStock`で1点につき+1ずつ在庫を戻すよう変更。これにより進捗タブ・履歴タブどちらから削除しても同じ経路で在庫が戻る
+- 上記に伴い、フロント側`confirmDeleteOrder`が独自に呼んでいた`api('adjustStock', ...)`は二重復元になるため削除。画面の即時反映用に`S.products`をその場で書き換える楽観的更新のみ残した（実際の永続化はサーバー側`handleDeleteOrder`が担う）
+- **How to apply**: 今後「削除しても在庫が減ったまま」系の相談が来たら、まず`handleDeleteOrder`が呼ばれているか（`confirmDeleteOrder`／`confirmDeleteHistory`のどちらの経路か）を確認すること。在庫復元ロジックは`handleDeleteOrder`に一本化されているので、新しい削除経路を追加する場合もそちらを呼ぶだけでよい
