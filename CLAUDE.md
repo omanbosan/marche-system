@@ -95,10 +95,10 @@ clasp deploy --versionNumber N --description "変更内容"
 
 | シート名 | 主な列 |
 |---------|--------|
-| orders | id, num, note, deliveryType, createdAt, completedAt, status, sharedImageRef, channel |
-| items | id, orderId, pid, idx, totalOf, skipBinarize, skipDesign, price, paymentMethod, onHold, paid, typeId, typeName, optionFee, optionNote, doubleBinarize |
+| orders | id, num, note, deliveryType, createdAt, completedAt, status, sharedImageRef, channel, shippingFee, discount |
+| items | id, orderId, pid, idx, totalOf, skipBinarize, skipDesign, price, paymentMethod, onHold, paid, typeId, typeName, optionFee, optionNote, doubleBinarize, engraveOpt |
 | steps | id, itemId, stepIndex, done, startedAt, completedAt, durationMins |
-| products | id, name, price, totalMinutes, stepTimesJson, stock, stockWarn, typesJson, stockLoc, stockShip |
+| products | id, name, price, totalMinutes, stepTimesJson, stock, stockWarn, typesJson, stockLoc, stockShip, sharedStockWith, costPrice, setPricesJson, productType |
 | history | id, orderId, num, completedAt, waitMinutes, deliveryType |
 | sales | id, historyId, orderId, pid, productName, price, paymentMethod, completedAt |
 | config | key, value |
@@ -111,6 +111,19 @@ clasp deploy --versionNumber N --description "変更内容"
 ### 工程ステップ
 - **現地（6ステップ）**: 受付→2値化→デザイン→彫刻→撮影→完成連絡
 - **郵送（7ステップ）**: 受付→2値化→デザイン→顧客確認→彫刻→撮影→発送
+
+### 商品種別（productType、2026-08-14追加）
+- `engrave`（デフォルト・既存商品）: 通常どおり全工程を通す彫刻商品
+- `goods`: 物販のみ。工程管理なし。受付と同時に`orders.status='done'`で作成され、進捗タブ（現地/郵送）には一切表示されない。売上（sales/history）は受付と同時に記録される
+- `goods_opt`: 物販＋彫刻オプション。受付モーダルの「オプション追加料金」欄に商品ごとの「🔨 彫刻オプションを追加」トグルが出る。ONなら通常の彫刻商品と同じ全工程を通し、OFFなら`goods`と同じ扱い（即完了）
+- 実装のキモ：`goods`／彫刻オプションOFFの`goods_opt`アイテムは、**作成時点で全ステップを`done=true`で生成する**だけで実現している（`src/gas_code.gs`の`handleSaveOrderFast`・`src/index.html`の`saveOrder()`）。既存の「全アイテムの全ステップが`done`になったら注文完了」ロジック（`tapStep`内`allItemsDone`）をそのまま流用しているため、彫刻商品と物販商品が同一受付に混在していても、彫刻側の最終工程を押した瞬間に混在していた物販アイテムも一緒に完了扱いになる
+- 商品登録画面（`ov-product`）に商品種別セグメント（`seg-product-type`）を追加。`物販のみ`選択時は工程時間グリッド（`step-time-grid`）を非表示にする
+
+### クーポン割引（discount、2026-08-14追加）
+- 事前登録なし。受付モーダルでその場で「金額」または「割合(%)」を選んで手入力し、**商品合計＋送料の1回だけ**に適用する（`T.discountType`/`T.discountValue`、`calcDiscountAmount()`）
+- `orders.discount`列に最終確定額（円）を保存。`sales`シートには送料と同じパターンで`productName:'割引', price:マイナス値`の行を1本追加する形で計上（`recordSalesForOrder`・`handleCompleteOrder`）
+- 現地／物販のみ注文は受付と同時に、郵送（彫刻あり）注文は完了時（`handleCompleteOrder`）に割引行が売上に反映される
+- **既知の制限**: 一度sales記録済みの注文の`discount`を後から編集しても、sales側の金額は遡って修正されない（`shippingFee`の編集と同じ既存の制限を踏襲）
 
 ### 在庫管理
 - 在庫は**注文登録時**に引き落とし（完了時ではない）
@@ -251,3 +264,8 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - **調査したが未修正の別件**: `yayoiMap`（弥生会計の勘定科目マッピング）と`pt_margin_<pid>`（価格設定テーブルの目標粗利率）も`localStorage`のみに保存されており、サーバー同期していない。GitHub Pages版とGAS管理者版を併用すると、これらの設定もオリジンが変わるたびに空・デフォルトに戻って見える。実害の報告があればconfigシート等への保存に変更する対応を検討すること
 
 **How to apply**: 「GASに変えてから前は出来ていたことが出来ない」系の相談が来たら、まず`localStorage`に保存している値（`mb_last_num`・`yayoiMap`・`pt_margin_*`・`mb_token`）がオリジン依存で消えていないかを疑うこと。恒久対策はサーバー側（スプレッドシート）に保存先を移すこと。
+
+### 2026-08-14: 物販専用商品・彫刻オプション商品・クーポン割引を追加（index_v85 / gas_v60）
+- 詳細は上記「商品種別（productType）」「クーポン割引（discount）」の項を参照
+- `products.productType`・`items.engraveOpt`・`orders.discount`の3列を追加。`handleGetAll`内に`shippingFee`列と同じパターンの自動マイグレーションを実装済みなので、本番スプレッドシートは次回`getAll`実行時に自動で列が追加される（`fixAllSheets()`の手動実行は不要のはずだが、反映されない場合は保険として実行すること）
+- 既存の彫刻商品（`productType`が空欄の行）は`handleGetAll`のパース時に`'engrave'`扱いにフォールバックするため、後方互換あり
