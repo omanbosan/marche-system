@@ -1071,6 +1071,7 @@ function deleteRowsWhere(sheet, col, val) {
 // ============================================================
 function handleSaveProduct(p) {
   if (!p) return err('product missing');
+  invalidateCache();
   const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sh   = ss.getSheetByName(SH.PRODUCTS);
   const rows = sh.getDataRange().getValues();
@@ -1096,6 +1097,7 @@ function handleSaveProduct(p) {
 }
 
 function handleDeleteProduct(productId) {
+  invalidateCache();
   deleteRowsWhere(
     SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.PRODUCTS), 0, productId
   );
@@ -1105,6 +1107,7 @@ function handleDeleteProduct(productId) {
 function handleReorderProducts(data) {
   var ids = data.ids || [];
   if (!ids.length) return err('ids missing');
+  invalidateCache();
   var ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sh  = ss.getSheetByName(SH.PRODUCTS);
   var all = sh.getDataRange().getValues();
@@ -1139,6 +1142,7 @@ function handleReorderProducts(data) {
 //  在庫調整
 // ============================================================
 function handleAdjustStock(data) {
+  invalidateCache();
   var found = false;
   const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sh   = ss.getSheetByName(SH.PRODUCTS);
