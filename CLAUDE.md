@@ -303,5 +303,11 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
   - `AKfycbyGx2qJ...`（案内ページ専用。CLAUDE.mdで「本流」と誤記していたURL）→ 私が`clasp deploy`のたびにこのIDばかり指定していたため、常に最新版になっていた
   - `AKfycbwQ8-M1...`（`src/index.html`の`GAS_URL`定数が実際に呼ぶAPI本体。**GitHub Pages版が依存する唯一のバックエンド**）→ v59時点（@77）にピン留めされたまま放置されていた
 - 結果として、物販専用商品・彫刻オプション・クーポン割引を追加した際（v85）、**フロントエンド（UI）だけが新しくなり、実際に叩かれるバックエンドは古いまま**という状態になっていた。商品種別を保存しても`productType`列は書き込まれず、次回読み込み時に消えたように見える／注文の`discount`も保存されるが集計に反映されない、といった不具合が起きていたはず（実際にユーザーが気づく前に発見・修正できた）
-- `npx clasp deploy --deploymentId AKfycbwQ8-M1NueHtjLf8Q1B5I6X-YTfdDUTcczYaFxRIaP4Ocq9UL-gj6rcucHZWNAGF28Ulg`で該当デプロイを最新版に更新し、`curl`（正常なUser-Agentヘッダー付き。GASは自動化ツールっぽいUser-Agentだとreとreファンティンネ的なチャレンジページを返すことがあるため注意）で新コードが反映されていることを確認済み
+- `npx clasp deploy --deploymentId AKfycbwQ8-M1NueHtjLf8Q1B5I6X-YTfdDUTcczYaFxRIaP4Ocq9UL-gj6rcucHZWNAGF28Ulg`で該当デプロイを最新版に更新し、`curl`（正常なUser-Agentヘッダー付き。GASは自動化ツールっぽいUser-AgentだとreCAPTCHA的なチャレンジページを返すことがあるため注意）で新コードが反映されていることを確認済み
 - **How to apply**: 今後`src/gas_code.gs`を変更してデプロイする際は、**`clasp deploy --deploymentId`を必ず両方（案内ページ用`AKfycbyGx2qJ...`・GitHub Pages API用`AKfycbwQ8-M1...`）に対して実行すること**。`clasp deployments`で現在のデプロイ一覧とピン留めバージョンを都度確認する習慣をつけること。上記「正しい本番反映手順」の4番も両デプロイID対応に読み替えて適用する
+
+### 2026-08-14: 商品保存系ハンドラに`invalidateCache()`漏れがあり、保存直後にキャッシュへ巻き戻る不具合を修正（gas_v88）
+- 上記のデプロイ取り違え修正後も「物販+彫刻オプションを保存し直したのに、受付画面でオプションが出てこない」との報告があり調査したところ、`handleSaveProduct`・`handleDeleteProduct`・`handleReorderProducts`・`handleAdjustStock`の4つの商品系ハンドラに`invalidateCache()`の呼び出しが無いことが判明（他の保存系ハンドラ、例えば`handleSaveOrderFast`や`handleTransferStock`には入っている）。これは今回の機能追加で作った不具合ではなく、以前から存在していた既存バグ
+- `handleGetAll`は結果を50秒間`CacheService`にキャッシュしており、画面は20秒ごとに自動同期（`loadAll`）で`S.products`をサーバー応答で丸ごと上書きする。保存直後にキャッシュが無効化されないと、次の自動同期が古いキャッシュを取得して`S.products`が保存前の状態に巻き戻ってしまう
+- 4つのハンドラすべての先頭に`invalidateCache();`を追加。`clasp deploy`は今回から両デプロイID（案内ページ用・GitHub Pages API用）に対して実施し、`clasp deployments`で両方が同じバージョンにピン留めされていることを確認済み
+- **How to apply**: 今後「保存したのに画面を開き直すと反映されていない／数秒後に元に戻る」系の相談が来たら、まず該当のGASハンドラに`invalidateCache()`があるか確認すること。特に商品・在庫関連（`products`シートを書き換える処理）は要注意
