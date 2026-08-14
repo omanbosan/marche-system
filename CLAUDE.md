@@ -265,7 +265,8 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 
 **How to apply**: 「GASに変えてから前は出来ていたことが出来ない」系の相談が来たら、まず`localStorage`に保存している値（`mb_last_num`・`yayoiMap`・`pt_margin_*`・`mb_token`）がオリジン依存で消えていないかを疑うこと。恒久対策はサーバー側（スプレッドシート）に保存先を移すこと。
 
-### 2026-08-14: 物販専用商品・彫刻オプション商品・クーポン割引を追加（index_v85 / gas_v60）
+### 2026-08-14: 物販専用商品・彫刻オプション商品・クーポン割引を追加（index_v85 / gas_v85）
 - 詳細は上記「商品種別（productType）」「クーポン割引（discount）」の項を参照
 - `products.productType`・`items.engraveOpt`・`orders.discount`の3列を追加。`handleGetAll`内に`shippingFee`列と同じパターンの自動マイグレーションを実装済みなので、本番スプレッドシートは次回`getAll`実行時に自動で列が追加される（`fixAllSheets()`の手動実行は不要のはずだが、反映されない場合は保険として実行すること）
 - 既存の彫刻商品（`productType`が空欄の行）は`handleGetAll`のパース時に`'engrave'`扱いにフォールバックするため、後方互換あり
+- `./deploy.sh all`は`index`と`gas`のリビジョン番号を同期させる仕様（大きい方の番号を両方に使う）のため、gas側も前回のv59から一気にv85まで飛んでいる（欠番ではなく仕様どおり）
