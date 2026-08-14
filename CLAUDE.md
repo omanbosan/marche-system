@@ -99,7 +99,7 @@ clasp deploy --versionNumber N --description "変更内容"
 
 | シート名 | 主な列 |
 |---------|--------|
-| orders | id, num, note, deliveryType, createdAt, completedAt, status, sharedImageRef, channel, shippingFee, discount |
+| orders | id, num, note, deliveryType, createdAt, completedAt, status, sharedImageRef, channel, shippingFee, discount, numGroup |
 | items | id, orderId, pid, idx, totalOf, skipBinarize, skipDesign, price, paymentMethod, onHold, paid, typeId, typeName, optionFee, optionNote, doubleBinarize, engraveOpt, engraveLabel |
 | steps | id, itemId, stepIndex, done, startedAt, completedAt, durationMins |
 | products | id, name, price, totalMinutes, stepTimesJson, stock, stockWarn, typesJson, stockLoc, stockShip, sharedStockWith, costPrice, setPricesJson, productType |
@@ -318,3 +318,11 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - データ的には`T.options[key]`に`engraveType`('none'/'text'/'illust'/'photo')・`engraveFee`・`engraveLabel`を新設し、既存の汎用`fee`/`note`とは完全に独立させた（両方同時に使うことも可能＝彫刻代+汎用の追加料金を両方乗せられる）
 - `items`シートに`engraveLabel`列を追加（18列目）。`handleGetAll`の自動マイグレーション・`handleSaveOrderFast`・`handleAddItemToOrder`をそれぞれ対応させた。アイテムバッジにも選んだ彫刻内容（例：🔨 写真彫刻）を表示するようにした
 - **How to apply**: 今後、彫刻オプション商品の料金体系が変わったら`src/index.html`の`ENGRAVE_TYPES`定数（4件の配列）を編集するだけでよい。バックエンド側はfee/labelを汎用フィールドとして受け取っているだけなので変更不要
+
+### 2026-08-14: 受付番号をレーザー彫刻あり／物販のみで別連番管理できるようにした（v90）
+- 従来は受付番号（`num`）が現地/郵送問わず・商品種別問わず1本の連番だった。「物販のみは受付番号自体は不要だが、区別して連番管理はしたい」との要望を受け、注文作成時点の商品構成（`goods`商品のみ、または`goods_opt`商品で彫刻オプション未選択のみ＝`allInstant`）で`engrave`/`goods`の2グループに分け、それぞれ独立した連番にした
+- `orders`シートに`numGroup`列を追加（`handleSaveOrderFast`が`allInstant`から自動判定して書き込む。フロントから明示的に送る必要はなく、バックエンドが自前のallInstant判定と一致させている）。旧データ（`numGroup`未設定）は`engrave`扱いにフォールバック
+- `handleGetAll`は`maxOrderNum`（全体・後方互換で残置）に加えて`maxOrderNumEngrave`・`maxOrderNumGoods`をグループ別に算出して返す
+- フロント側は`calcNextOrderNum(group)`をグループ引数対応にし、`localStorage`のキーも`mb_last_num_engrave`/`mb_last_num_goods`に分離。受付モーダルでは商品を選択するたびに`updateSuggestedOrderNum()`が現在の選択構成（`computeItemInstant`で商品ごとに判定）から該当グループを推測し、受付番号欄を自動的に候補値へ更新する（ユーザーが手入力した場合は`T.numManuallyEdited`フラグでそれ以降上書きしない）。商品未選択時点ではengraveグループを既定候補として表示
+- 受付番号ラベル横に`num-group-hint`で「（彫刻あり連番）」「（物販のみ連番）」の小さい注記を表示し、どちらのグループの番号が提案されているか分かるようにした
+- **注意**: 現地/郵送の区別は従来通りグループを分けていない（彫刻あり/物販のみの2区分のみ）。もし現地/郵送でも別連番にしたいという要望が来たら、`numGroup`を`engrave_local`/`engrave_ship`/`goods_local`/`goods_ship`のような4区分に拡張する方針で対応する
