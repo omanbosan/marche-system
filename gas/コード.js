@@ -540,6 +540,9 @@ function handleGetHistory(year, month) {
     if (ord) {
       h.channel    = ord.channel    || 'marche';
       h.createdAt  = ord.createdAt  || '';
+      h.numGroup   = ord.numGroup   || 'engrave';
+    } else {
+      h.numGroup = 'engrave';
     }
     // 工程別実績（現地・郵送とも）
     var ordItems = allItems.filter(function(it){ return it.orderId === h.orderId; });
