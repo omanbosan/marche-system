@@ -2885,9 +2885,9 @@ async function saveItemEdit() {
 function confirmDeleteOrder(oid) {
   const o=S.orders.find(x=>x.id===oid);
   showConfirm(`#${String(o?.num||'').padStart(3,'0')} を削除しますか？`,'削除後は元に戻せません',async()=>{
-    // 在庫を戻す（同一商品・同一タイプは個数を集計して1回だけ送信＝競合防止）
+    // 在庫の戻し自体はサーバー側（handleDeleteOrder）が一括で行う（履歴タブからの削除と経路を統一するため）。
+    // ここではUIをすぐに更新するための楽観的な見た目上の反映のみ行う
     const isShipDel = o.deliveryType === 'shipping';
-    const adjMapDel = new Map(); // key -> {pid, tid, count}
     (o.items||[]).forEach(it => {
       const p = S.products.find(x=>x.id===it.pid);
       if (!p) return;
@@ -2898,21 +2898,9 @@ function confirmDeleteOrder(oid) {
         if (!typeObj) return;
         if (isShipDel) typeObj.stockShip = (typeObj.stockShip||0)+1;
         else           typeObj.stockLoc  = (typeObj.stockLoc ||0)+1;
-        const key = `${p.id}__${it.typeId}`;
-        if (!adjMapDel.has(key)) adjMapDel.set(key, { pid:p.id, tid:it.typeId, count:0 });
-        adjMapDel.get(key).count++;
       } else {
         if (isShipDel) ep.stockShip = (ep.stockShip||0)+1;
         else           ep.stockLoc  = (ep.stockLoc ||0)+1;
-        if (!adjMapDel.has(p.id)) adjMapDel.set(p.id, { pid:p.id, tid:'', count:0 });
-        adjMapDel.get(p.id).count++;
-      }
-    });
-    adjMapDel.forEach(({pid, tid, count}) => {
-      if (tid) {
-        api('adjustStock',{ productId:pid, typeId:tid, delta:count, isShip:isShipDel, reason:'delete' }, 2, false);
-      } else {
-        api('adjustStock',{ productId:pid, delta:count, isShip:isShipDel, reason:'delete' }, 2, false);
       }
     });
     S.orders=S.orders.filter(x=>x.id!==oid);
