@@ -314,6 +314,10 @@ function handleGetAll() {
       oMigSh.insertColumnsAfter(10, 11 - oMigSh.getLastColumn());
       oMigSh.getRange(1, 11).setValue('discount');
     }
+    if (oMigSh && oMigSh.getLastColumn() < 12) {
+      oMigSh.insertColumnsAfter(11, 12 - oMigSh.getLastColumn());
+      oMigSh.getRange(1, 12).setValue('numGroup');
+    }
   } catch(eM){}
   // productsシートの自動マイグレーション（productType列追加）
   try {
@@ -395,10 +399,18 @@ function handleGetAll() {
 
   // 次の受付番号を正しく連番にするため、完了済み(done)も含めた全注文の最大番号を返す
   // （activeだけだとその日の注文が全部完了済みになった時に番号がリセットされてしまうため）
-  var maxOrderNum = 0;
-  orders.forEach(function(o){ if (Number(o.num) > maxOrderNum) maxOrderNum = Number(o.num); });
+  // レーザー彫刻あり／物販のみ（numGroup）で別々に連番管理するため、グループ別に最大値を計算する
+  var maxOrderNum = 0, maxOrderNumEngrave = 0, maxOrderNumGoods = 0;
+  orders.forEach(function(o){
+    var n = Number(o.num);
+    if (n > maxOrderNum) maxOrderNum = n;
+    var grp = o.numGroup || 'engrave'; // 旧データ（numGroup未設定）はengrave扱い
+    if (grp === 'goods') { if (n > maxOrderNumGoods) maxOrderNumGoods = n; }
+    else                 { if (n > maxOrderNumEngrave) maxOrderNumEngrave = n; }
+  });
 
-  var result = { orders: active, products: products, laborRatePerHour: laborRate, maxOrderNum: maxOrderNum };
+  var result = { orders: active, products: products, laborRatePerHour: laborRate,
+    maxOrderNum: maxOrderNum, maxOrderNumEngrave: maxOrderNumEngrave, maxOrderNumGoods: maxOrderNumGoods };
   // 結果をキャッシュに保存（50秒間）
   // フロント同期が30秒ごとなので、50秒TTLで「30秒→キャッシュヒット→60秒→再読み込み」のサイクルになる
   // 書き込み系操作時は invalidateCache() でキャッシュを即座に消去するため、ステップ更新等は遅延なく反映
@@ -578,11 +590,11 @@ function handleSaveOrderFast(data) {
   // 物販のみ／彫刻オプション不使用のアイテムだけの注文かどうか（＝即完了・進捗管理タブに出さない）
   var allInstant = (data.items||[]).length > 0 && (data.items||[]).every(function(it){ return !!it.allDone; });
 
-  // 注文ヘッダー
+  // 注文ヘッダー（numGroupはレーザー彫刻あり/物販のみで受付番号を別連番管理するための区分）
   oSh.appendRow([
     data.id, data.num, data.note||'', data.deliveryType,
     data.createdAt, allInstant?data.createdAt:'', allInstant?'done':'active', '', data.channel||'marche',
-    data.shippingFee||0, data.discount||0
+    data.shippingFee||0, data.discount||0, allInstant?'goods':'engrave'
   ]);
 
   var itemRows = [], stepRows = [];
@@ -1405,7 +1417,7 @@ function setup() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   createSheetWithHeaders(ss, SH.CONFIG,    ['key','value']);
   createSheetWithHeaders(ss, SH.PRODUCTS,  ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith','costPrice','setPricesJson','productType']);
-  createSheetWithHeaders(ss, SH.ORDERS,    ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee','discount']);
+  createSheetWithHeaders(ss, SH.ORDERS,    ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee','discount','numGroup']);
   createSheetWithHeaders(ss, SH.ITEMS,     ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize','engraveOpt','engraveLabel']);
   createSheetWithHeaders(ss, SH.STEPS,     ['id','itemId','stepIndex','done','startedAt','completedAt','durationMins']);
   createSheetWithHeaders(ss, SH.HISTORY,   ['id','orderId','num','completedAt','waitMinutes','deliveryType']);
@@ -1453,7 +1465,7 @@ function diagnose() {
 
 function fixAllSheets() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  fixHeader(ss,'orders',   ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee','discount']);
+  fixHeader(ss,'orders',   ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee','discount','numGroup']);
   fixHeader(ss,'items',    ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize','engraveOpt','engraveLabel']);
   fixHeader(ss,'steps',    ['id','itemId','stepIndex','done','startedAt','completedAt','durationMins']);
   fixHeader(ss,'products', ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith','costPrice','setPricesJson','productType']);
