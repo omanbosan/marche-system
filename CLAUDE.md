@@ -270,3 +270,11 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - `products.productType`・`items.engraveOpt`・`orders.discount`の3列を追加。`handleGetAll`内に`shippingFee`列と同じパターンの自動マイグレーションを実装済みなので、本番スプレッドシートは次回`getAll`実行時に自動で列が追加される（`fixAllSheets()`の手動実行は不要のはずだが、反映されない場合は保険として実行すること）
 - 既存の彫刻商品（`productType`が空欄の行）は`handleGetAll`のパース時に`'engrave'`扱いにフォールバックするため、後方互換あり
 - `./deploy.sh all`は`index`と`gas`のリビジョン番号を同期させる仕様（大きい方の番号を両方に使う）のため、gas側も前回のv59から一気にv85まで飛んでいる（欠番ではなく仕様どおり）
+- **重要な発見**: `./deploy.sh`は`src/index.html`・`src/gas_code.gs`をGitHubにpushするだけで、**本番で実際に使われている`gas/Index.html`・`gas/コード.js`（GAS直配信版）には一切自動反映されない**。`.github/workflows/deploy-gas.yml`も`src/gas_code.gs`→`gas/Code.gs`をpush対象にしており、既存の`gas/コード.js`（日本語ファイル名）とは別物。今回`src/index.html`だけ更新してdeploy.shを実行した直後、本番URL（`https://script.google.com/macros/s/AKfycbyGx2qJ.../exec`）は8/9時点のまま何も変わっておらず、危うく「デプロイした」と報告するところだった
+- **正しい本番反映手順**（`src/`の変更をGASの実機に反映する場合）:
+  1. `git diff <直近でsrc/index.htmlとgas/Index.htmlが同時に触られたコミット>:src/index.html <同コミット>:gas/Index.html` で変換差分（ログイン画面コメント・`GAS_URL`定数の削除・`api()`/`apiAsync()`本体をfetch→google.script.run化）を確認し、同じ変換を新しいsrc/index.htmlに再適用してgas/Index.htmlを作る
+  2. `cp src/gas_code.gs "gas/コード.js"`（バックエンドはfetch変換不要、そのままコピーでよい）
+  3. `cd gas && npx clasp push --force`
+  4. `npx clasp deploy --deploymentId AKfycbyGx2qJ_Q8AKfAfunACHfUTfm2VZ1VlF8AYjWd5cDCLdHwYvdQBSRU0ccWBPQb2VgylLg --description "..."` （API上成功と出ても実際は反映されない既知の不具合があるため、下記5で必ず確認する）
+  5. `curl`等で本番URLに実際にアクセスし、変更点の文字列がレスポンスに含まれているか確認する（例：`curl -sS -L "https://script.google.com/macros/s/.../exec" | grep '確認したい文言'`）。反映されていなければApps Scriptエディタで「デプロイを管理」→バージョンを選び直して手動デプロイする
+  6. `gas/Index.html`・`gas/コード.js`の変更も忘れずに`git add`してpushしておく（次回`src/`との差分比較の基準にするため）
