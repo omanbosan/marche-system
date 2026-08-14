@@ -288,3 +288,9 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - 併せて「GAS直配信版はもう使わない」との要望により、`doGet`の`action`未指定分岐（＝ブラウザで直接URLを開いた場合）を、フルアプリ表示からGitHub PagesのURLへの案内ページ（2秒後に自動リダイレクト）に変更した。`action`付きリクエスト（GitHub Pages版が`fetch()`で呼ぶAPI）は従来通り動作し、一切影響なし
 - **注意**: リポジトリが公開になったことで、このCLAUDE.md内のパスワード・スプレッドシートID・スクリプトIDはgit履歴ごと誰でも閲覧可能。ユーザーはパスワード変更をしない選択をした（既に長期間公開されていたため今更、との判断）。今後この点について相談があれば、まず現状（公開・パスワード未変更）を伝えること
 - **How to apply**: 今後「GASページの方を直したい」「GAS直配信版を復活させたい」という相談が来たら、まずこの経緯（動作が重い・不安定という理由で意図的に使用終了にした）を伝えること。復活させる場合は`doGet`の案内ページ分岐を元の`HtmlService.createHtmlOutputFromFile('Index')`に戻せばよい
+
+### 2026-08-14: 案内ページが`<meta http-equiv="refresh">`だけだと遷移しない不具合を修正（gas_v87）
+- 案内ページ導入直後、「タップしてもすぐGASページに戻ってしまう」という報告があった
+- GASのHtmlServiceはコンテンツをサンドボックス化されたiframe（`*.googleusercontent.com`）内に表示し、タブのアドレスバー自体は`script.google.com`のまま。`<meta http-equiv="refresh">`はこのiframe自身しか遷移させられず、親フレーム（タブ本体）は`script.google.com`に残ったままになっていた可能性が高い
+- `<script>window.top.location.href = redirectUrl</script>`で親フレームごと明示的に書き換える方式に変更し、リンクにも`target="_top"`を追加。meta refreshは削除（JSでの即時遷移に一本化）
+- **もし再発したら**: ユーザー側で古い「おまんぼさん受注管理」タブ（GAS直配信版のログイン画面が既に読み込まれた状態のもの）がSafariに残っていて、それを開いているだけの可能性もある。ホーム画面に追加したアイコンがあれば作り直しを、既存タブは一度完全に閉じてから新規タブでURLを開き直すよう案内すること
