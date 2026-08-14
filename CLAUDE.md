@@ -275,13 +275,16 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - 既存の彫刻商品（`productType`が空欄の行）は`handleGetAll`のパース時に`'engrave'`扱いにフォールバックするため、後方互換あり
 - `./deploy.sh all`は`index`と`gas`のリビジョン番号を同期させる仕様（大きい方の番号を両方に使う）のため、gas側も前回のv59から一気にv85まで飛んでいる（欠番ではなく仕様どおり）
 - **重要な発見**: `./deploy.sh`は`src/index.html`・`src/gas_code.gs`をGitHubにpushするだけで、**本番で実際に使われている`gas/Index.html`・`gas/コード.js`（GAS直配信版）には一切自動反映されない**。`.github/workflows/deploy-gas.yml`も`src/gas_code.gs`→`gas/Code.gs`をpush対象にしており、既存の`gas/コード.js`（日本語ファイル名）とは別物。今回`src/index.html`だけ更新してdeploy.shを実行した直後、本番URL（`https://script.google.com/macros/s/AKfycbyGx2qJ.../exec`）は8/9時点のまま何も変わっておらず、危うく「デプロイした」と報告するところだった
-- **正しい本番反映手順**（`src/`の変更をGASの実機に反映する場合）:
-  1. `git diff <直近でsrc/index.htmlとgas/Index.htmlが同時に触られたコミット>:src/index.html <同コミット>:gas/Index.html` で変換差分（ログイン画面コメント・`GAS_URL`定数の削除・`api()`/`apiAsync()`本体をfetch→google.script.run化）を確認し、同じ変換を新しいsrc/index.htmlに再適用してgas/Index.htmlを作る
-  2. `cp src/gas_code.gs "gas/コード.js"`（バックエンドはfetch変換不要、そのままコピーでよい）
-  3. `cd gas && npx clasp push --force`
-  4. `npx clasp deploy --deploymentId AKfycbyGx2qJ_Q8AKfAfunACHfUTfm2VZ1VlF8AYjWd5cDCLdHwYvdQBSRU0ccWBPQb2VgylLg --description "..."` （API上成功と出ても実際は反映されない既知の不具合があるため、下記5で必ず確認する）
-  5. `curl`等で本番URLに実際にアクセスし、変更点の文字列がレスポンスに含まれているか確認する（例：`curl -sS -L "https://script.google.com/macros/s/.../exec" | grep '確認したい文言'`）。反映されていなければApps Scriptエディタで「デプロイを管理」→バージョンを選び直して手動デプロイする
-  6. `gas/Index.html`・`gas/コード.js`の変更も忘れずに`git add`してpushしておく（次回`src/`との差分比較の基準にするため）
+- **正しい本番反映手順（2026-08-14時点の最新版。GitHub Pages本流化後）**:
+  - フロントエンド（`src/index.html`）の変更 → `./deploy.sh frontend`（or `all`）でリビジョン保存＋`index.html`更新＋push。GitHub Pagesが自動配信するのでこれだけで完結（`gas/Index.html`はdoGetの案内ページ化により**もう誰にも読み込まれない死んだファイル**になったので、同期は不要）
+  - バックエンド（`src/gas_code.gs`）の変更 → 以下の手順で**必ず2つのデプロイID両方**に反映する:
+    1. `cp src/gas_code.gs "gas/コード.js"`
+    2. `cd gas && npx clasp push --force`
+    3. `npx clasp deploy --deploymentId AKfycbyGx2qJ_Q8AKfAfunACHfUTfm2VZ1VlF8AYjWd5cDCLdHwYvdQBSRU0ccWBPQb2VgylLg --description "..."` （案内ページ用）
+    4. `npx clasp deploy --deploymentId AKfycbwQ8-M1NueHtjLf8Q1B5I6X-YTfdDUTcczYaFxRIaP4Ocq9UL-gj6rcucHZWNAGF28Ulg --description "..."` （**GitHub Pages版が実際に呼ぶAPI本体。こちらを忘れると機能が実質無効になる**）
+    5. `npx clasp deployments`でどちらも最新バージョン番号にピン留めされているか確認
+    6. `curl -sS -L -A "Mozilla/5.0"`（User-Agent必須。無いとGoogleのボット判定ページが返ることがある）で両URLに実際にアクセスし、変更点の文字列がレスポンスに含まれているか確認する。反映されていなければApps Scriptエディタで「デプロイを管理」→バージョンを選び直して手動デプロイする
+    7. `gas/コード.js`の変更を`git add`してpushしておく（次回`src/gas_code.gs`との差分比較の基準にするため）
 
 ### 2026-08-14: GAS直配信版の動作が重い・不安定という指摘によりGitHub Pages版へ本流を戻した（index_v85 / gas_v86）
 - ユーザーから「GASページより前のGitHub Pageの方が動作が軽くて安定している」との指摘を受け、リポジトリを再公開してGitHub Pages配信を復活させた（設定変更はユーザー自身がGitHub UIで実施）
@@ -294,3 +297,11 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - GASのHtmlServiceはコンテンツをサンドボックス化されたiframe（`*.googleusercontent.com`）内に表示し、タブのアドレスバー自体は`script.google.com`のまま。`<meta http-equiv="refresh">`はこのiframe自身しか遷移させられず、親フレーム（タブ本体）は`script.google.com`に残ったままになっていた可能性が高い
 - `<script>window.top.location.href = redirectUrl</script>`で親フレームごと明示的に書き換える方式に変更し、リンクにも`target="_top"`を追加。meta refreshは削除（JSでの即時遷移に一本化）
 - **もし再発したら**: ユーザー側で古い「おまんぼさん受注管理」タブ（GAS直配信版のログイン画面が既に読み込まれた状態のもの）がSafariに残っていて、それを開いているだけの可能性もある。ホーム画面に追加したアイコンがあれば作り直しを、既存タブは一度完全に閉じてから新規タブでURLを開き直すよう案内すること
+
+### 2026-08-14: 【重大】GitHub Pages版が実際に呼ぶAPIデプロイに、v85〜v87のバックエンド変更が反映されていなかった不具合を発見・修正
+- 同一Apps Scriptプロジェクト（スクリプトID`1Dalr...`）には`clasp deployments`で見ると**複数のデプロイ（デプロイID）が存在し、それぞれ別バージョンにピン留めされている**ことが判明:
+  - `AKfycbyGx2qJ...`（案内ページ専用。CLAUDE.mdで「本流」と誤記していたURL）→ 私が`clasp deploy`のたびにこのIDばかり指定していたため、常に最新版になっていた
+  - `AKfycbwQ8-M1...`（`src/index.html`の`GAS_URL`定数が実際に呼ぶAPI本体。**GitHub Pages版が依存する唯一のバックエンド**）→ v59時点（@77）にピン留めされたまま放置されていた
+- 結果として、物販専用商品・彫刻オプション・クーポン割引を追加した際（v85）、**フロントエンド（UI）だけが新しくなり、実際に叩かれるバックエンドは古いまま**という状態になっていた。商品種別を保存しても`productType`列は書き込まれず、次回読み込み時に消えたように見える／注文の`discount`も保存されるが集計に反映されない、といった不具合が起きていたはず（実際にユーザーが気づく前に発見・修正できた）
+- `npx clasp deploy --deploymentId AKfycbwQ8-M1NueHtjLf8Q1B5I6X-YTfdDUTcczYaFxRIaP4Ocq9UL-gj6rcucHZWNAGF28Ulg`で該当デプロイを最新版に更新し、`curl`（正常なUser-Agentヘッダー付き。GASは自動化ツールっぽいUser-Agentだとreとreファンティンネ的なチャレンジページを返すことがあるため注意）で新コードが反映されていることを確認済み
+- **How to apply**: 今後`src/gas_code.gs`を変更してデプロイする際は、**`clasp deploy --deploymentId`を必ず両方（案内ページ用`AKfycbyGx2qJ...`・GitHub Pages API用`AKfycbwQ8-M1...`）に対して実行すること**。`clasp deployments`で現在のデプロイ一覧とピン留めバージョンを都度確認する習慣をつけること。上記「正しい本番反映手順」の4番も両デプロイID対応に読み替えて適用する
