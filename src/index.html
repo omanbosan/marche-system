@@ -1041,6 +1041,20 @@ const DEFAULT_PRODUCTS = [
 ];
 
 // ============================================================
+//  ESCAPE（XSS対策）
+//  受付メモ・追加料金メモ・商品名・タイプ名など自由入力/自由記述の
+//  値をinnerHTMLへ埋め込む前に必ずこれを通すこと。テンプレートリテラルへ
+//  直接埋め込むとHTMLタグとして解釈されてしまう（例: メモに"<"を含むだけで
+//  表示が崩れる、悪意ある入力ではスクリプト実行やトークン窃取につながる）。
+// ============================================================
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+
+// ============================================================
 //  STATE
 // ============================================================
 let token = '';
@@ -1452,10 +1466,10 @@ function renderCard(o, container, deliveryType) {
       <div class="och-num">#${String(o.num).padStart(3,'0')}</div>
       <span class="badge ${isShip?'badge-ship':'badge-loc'}">${isShip?'郵送':'現地'}</span>
       ${allOnHold?'<span class="badge badge-hold">保留中</span>':''}
-      ${o.channel?`<span class="badge badge-ch">${CH_ICONS[o.channel]} ${CH_LABELS[o.channel]||o.channel}</span>`:''}
+      ${o.channel?`<span class="badge badge-ch">${CH_ICONS[o.channel]||''} ${esc(CH_LABELS[o.channel]||o.channel)}</span>`:''}
       ${o.shippingFee>0?`<span style="font-size:11px;background:rgba(94,224,127,.1);color:var(--green);border:1px solid rgba(94,224,127,.3);border-radius:4px;padding:1px 6px;font-weight:700">送料 ¥${Number(o.shippingFee).toLocaleString()}</span>`:''}
       ${o.discount>0?`<span style="font-size:11px;background:rgba(220,80,80,.1);color:var(--red);border:1px solid rgba(220,80,80,.3);border-radius:4px;padding:1px 6px;font-weight:700">割引 -¥${Number(o.discount).toLocaleString()}</span>`:''}
-      <div class="och-info">${o.note?`<div class="och-note">📝 ${o.note}</div>`:''}</div>
+      <div class="och-info">${o.note?`<div class="och-note">📝 ${esc(o.note)}</div>`:''}</div>
       <div class="och-times">${timeHtml}</div>
     </div>
     ${totalAmountHtml}
@@ -1479,13 +1493,13 @@ function renderCard(o, container, deliveryType) {
     irow.className = 'irow';
     irow.innerHTML = `
       <div class="ihead">
-        <div class="iname${allDone?' idone':''}">${p.name}${it.typeName?` <span style="font-size:11px;color:var(--blue);font-weight:600">[${it.typeName}]</span>`:''}${countLabel}</div>
+        <div class="iname${allDone?' idone':''}">${esc(p.name)}${it.typeName?` <span style="font-size:11px;color:var(--blue);font-weight:600">[${esc(it.typeName)}]</span>`:''}${countLabel}</div>
         <div class="ibadges">
           ${it.skipBinarize?'<span class="ibadge ib-skip">2値化skip</span>':''}
           ${it.skipDesign  ?'<span class="ibadge ib-skip">デザインskip</span>':''}
           ${it.doubleBinarize?'<span class="ibadge" style="background:rgba(200,96,30,.1);color:var(--orange)">2値化×2</span>':''}
-          ${it.engraveLabel?`<span class="ibadge" style="background:rgba(200,96,30,.1);color:var(--orange)">🔨 ${it.engraveLabel}</span>`:''}
-          ${it.optionNote  ?`<span class="ibadge" style="background:rgba(40,120,200,.1);color:var(--blue)">${it.optionNote}</span>`:''}
+          ${it.engraveLabel?`<span class="ibadge" style="background:rgba(200,96,30,.1);color:var(--orange)">🔨 ${esc(it.engraveLabel)}</span>`:''}
+          ${it.optionNote  ?`<span class="ibadge" style="background:rgba(40,120,200,.1);color:var(--blue)">${esc(it.optionNote)}</span>`:''}
           ${payLabel       ?`<span class="ibadge ib-pay">${payLabel}</span>`:''}
         </div>
         <div class="iprice">¥${Number(it.price||p.price||0).toLocaleString()}</div>
@@ -1902,7 +1916,7 @@ function renderPPick() {
         const statusTxt = isOos?'在庫なし':tCanTransfer?locTxt:isLow?`⚠${tStock}個`:`${tStock}個`;
         return `
           <div style="padding:5px 0 5px 6px;border-bottom:1px solid var(--border);opacity:${isOos?0.4:1}">
-            <div style="font-size:12px;font-weight:700;color:${isLow?'var(--red)':'var(--text)'};margin-bottom:3px">${t.name}</div>
+            <div style="font-size:12px;font-weight:700;color:${isLow?'var(--red)':'var(--text)'};margin-bottom:3px">${esc(t.name)}</div>
             <div style="display:flex;align-items:center;justify-content:space-between">
               <span style="font-size:10px;font-weight:600;color:${statusColor}">${statusTxt}</span>
               ${tCanTransfer
@@ -1917,7 +1931,7 @@ function renderPPick() {
           </div>`;
       }).join('');
       b.innerHTML=`
-        <div class="pp-name">${p.name}</div>
+        <div class="pp-name">${esc(p.name)}</div>
         <div style="display:flex;align-items:center;gap:4px;margin-bottom:5px">
           <div class="pp-sub">¥${Number(p.price||0).toLocaleString()}</div>
           ${stockTxt}
@@ -1940,7 +1954,7 @@ function renderPPick() {
       const atMax = qty >= stock; // 在庫上限に達している
       const locHint = locStockVal2>0 ? `（現地${locStockVal2}個）` : '';
       b.innerHTML=`
-        <div class="pp-name">${p.name}</div>
+        <div class="pp-name">${esc(p.name)}</div>
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:5px">
           <div class="pp-sub">約${p.totalMinutes}分 ¥${Number(p.price||0).toLocaleString()}</div>
           ${stockTxt}
@@ -2027,7 +2041,7 @@ function renderQtyBlock() {
           const locStock = Number(typeObj.stockLoc||0);
           if (shipStock < qty && locStock > 0) {
             warns.push(`<div style="background:rgba(230,160,40,.1);border:1px solid rgba(230,160,40,.4);border-radius:7px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
-              <div style="font-size:12px;color:var(--gold)">⚠️ <b>${p.name}[${typeObj.name}]</b> 郵送在庫${shipStock}個（現地${locStock}個）</div>
+              <div style="font-size:12px;color:var(--gold)">⚠️ <b>${esc(p.name)}[${esc(typeObj.name)}]</b> 郵送在庫${shipStock}個（現地${locStock}個）</div>
               <button class="opt-chip" style="font-size:11px;padding:4px 10px;touch-action:manipulation" onclick="quickTransferStock('${p.id}','${tid}',1)">現地→郵送 移動</button>
             </div>`);
           }
@@ -2044,7 +2058,7 @@ function renderQtyBlock() {
         if (shipStock < qty && locStock > 0 && !p.sharedStockWith) {
           // 連動商品は移動ボタンは出さない（移動は連動先で行う）
           warns.push(`<div style="background:rgba(230,160,40,.1);border:1px solid rgba(230,160,40,.4);border-radius:7px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
-            <div style="font-size:12px;color:var(--gold)">⚠️ <b>${p.name}</b> 郵送在庫${shipStock}個（現地${locStock}個）</div>
+            <div style="font-size:12px;color:var(--gold)">⚠️ <b>${esc(p.name)}</b> 郵送在庫${shipStock}個（現地${locStock}個）</div>
             <button class="opt-chip" style="font-size:11px;padding:4px 10px;touch-action:manipulation" onclick="quickTransferStock('${p.id}','',1)">現地→郵送 移動</button>
           </div>`);
         }
@@ -2071,11 +2085,11 @@ function renderQtyBlock() {
       // タイプあり：選択されているタイプごとに行を作成
       (p.types||[]).forEach(t => {
         const qty = (T.selTypeQty[pid]||{})[t.id] || 0;
-        if (qty > 0) optRows.push({ pid, tid: t.id, label: p.name + ' [' + t.name + ']' });
+        if (qty > 0) optRows.push({ pid, tid: t.id, label: esc(p.name) + ' [' + esc(t.name) + ']' });
       });
     } else {
       const qty = T.selProds[pid] || 0;
-      if (qty > 0) optRows.push({ pid, tid: '', label: p.name });
+      if (qty > 0) optRows.push({ pid, tid: '', label: esc(p.name) });
     }
   });
 
@@ -2105,7 +2119,7 @@ function renderQtyBlock() {
       const info  = calcSetPriceInfo(p.setPrices, totalQtyForPid, p.price);
       setPriceHtml = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
         <button class="opt-chip${setOn?' on':''}" onclick="toggleSetPrice('${row.pid}')" style="touch-action:manipulation">🎁 セット価格を使う</button>
-        <span style="font-size:11px;color:var(--dim)">${p.name} 計${totalQtyForPid}個 → ¥${info.total.toLocaleString()}${info.saved>0?`（¥${info.saved.toLocaleString()}お得）`:''}</span>
+        <span style="font-size:11px;color:var(--dim)">${esc(p.name)} 計${totalQtyForPid}個 → ¥${info.total.toLocaleString()}${info.saved>0?`（¥${info.saved.toLocaleString()}お得）`:''}</span>
       </div>`;
     }
 
@@ -2164,7 +2178,7 @@ function renderQtyBlock() {
           </div>
         </div>
         ${countSection}
-        <input type="text" inputmode="text" value="${opt.note||''}"
+        <input type="text" inputmode="text" value="${esc(opt.note||'')}"
           placeholder="オプション内容（例：名入れ・背景除去）"
           style="width:100%;background:var(--s1);border:1.5px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;color:var(--text);margin-top:${opt.fee>0?'0':'8px'}"
           oninput="updateOptionNote('${row.pid}','${row.tid}',this.value)">
@@ -2656,7 +2670,7 @@ function openItemEdit(oid) {
         pid: it.pid,
         tid: it.typeId||'',
         typeName: it.typeName||'',
-        label: (p?.name||'?') + (it.typeName ? ` [${it.typeName}]` : ''),
+        label: esc(p?.name||'?') + (it.typeName ? ` [${esc(it.typeName)}]` : ''),
         price: it.price||0,
         payment: it.paymentMethod||'cash',
         optFee: 0,
@@ -3033,16 +3047,16 @@ function renderMaster() {
         <div class="ico-btn" onclick="openStockAdj('${p.id}')" title="在庫調整">📦</div>
         <div class="ico-btn del" onclick="confirmDeleteProduct('${p.id}')">🗑</div>
       </div>
-      <div class="pcard-name">${p.name}${typeBadge?` ${typeBadge}`:''}${p.sharedStockWith?` <span style="font-size:10px;color:var(--teal);font-weight:700;border:1px solid var(--teal);border-radius:4px;padding:1px 4px">🔗 連動</span>`:''}${(p.setPrices||[]).length?` <span style="font-size:10px;color:var(--gold);font-weight:700;border:1px solid var(--gold);border-radius:4px;padding:1px 4px">🎁 セット価格</span>`:''}</div>
+      <div class="pcard-name">${esc(p.name)}${typeBadge?` ${typeBadge}`:''}${p.sharedStockWith?` <span style="font-size:10px;color:var(--teal);font-weight:700;border:1px solid var(--teal);border-radius:4px;padding:1px 4px">🔗 連動</span>`:''}${(p.setPrices||[]).length?` <span style="font-size:10px;color:var(--gold);font-weight:700;border:1px solid var(--gold);border-radius:4px;padding:1px 4px">🎁 セット価格</span>`:''}</div>
       <div class="pcard-info">¥${Number(p.price||0).toLocaleString()} / 計${p.totalMinutes||0}分</div>
       <div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap">
         ${p.sharedStockWith
-          ? `<span style="font-size:11px;color:var(--teal);font-weight:600">🔗 ${(S.products.find(x=>x.id===p.sharedStockWith)||{}).name||'連動中'}</span>`
+          ? `<span style="font-size:11px;color:var(--teal);font-weight:600">🔗 ${esc((S.products.find(x=>x.id===p.sharedStockWith)||{}).name||'連動中')}</span>`
           : `<span style="font-size:11px;color:var(--blue);font-weight:600">🏪 現地 ${locStock}個</span>
              <span style="font-size:11px;color:var(--green);font-weight:600">📦 郵送 ${shipStock}個</span>`
         }
       </div>
-      ${hasTypes?`<div style="display:flex;flex-direction:column;gap:3px;margin-top:4px">${(p.types||[]).map(t=>`<div style="font-size:10px;background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:4px 8px"><div style="font-weight:700;margin-bottom:2px">${t.name}</div><div style="display:flex;gap:10px"><span style="color:var(--blue)">🏪 ${t.stockLoc||0}個</span><span style="color:var(--green)">📦 ${t.stockShip||0}個</span></div></div>`).join('')}</div>`:''}
+      ${hasTypes?`<div style="display:flex;flex-direction:column;gap:3px;margin-top:4px">${(p.types||[]).map(t=>`<div style="font-size:10px;background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:4px 8px"><div style="font-weight:700;margin-bottom:2px">${esc(t.name)}</div><div style="display:flex;gap:10px"><span style="color:var(--blue)">🏪 ${t.stockLoc||0}個</span><span style="color:var(--green)">📦 ${t.stockShip||0}個</span></div></div>`).join('')}</div>`:''}
       <div class="pcard-steps">${stepsHtml}</div>
       <div class="drag-handle" style="margin-left:auto;display:flex" title="ドラッグして並び替え">⋮⋮</div>`;
     g.appendChild(card);
@@ -3090,7 +3104,7 @@ function renderTypesList() {
     row.style.alignItems = 'stretch';
     row.innerHTML = `
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-        <div class="type-name">${t.name}</div>
+        <div class="type-name">${esc(t.name)}</div>
         <button class="type-del" onclick="removeType(${idx})">🗑</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">
@@ -3267,7 +3281,7 @@ function openStockAdj(pid) {
     // タイプ別・現地／郵送調整UI
     document.getElementById('stock-current').innerHTML = (p.types||[]).map((t,i) => `
       <div style="background:var(--s2);border-radius:8px;padding:10px 12px;margin-bottom:8px">
-        <div style="font-size:13px;font-weight:700;margin-bottom:8px">${t.name}</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">${esc(t.name)}</div>
         <div style="display:flex;flex-direction:column;gap:8px">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="font-size:12px;font-weight:700;color:var(--blue);width:60px;flex-shrink:0">🏪 現地</div>
@@ -3294,11 +3308,21 @@ function openStockAdj(pid) {
     T.stockAdjTypes = JSON.parse(JSON.stringify(p.types));
     stockAdjVal = -1;
     // Show type selector in transfer area
+    // タイプ名（自由入力）をonclick属性内にJS文字列として直接埋め込むと、
+    // HTMLエスケープだけではシングルクォート経由の任意コード実行を防げないため、
+    // data属性 + addEventListener 方式にする
     if ((p.types||[]).length > 0) {
       T.xferTypeId = p.types[0].id;
-      document.getElementById('xfer-type-sel').innerHTML = p.types.map(t=>
-        `<button class="opt-chip${T.xferTypeId===t.id?' on':''}" onclick="T.xferTypeId='${t.id}';document.querySelectorAll('#xfer-type-sel .opt-chip').forEach(b=>b.classList.toggle('on',b.textContent==='${t.name}'))" style="touch-action:manipulation">${t.name}</button>`
+      const xferSel = document.getElementById('xfer-type-sel');
+      xferSel.innerHTML = p.types.map(t=>
+        `<button class="opt-chip${T.xferTypeId===t.id?' on':''}" data-xfer-tid="${esc(t.id)}" style="touch-action:manipulation">${esc(t.name)}</button>`
       ).join(' ');
+      xferSel.querySelectorAll('[data-xfer-tid]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          T.xferTypeId = btn.dataset.xferTid;
+          xferSel.querySelectorAll('.opt-chip').forEach(b=>b.classList.toggle('on', b===btn));
+        });
+      });
     } else {
       T.xferTypeId = '';
       document.getElementById('xfer-type-sel').innerHTML = '';
@@ -3439,8 +3463,9 @@ async function renderHistory() {
     const iMap={};
     (h.salesItems||[]).forEach(si=>{
       // typeName があり productName に含まれていない場合は付加して表示キーを生成
-      const base = si.productName||'-';
-      const key = (si.typeName && !base.includes('['+si.typeName+']')) ? `${base} [${si.typeName}]` : base;
+      // （この時点でHTMLエスケープ済みにしておく。以降のreplaceで[...]をspan化するため）
+      const base = esc(si.productName||'-');
+      const key = (si.typeName && !base.includes('['+esc(si.typeName)+']')) ? `${base} [${esc(si.typeName)}]` : base;
       iMap[key]=(iMap[key]||0)+1;
     });
     // "[タイプ名]" 部分をカラー表示
@@ -3490,8 +3515,8 @@ function toggleHistDetail(hid) {
   const h = historyData.find(x=>x.id===hid);
   if (!h) return;
   const itemRows = (h.salesItems||[]).map(si=>{
-    const base = si.productName||'-';
-    const fullName = (si.typeName && !base.includes('['+si.typeName+']')) ? `${base} [${si.typeName}]` : base;
+    const base = esc(si.productName||'-');
+    const fullName = (si.typeName && !base.includes('['+esc(si.typeName)+']')) ? `${base} [${esc(si.typeName)}]` : base;
     const nameHtml=fullName.replace(/\[(.+?)\]/g,'<span style="color:var(--blue);font-weight:700"> [$1]</span>');
     const payIcon={cash:'💴',airpay:'💳',paypay:'📱',furikomi:'🏦',base:'🛒'}[si.paymentMethod||'cash']||'💴';
     return `
@@ -3591,9 +3616,9 @@ function openEditHistory(hid) {
   const itemsEl = document.getElementById('hist-items-edit');
   itemsEl.innerHTML = (h.salesItems||[]).map((si,i)=>{
     // typeName がある場合は表示（ローカル完了時）、productName に含まれてない場合のみ付加
-    const baseName = si.productName||'-';
-    const typeTag = si.typeName && !baseName.includes(`[${si.typeName}]`)
-      ? `<span style="font-size:11px;color:var(--blue);font-weight:600;margin-left:4px">[${si.typeName}]</span>` : '';
+    const baseName = esc(si.productName||'-');
+    const typeTag = si.typeName && !baseName.includes(`[${esc(si.typeName)}]`)
+      ? `<span style="font-size:11px;color:var(--blue);font-weight:600;margin-left:4px">[${esc(si.typeName)}]</span>` : '';
     return `
     <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px">
       <div style="font-size:13px;font-weight:700;margin-bottom:8px">${baseName}${typeTag}</div>
@@ -3720,7 +3745,7 @@ async function renderAnalytics() {
   // 商品×種類別集計（productName の "[タイプ名]" を分離してグループ化）
   const pMap={};
   filtered.forEach(h=>(h.salesItems||[]).forEach(si=>{
-    const raw=si.productName||'-';
+    const raw=esc(si.productName||'-');
     const lastB=raw.lastIndexOf(' [');
     const base=(lastB>=0&&raw.endsWith(']'))?raw.slice(0,lastB):raw;
     const type=(lastB>=0&&raw.endsWith(']'))?raw.slice(lastB+2,-1):'';
@@ -3772,7 +3797,7 @@ async function renderAnalytics() {
   if (prodAvgEl && prodAvg && Object.keys(prodAvg).length) {
     prodAvgEl.innerHTML = Object.entries(prodAvg).map(([name,mins])=>`
       <div class="ssc">
-        <div class="ssc-lbl" style="font-size:11px;font-weight:700">${name}</div>
+        <div class="ssc-lbl" style="font-size:11px;font-weight:700">${esc(name)}</div>
         <div style="font-size:15px;font-weight:900;color:var(--gold)">${mins}分(平均)</div>
       </div>`).join('');
   } else if (prodAvgEl) {
@@ -4242,7 +4267,7 @@ function renderAccounting() {
         const pl = calcOrderPL(h);
         const d  = new Date(h.completedAt);
         const dateStr = `${d.getMonth()+1}/${d.getDate()}`;
-        const names = [...new Set((h.salesItems||[]).filter(s=>s.pid).map(s=>s.productName||''))].join('、') || '—';
+        const names = esc([...new Set((h.salesItems||[]).filter(s=>s.pid).map(s=>s.productName||''))].join('、') || '—');
         const marginCls = pl.grossProfit>=0?'pos':'neg';
         return `<tr>
           <td>${dateStr}</td>
@@ -4274,7 +4299,7 @@ function renderAccounting() {
         if (!si.pid) return;
         const p = S.products.find(x=>x.id===si.pid);
         const key = si.pid;
-        if (!byProd[key]) byProd[key] = { name: si.productName||p?.name||si.pid, qty:0, sales:0, cost:0, labor:0 };
+        if (!byProd[key]) byProd[key] = { name: esc(si.productName||p?.name||si.pid), qty:0, sales:0, cost:0, labor:0 };
         byProd[key].qty   += 1;
         byProd[key].sales += Number(si.price||0);
         byProd[key].cost  += Number(p?.costPrice||0);
@@ -4317,8 +4342,8 @@ function renderAccounting() {
         <div class="exp-row">
           <div class="exp-cat">${(EXP_LABELS[e.category]||'📦 その他').split(' ')[0]}</div>
           <div class="exp-info">
-            <div class="exp-date">${new Date(e.date).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})}&nbsp;${(EXP_LABELS[e.category]||e.category)}</div>
-            <div class="exp-name">${e.note||'—'}</div>
+            <div class="exp-date">${new Date(e.date).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})}&nbsp;${esc(EXP_LABELS[e.category]||e.category)}</div>
+            <div class="exp-name">${esc(e.note||'—')}</div>
           </div>
           <div class="exp-amt">¥${Number(e.amount||0).toLocaleString()}</div>
           <div class="ico-btn del" onclick="deleteExpense('${e.id}')">🗑</div>
@@ -4411,7 +4436,7 @@ function renderBizOverview() {
     { label:'', val:null },
     { label:'⏱ 労務費（推定）',   val:-totalLaborEst,  cls:'var(--purple)' },
     ...(Object.entries(byFixedCat).map(([cat,amt])=>({
-        label: (FIXED_LABELS[cat]||cat), val: -amt, cls:'var(--red)'
+        label: esc(FIXED_LABELS[cat]||cat), val: -amt, cls:'var(--red)'
     }))),
     { label:'🚗 マルシェ費用',    val:-totalMarche,    cls:'var(--orange)' },
     { label:'', val:null },
@@ -4461,8 +4486,8 @@ function renderFixedCostsList() {
       <div class="exp-row">
         <div class="exp-cat">${(FIXED_LABELS[c.category]||'📋 その他').split(' ')[0]}</div>
         <div class="exp-info">
-          <div class="exp-date">${new Date(c.date).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})}&nbsp;${FIXED_LABELS[c.category]||c.category}</div>
-          <div class="exp-name">${c.note||'—'}</div>
+          <div class="exp-date">${new Date(c.date).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})}&nbsp;${esc(FIXED_LABELS[c.category]||c.category)}</div>
+          <div class="exp-name">${esc(c.note||'—')}</div>
         </div>
         <div class="exp-amt">¥${Number(c.amount||0).toLocaleString()}</div>
         <div class="ico-btn del" onclick="deleteFixedCost('${c.id}')">🗑</div>
@@ -4612,14 +4637,14 @@ function importYayoiCSV(input) {
             <div style="display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--s3);font-size:11px">
               <input type="checkbox" id="yayoi-chk-${i}" checked style="flex-shrink:0">
               <span style="color:var(--dim);width:60px;flex-shrink:0">${r.date.slice(5)}</span>
-              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc||r.account}</span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.desc||r.account)}</span>
               <select id="yayoi-cat-${i}" style="font-size:10px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--s1)">
                 ${Object.entries(FIXED_LABELS).map(([v,l])=>`<option value="${v}"${v===r.cat?' selected':''}>${l}</option>`).join('')}
               </select>
               <span style="color:var(--red);font-weight:700;flex-shrink:0">¥${r.amount.toLocaleString()}</span>
             </div>`).join('')}
         </div>
-        <button class="sh-ok" style="width:100%;padding:8px;font-size:12px" onclick="confirmYayoiImport(${JSON.stringify(preview).replace(/</g,'&lt;')})">選択した項目を固定費として追加</button>
+        <button class="sh-ok" style="width:100%;padding:8px;font-size:12px" onclick="confirmYayoiImport(${esc(JSON.stringify(preview))})">選択した項目を固定費として追加</button>
       </div>`;
     input.value='';
   };
@@ -4682,7 +4707,7 @@ function renderYayoiMapping() {
   el.innerHTML = Object.entries(YAYOI_MAP_LABELS).map(([key,label])=>`
     <div>
       <div style="font-size:9px;color:var(--dim);margin-bottom:2px">${label}</div>
-      <input type="text" value="${yayoiMap[key]||''}" class="sh-input"
+      <input type="text" value="${esc(yayoiMap[key]||'')}" class="sh-input"
         style="margin-bottom:0;padding:5px 8px;font-size:11px"
         oninput="yayoiMap['${key}']=this.value;localStorage.setItem('yayoiMap',JSON.stringify(yayoiMap))">
     </div>`).join('');
@@ -4758,7 +4783,7 @@ function renderPricingTable() {
     const saveBtnCls = st.dirty ? 'pt-save-btn' : 'pt-save-btn saved';
     const saveBtnTxt = st.dirty ? '保存' : '✓';
     return `<tr id="pt-row-${p.id}">
-      <td class="pt-name-td">${p.name}</td>
+      <td class="pt-name-td">${esc(p.name)}</td>
       <td style="text-align:center;padding:4px 5px">
         <input type="number" inputmode="numeric" class="pt-inp" value="${st.costPrice}"
           oninput="onPtChange('${p.id}','costPrice',this.value)" onchange="onPtChange('${p.id}','costPrice',this.value)">
