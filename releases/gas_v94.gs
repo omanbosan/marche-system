@@ -269,30 +269,16 @@ function handleAuth(pw) {
 // ============================================================
 //  設定
 // ============================================================
-// verifyToken()がリクエストの度に呼ぶため、CacheServiceでキャッシュする。
-// これが無いと「トークン確認だけ」のためにconfigシート全体読み込みが
-// 全アクション（getAllのキャッシュヒット時も含む）で毎回発生してしまっていた。
-// setConfig()で書き込むたびにキャッシュを無効化するので、内容が古いまま
-// 使われ続けることはない（TTLはgetAll_v1と同じ50秒）。
 function getConfig() {
-  try {
-    var cached = CacheService.getScriptCache().get('config_v1');
-    if (cached) return JSON.parse(cached);
-  } catch(e){}
   const sh   = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.CONFIG);
   const rows = sh.getDataRange().getValues();
   const cfg  = {};
   rows.forEach(function(r){ if(r[0]) cfg[r[0]] = r[1]; });
-  try {
-    var json = JSON.stringify(cfg);
-    if (json.length < 95000) CacheService.getScriptCache().put('config_v1', json, 50);
-  } catch(e){}
   return cfg;
 }
 function setConfig(key, value) {
   const sh   = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.CONFIG);
   const rows = sh.getDataRange().getValues();
-  try { CacheService.getScriptCache().remove('config_v1'); } catch(e){}
   for (var i = 0; i < rows.length; i++) {
     if (rows[i][0] === key) { sh.getRange(i+1,2).setValue(value); return; }
   }
@@ -590,15 +576,6 @@ function handleSaveOrderFast(data) {
   const oSh = ss.getSheetByName(SH.ORDERS);
   const iSh = ss.getSheetByName(SH.ITEMS);
   const sSh = ss.getSheetByName(SH.STEPS);
-
-  // べき等性チェック：同じorderIdが既にordersシートに存在する場合は何もせず成功を返す。
-  // フロントのapi()は通信失敗時に1.5秒後へ自動リトライするため、
-  // 「サーバー側は保存済みだがレスポンスが届く前に通信が切れた」ケースで
-  // 同じ注文が2重作成（在庫二重減算・売上二重計上）されるのを防ぐ。
-  var existingIds = oSh.getLastRow() > 1 ? oSh.getRange(2, 1, oSh.getLastRow()-1, 1).getValues() : [];
-  for (var ei = 0; ei < existingIds.length; ei++) {
-    if (existingIds[ei][0] === data.id) return ok({ saved: true, duplicate: true });
-  }
 
   // typeId→typeName, productId→productName 補完用マップ
   var typeNameMap = {};
@@ -1257,26 +1234,8 @@ function handleReorderProducts(data) {
 // ============================================================
 //  在庫調整
 // ============================================================
-// 在庫は「現在値を読む→加減算→書く」というread-modify-write処理のため、
-// 複数リクエストがほぼ同時に同じ商品を操作すると片方の更新が失われる競合が起きうる。
-// LockServiceで排他制御し、他のadjustStock処理中は待たせることでこれを防ぐ。
-// handleDeleteOrder等から複数回連続で呼ばれる場合も同一実行内でのロック取得のため問題ない。
 function handleAdjustStock(data) {
   invalidateCache();
-  var lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(10000);
-  } catch (eLock) {
-    return err('在庫の更新が混み合っています。少し待ってからもう一度お試しください');
-  }
-  try {
-    return handleAdjustStockLocked(data);
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function handleAdjustStockLocked(data) {
   var found = false;
   const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sh   = ss.getSheetByName(SH.PRODUCTS);
