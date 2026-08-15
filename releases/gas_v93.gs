@@ -703,12 +703,7 @@ function handleUpdateStep(data) {
   }
   if (targetRow < 0) return ok({ updated: false });
 
-  // 列4〜7（done, startedAt, completedAt, durationMins）は最後にまとめて1回で書き込む
-  // （個別setValueをその都度呼ぶとAPI呼び出しのオーバーヘッドが積み重なり遅くなるため）
-  var doneVal      = data.done ? 1 : 0;
-  var startedAtVal = rows[targetRow][4];
-  var completedAtVal = rows[targetRow][5];
-  var durationVal  = rows[targetRow][6];
+  sh.getRange(targetRow+1, 4).setValue(data.done ? 1 : 0);
 
   if (data.completedAt) {
     // startedAtの決定：
@@ -737,23 +732,21 @@ function handleUpdateStep(data) {
     // それでもなければDBのstartedAtを使い、なければcompletedAtを使う
     if (!startedAt) startedAt = rows[targetRow][4] ? String(rows[targetRow][4]) : data.completedAt;
 
-    startedAtVal   = startedAt;
-    completedAtVal = data.completedAt;
+    sh.getRange(targetRow+1, 5).setValue(startedAt);
+    sh.getRange(targetRow+1, 6).setValue(data.completedAt);
 
     // 終了時刻もISOに統一して計算
     var start = new Date(startedAt);
     var end   = new Date(data.completedAt);
     if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
       var dur = Math.round((end - start) / 60000);
-      durationVal = dur > 0 ? dur : 0;
+      sh.getRange(targetRow+1, 7).setValue(dur > 0 ? dur : 0);
     }
   } else if (data.startedAt) {
     // completedAtなし（次のステップ開始記録）
     var existing = rows[targetRow][4];
-    if (!existing) startedAtVal = data.startedAt;
+    if (!existing) sh.getRange(targetRow+1, 5).setValue(data.startedAt);
   }
-
-  sh.getRange(targetRow+1, 4, 1, 4).setValues([[doneVal, startedAtVal, completedAtVal, durationVal]]);
 
   return ok({ updated: true });
 }
@@ -770,23 +763,17 @@ function handleUpdateItem(data) {
   for (var i = 1; i < rows.length; i++) {
     if (rows[i][0] === data.itemId) {
       foundOrderId = rows[i][1];
-      // 列6〜16（skipBinarize〜doubleBinarize）は連続しているので、
-      // 変更が無い項目は既存値を維持しつつ1回のsetValuesでまとめて書き込む
-      var r = rows[i];
-      var vals = [
-        data.skipBinarize   !== undefined ? (data.skipBinarize  ?1:0) : r[5],
-        data.skipDesign     !== undefined ? (data.skipDesign    ?1:0) : r[6],
-        data.price          !== undefined ? data.price                 : r[7],
-        data.paymentMethod  !== undefined ? data.paymentMethod         : r[8],
-        data.onHold         !== undefined ? (data.onHold        ?1:0) : r[9],
-        data.paid           !== undefined ? (data.paid          ?1:0) : r[10],
-        data.typeId         !== undefined ? (data.typeId  ||'')        : r[11],
-        data.typeName       !== undefined ? (data.typeName||'')        : r[12],
-        data.optionFee      !== undefined ? (data.optionFee ||0)       : r[13],
-        data.optionNote     !== undefined ? (data.optionNote||'')      : r[14],
-        data.doubleBinarize !== undefined ? (data.doubleBinarize?1:0) : r[15],
-      ];
-      sh.getRange(i+1,6,1,11).setValues([vals]);
+      if (data.price         !== undefined) sh.getRange(i+1,8).setValue(data.price);
+      if (data.skipBinarize  !== undefined) sh.getRange(i+1,6).setValue(data.skipBinarize?1:0);
+      if (data.skipDesign    !== undefined) sh.getRange(i+1,7).setValue(data.skipDesign?1:0);
+      if (data.paymentMethod !== undefined) sh.getRange(i+1,9).setValue(data.paymentMethod);
+      if (data.onHold        !== undefined) sh.getRange(i+1,10).setValue(data.onHold?1:0);
+      if (data.paid          !== undefined) sh.getRange(i+1,11).setValue(data.paid?1:0);
+      if (data.typeId        !== undefined) sh.getRange(i+1,12).setValue(data.typeId||'');
+      if (data.typeName      !== undefined) sh.getRange(i+1,13).setValue(data.typeName||'');
+      if (data.optionFee     !== undefined) sh.getRange(i+1,14).setValue(data.optionFee||0);
+      if (data.optionNote    !== undefined) sh.getRange(i+1,15).setValue(data.optionNote||'');
+      if (data.doubleBinarize!== undefined) sh.getRange(i+1,16).setValue(data.doubleBinarize?1:0);
       break;
     }
   }
@@ -845,24 +832,12 @@ function handleUpdateOrder(data) {
   const rows = sh.getDataRange().getValues();
   for (var i = 1; i < rows.length; i++) {
     if (rows[i][0] === data.orderId) {
-      var r = rows[i];
-      // 列2-4（num,note,deliveryType）と列9-11（channel,shippingFee,discount）は
-      // それぞれ連続しているので、間の列（createdAt等）に触れないよう2グループに分けて
-      // まとめて書き込む（個別setValueの都度呼び出しを避ける）
-      if (data.num !== undefined || data.note !== undefined || data.deliveryType !== undefined) {
-        sh.getRange(i+1,2,1,3).setValues([[
-          data.num          !== undefined ? data.num          : r[1],
-          data.note         !== undefined ? data.note         : r[2],
-          data.deliveryType !== undefined ? data.deliveryType : r[3],
-        ]]);
-      }
-      if (data.channel !== undefined || data.shippingFee !== undefined || data.discount !== undefined) {
-        sh.getRange(i+1,9,1,3).setValues([[
-          data.channel     !== undefined ? data.channel         : r[8],
-          data.shippingFee !== undefined ? (data.shippingFee||0) : r[9],
-          data.discount    !== undefined ? (data.discount||0)    : r[10],
-        ]]);
-      }
+      if (data.num          !== undefined) sh.getRange(i+1,2).setValue(data.num);
+      if (data.note         !== undefined) sh.getRange(i+1,3).setValue(data.note);
+      if (data.deliveryType !== undefined) sh.getRange(i+1,4).setValue(data.deliveryType);
+      if (data.channel      !== undefined) sh.getRange(i+1,9).setValue(data.channel);
+      if (data.shippingFee  !== undefined) sh.getRange(i+1,10).setValue(data.shippingFee||0);
+      if (data.discount     !== undefined) sh.getRange(i+1,11).setValue(data.discount||0);
       break;
     }
   }
@@ -883,12 +858,10 @@ function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee,
   var hId  = Utilities.getUuid();
   var sSh  = ss.getSheetByName(SH.SALES);
   hSh.appendRow([hId, orderId, num, now, 0, deliveryType]);
-  // salesの各行はappendRowを都度呼ばず配列に集めて最後に1回のsetValuesで書き込む
-  var salesRows = [];
   (items||[]).forEach(function(it){
     var displayName = it.productName || it.pid || '';
     if (it.typeName) displayName += ' [' + it.typeName + ']';
-    salesRows.push([
+    sSh.appendRow([
       Utilities.getUuid(), hId, orderId,
       it.pid, displayName, it.price, it.paymentMethod, now
     ]);
@@ -896,19 +869,16 @@ function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee,
   // 支払い方法は注文アイテムと統一する（送料・割引とも）
   var commonPayment = (items && items.length > 0) ? (items[0].paymentMethod || 'cash') : (shippingPayment || 'cash');
   if (Number(shippingFee||0) > 0) {
-    salesRows.push([
+    sSh.appendRow([
       Utilities.getUuid(), hId, orderId,
       '', '送料', Number(shippingFee), commonPayment, now
     ]);
   }
   if (Number(discount||0) > 0) {
-    salesRows.push([
+    sSh.appendRow([
       Utilities.getUuid(), hId, orderId,
       '', '割引', -Number(discount), commonPayment, now
     ]);
-  }
-  if (salesRows.length > 0) {
-    sSh.getRange(sSh.getLastRow()+1, 1, salesRows.length, 8).setValues(salesRows);
   }
   return hId;
 }
@@ -943,7 +913,8 @@ function handleCompleteOrder(data) {
       } else {
         waitMins = Math.round((comp - created) / 60000);    // 分
       }
-      oSh.getRange(i+1,6,1,2).setValues([[data.completedAt, 'done']]);
+      oSh.getRange(i+1,6).setValue(data.completedAt);
+      oSh.getRange(i+1,7).setValue('done');
       break;
     }
   }
@@ -957,8 +928,9 @@ function handleCompleteOrder(data) {
     if (hRows[hi][1] === data.orderId) {
       alreadyRecorded = true;
       resultHId = hRows[hi][0];
-      // 完了時刻・待ち時間をまとめて1回で更新
-      hSh.getRange(hi+1, 4, 1, 2).setValues([[data.completedAt, waitMins]]);
+      // 完了時刻・待ち時間を更新
+      hSh.getRange(hi+1, 4).setValue(data.completedAt);
+      hSh.getRange(hi+1, 5).setValue(waitMins);
       break;
     }
   }
@@ -968,32 +940,28 @@ function handleCompleteOrder(data) {
     const hId = Utilities.getUuid();
     resultHId = hId;
     hSh.appendRow([hId, data.orderId, data.num, data.completedAt, waitMins, data.deliveryType]);
-    // salesの各行はappendRowを都度呼ばず配列に集めて最後に1回のsetValuesで書き込む
-    var commonPayment = (data.items && data.items.length > 0) ? (data.items[0].paymentMethod || 'cash') : (data.shippingPayment || 'cash');
-    var salesRows = [];
     (data.items||[]).forEach(function(it){
       var displayName = it.productName || '';
       if (it.typeName) displayName += ' [' + it.typeName + ']';
-      salesRows.push([
+      ss.getSheetByName(SH.SALES).appendRow([
         Utilities.getUuid(), hId, data.orderId,
         it.pid, displayName, it.price, it.paymentMethod, data.completedAt
       ]);
     });
     if (Number(data.shippingFee||0) > 0) {
-      salesRows.push([
+      // 送料の支払い方法はアイテムと統一
+      var sfPayment2 = (data.items && data.items.length > 0) ? (data.items[0].paymentMethod || 'cash') : (data.shippingPayment || 'cash');
+      ss.getSheetByName(SH.SALES).appendRow([
         Utilities.getUuid(), hId, data.orderId,
-        '', '送料', Number(data.shippingFee), commonPayment, data.completedAt
+        '', '送料', Number(data.shippingFee), sfPayment2, data.completedAt
       ]);
     }
     if (Number(data.discount||0) > 0) {
-      salesRows.push([
+      var dcPayment = (data.items && data.items.length > 0) ? (data.items[0].paymentMethod || 'cash') : (data.shippingPayment || 'cash');
+      ss.getSheetByName(SH.SALES).appendRow([
         Utilities.getUuid(), hId, data.orderId,
-        '', '割引', -Number(data.discount), commonPayment, data.completedAt
+        '', '割引', -Number(data.discount), dcPayment, data.completedAt
       ]);
-    }
-    if (salesRows.length > 0) {
-      var sSh = ss.getSheetByName(SH.SALES);
-      sSh.getRange(sSh.getLastRow()+1, 1, salesRows.length, 8).setValues(salesRows);
     }
   }
 
@@ -1029,8 +997,7 @@ function handleDeleteOrder(orderId) {
 
   deleteRowsWhere(oSh, 0, orderId);
   deleteRowsWhere(iSh, 1, orderId);
-  // アイテムごとにstepsシートを読み直すのではなく、全アイテムIDをまとめて1回で削除する
-  deleteRowsWhereIn(ss.getSheetByName(SH.STEPS), 1, ids);
+  ids.forEach(function(id){ deleteRowsWhere(ss.getSheetByName(SH.STEPS), 1, id); });
   // 現地注文は登録時に売上・履歴が即記録されるため、削除時にも連動して消す
   deleteRowsWhere(ss.getSheetByName(SH.HISTORY), 1, orderId);
   deleteRowsWhere(ss.getSheetByName(SH.SALES),   2, orderId);
@@ -1076,10 +1043,8 @@ function handleAddItemToOrder(data) {
   ]);
 
   // ステップ行追加（受付=step0を自動完了。物販のみ／彫刻オプション不使用なら全工程を完了扱いで作成）
-  // appendRowを都度呼ばず配列に集めて最後に1回のsetValuesで書き込む
   var nSteps = data.deliveryType === 'shipping' ? 7 : 6;
   var stepIds = [];
-  var stepRows = [];
   for (var si = 0; si < nSteps; si++) {
     var sid = Utilities.getUuid();
     stepIds.push(sid);
@@ -1091,10 +1056,7 @@ function handleAddItemToOrder(data) {
       stepAt    = si === 0 ? now : '';
       startedAt = si === 0 ? now : (si === 1 ? now : '');
     }
-    stepRows.push([sid, data.itemId, si, isDone, startedAt, stepAt, isDone ? 0 : '']);
-  }
-  if (stepRows.length > 0) {
-    sSh.getRange(sSh.getLastRow()+1, 1, stepRows.length, 7).setValues(stepRows);
+    sSh.appendRow([sid, data.itemId, si, isDone, startedAt, stepAt, isDone ? 0 : '']);
   }
 
   // 在庫を引く
@@ -1134,29 +1096,11 @@ function handleDeleteHistory(data) {
   return ok({ deleted: true });
 }
 
-// 該当行が複数ある場合、従来は1行ずつdeleteRow()を呼んでいたため
-// （GASでは1回ごとにシート全体の再配置が走り、行数分だけ遅くなる）、
-// 「削除対象を除いた行だけを1回のsetValuesで書き戻し、余った末尾行をまとめてdeleteRows」
-// する方式に変更。呼び出し回数は該当件数に関わらず常に定数回で済む。
-function deleteRowsWhereIn(sheet, col, vals) {
-  if (!vals || !vals.length) return;
-  var set = {};
-  vals.forEach(function(v){ set[v] = true; });
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return;
-  const lastCol = sheet.getLastColumn();
-  const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
-  const keep = rows.filter(function(r){ return !set[r[col]]; });
-  if (keep.length === rows.length) return; // 該当行なし
-  if (keep.length > 0) {
-    sheet.getRange(2, 1, keep.length, lastCol).setValues(keep);
-  }
-  var extra = rows.length - keep.length;
-  if (extra > 0) sheet.deleteRows(keep.length + 2, extra);
-}
-
 function deleteRowsWhere(sheet, col, val) {
-  deleteRowsWhereIn(sheet, col, [val]);
+  const rows = sheet.getDataRange().getValues();
+  for (var i = rows.length-1; i >= 1; i--) {
+    if (rows[i][col] === val) sheet.deleteRow(i+1);
+  }
 }
 
 // ============================================================
@@ -1297,13 +1241,9 @@ function handleAdjustStock(data) {
             sh.getRange(i+1,9).setValue(logLoc);
           }
         } else {
-          // 絶対値モード（手動在庫調整）：両方指定された場合も1回のsetValuesでまとめて書き込む
-          var newLoc  = data.stockLoc  !== undefined ? data.stockLoc  : curLoc;
-          var newShip = data.stockShip !== undefined ? data.stockShip : curShip;
-          if (data.stockLoc !== undefined || data.stockShip !== undefined) {
-            sh.getRange(i+1,9,1,2).setValues([[newLoc, newShip]]);
-          }
-          logLoc = newLoc; logShip = newShip;
+          // 絶対値モード（手動在庫調整）
+          if (data.stockLoc  !== undefined) { sh.getRange(i+1,9).setValue(data.stockLoc);   logLoc  = data.stockLoc;  }
+          if (data.stockShip !== undefined) { sh.getRange(i+1,10).setValue(data.stockShip); logShip = data.stockShip; }
         }
       }
       break;
@@ -1334,10 +1274,6 @@ function handleAdjustStock(data) {
 //  履歴更新
 // ============================================================
 function handleUpdateHistory(data) {
-  // 他のupdate系ハンドラと同様、保存直後にキャッシュが古いまま残らないよう無効化する
-  // （キャッシュ無効化漏れは既存バグとして判明済み。[[marche_system_project]]の
-  //  「商品保存系ハンドラのinvalidateCache漏れ」と同種のため合わせて修正）
-  invalidateCache();
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   if (data.deliveryType !== undefined) {
     const hSh   = ss.getSheetByName(SH.HISTORY);
@@ -1354,13 +1290,8 @@ function handleUpdateHistory(data) {
     data.salesItems.forEach(function(si){
       for (var i = 1; i < sRows.length; i++) {
         if (sRows[i][0] === si.id) {
-          // price・paymentMethodは連続列なので1回のsetValuesでまとめて書き込む
-          if (si.price !== undefined || si.paymentMethod !== undefined) {
-            sSh.getRange(i+1,6,1,2).setValues([[
-              si.price         !== undefined ? si.price         : sRows[i][5],
-              si.paymentMethod !== undefined ? si.paymentMethod : sRows[i][6],
-            ]]);
-          }
+          if (si.price         !== undefined) sSh.getRange(i+1,6).setValue(si.price);
+          if (si.paymentMethod !== undefined) sSh.getRange(i+1,7).setValue(si.paymentMethod);
           break;
         }
       }
