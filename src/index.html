@@ -389,7 +389,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
   .och-num{font-size:16px;padding:3px 7px}
 }
 /* 価格設定ページは常に全幅 */
-#page-pricing{padding-left:0!important;padding-right:0!important;max-width:none!important}
+#page-pricing{padding-left:0!important;padding-right:0!important;max-width:none!important;--page-pad-x:0px}
 
 /* TABLET (iPad, 幅768px以上) */
 @media (min-width:768px){
@@ -438,16 +438,15 @@ button,input,select,textarea{font-family:inherit}
   position:sticky!important;top:0!important;z-index:100;
   min-height:112px!important;height:auto!important;
   padding:14px 18px 16px!important;
-  display:grid!important;grid-template-columns:auto 1fr auto!important;
-  grid-template-areas:"logo center status" "logo center sync";
+  display:grid!important;grid-template-columns:auto 1fr auto auto!important;
+  grid-template-areas:"logo center mascot status" "logo center mascot sync";
   gap:6px 14px!important;
-  background:
-    radial-gradient(circle at 78% 28%,rgba(255,255,255,.75) 0 34px,transparent 35px),
-    linear-gradient(180deg,#8edcf0 0%,#bfeaf1 52%,#8ed5a2 53%,#6fc88b 100%)!important;
+  background:linear-gradient(180deg,#8edcf0 0%,#bfeaf1 52%,#8ed5a2 53%,#6fc88b 100%)!important;
   border:0!important;border-bottom:4px solid #f6d9a3!important;
   box-shadow:0 5px 18px rgba(87,123,92,.18)!important;
   overflow:hidden;
 }
+/* ヘッダー右上の白丸におまんぼさんロゴを入れる（画像は単一HTML構成を保つためdata URIで埋め込み） */
 .hdr::before{content:"";position:absolute;inset:auto 0 0;height:30px;background:radial-gradient(ellipse at 10% 100%,#58b779 0 34px,transparent 35px),radial-gradient(ellipse at 28% 100%,#78c989 0 42px,transparent 43px),radial-gradient(ellipse at 52% 100%,#4faf74 0 38px,transparent 39px),radial-gradient(ellipse at 78% 100%,#79c98b 0 44px,transparent 45px),radial-gradient(ellipse at 96% 100%,#4ca96f 0 38px,transparent 39px);opacity:.95}
 .hdr-logo{
   grid-area:logo;align-self:center;position:relative;z-index:2;
@@ -459,11 +458,35 @@ button,input,select,textarea{font-family:inherit}
   box-shadow:inset 0 2px rgba(255,255,255,.25),0 5px 0 #76502f,0 9px 16px rgba(82,55,33,.18)!important;
 }
 .hdr-logo::after{content:"売上管理システム";display:block;font-size:11px;letter-spacing:.14em;margin-top:2px;color:#fff5e8}
-.hdr-clock{grid-area:center;align-self:center;justify-self:center;color:#4d463f!important;font-weight:900!important;font-size:18px!important;position:relative;z-index:2}
-.hdr-clock::before{content:"☀️  ";font-size:20px}
+.hdr-clock{
+  grid-area:center;align-self:center;justify-self:center;position:relative;z-index:2;
+  display:flex!important;flex-direction:column;align-items:center;gap:3px;
+  padding:7px 16px 9px!important;border-radius:18px!important;
+  background:linear-gradient(#fffdf7,#fff3e0)!important;border:3px solid #e2b378!important;
+  box-shadow:inset 0 2px rgba(255,255,255,.95),0 5px 0 #c08c53,0 9px 16px rgba(82,55,33,.16)!important;
+  font-family:'Zen Kaku Gothic New',sans-serif!important;
+}
+.clk-date{font-size:11px;font-weight:800;color:#a3805a;letter-spacing:.10em;line-height:1}
+.clk-time{display:flex;align-items:center;gap:3px;line-height:1}
+.clk-time b{
+  font-size:34px;font-weight:900;color:#6d4a2c;letter-spacing:.02em;
+  background:linear-gradient(#fffaf0,#ffe9c9);border:2px solid #edcda0;border-radius:11px;
+  padding:3px 9px 5px;box-shadow:inset 0 -3px rgba(150,110,70,.10),inset 0 2px rgba(255,255,255,.9);
+}
+.clk-time i{font-style:normal;font-size:28px;font-weight:900;color:#e0a44a;animation:clkBlink 1s steps(1,end) infinite}
+@keyframes clkBlink{0%,50%{opacity:1}50.01%,100%{opacity:.2}}
 .hdr-pills{grid-area:status;display:flex!important;gap:6px!important;justify-content:flex-end;position:relative;z-index:2}
 .pill{background:rgba(255,255,255,.86)!important;border:1px solid rgba(116,94,70,.14)!important;color:#67594d!important;border-radius:999px!important;box-shadow:0 3px 10px rgba(86,72,53,.10)!important;padding:5px 10px!important;font-weight:700!important}
 .pill b{color:var(--green)!important}
+/* ヘッダー右上のマスコット。装飾ではなくグリッドの1列として置くことで、
+   どの画面幅でもステータスピルや同期ボタンと重ならない。画像は単一HTML構成を
+   保つためdata URIで埋め込み（~10KB） */
+.hdr-mascot{
+  grid-area:mascot;align-self:center;justify-self:center;
+  width:66px;height:66px;border-radius:50%;flex-shrink:0;
+  background:rgba(255,255,255,.78) url("data:image/png;base64,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") center/84% no-repeat;
+  box-shadow:0 4px 12px rgba(70,95,70,.18),inset 0 0 0 3px rgba(255,255,255,.55);
+}
 #sync-btn{grid-area:sync;justify-self:end;position:relative;z-index:2;background:#fff!important;border:1px solid #eadfce!important;color:#786858!important;border-radius:50%!important;width:38px;height:38px;padding:0!important;box-shadow:0 3px 10px rgba(86,72,53,.12)!important}
 
 .wbar{background:#fffaf1!important;border:0!important;border-bottom:1px solid var(--border)!important;box-shadow:none!important;padding:7px 14px!important;color:var(--dim)!important}
@@ -471,7 +494,7 @@ button,input,select,textarea{font-family:inherit}
 .wdots .wd{border:2px solid #fff!important;box-shadow:0 2px 6px rgba(0,0,0,.12)}
 
 .tabs{
-  position:sticky!important;top:112px!important;z-index:90;
+  position:sticky!important;top:var(--tabs-top,181px)!important;z-index:90;
   display:flex!important;gap:7px!important;padding:9px 12px!important;
   background:rgba(255,250,242,.96)!important;border-bottom:1px solid var(--border)!important;
   backdrop-filter:blur(12px);box-shadow:0 4px 14px rgba(90,65,45,.06)!important;
@@ -482,7 +505,7 @@ button,input,select,textarea{font-family:inherit}
 .tab:hover{background:#f6eee2!important}
 .tab.on{background:linear-gradient(135deg,#61c39a,#46aa83)!important;color:#fff!important;border-color:#55ae8c!important;box-shadow:0 4px 10px rgba(71,164,126,.22)!important;transform:translateY(-1px)}
 
-.page{max-width:1180px!important;margin:0 auto!important;padding:18px 18px 90px!important}
+.page{max-width:1180px!important;margin:0 auto!important;padding:18px 18px 90px!important;--page-pad-x:18px;--page-pad-y:18px}
 
 /* Dashboard */
 #page-dashboard{display:none}
@@ -515,13 +538,21 @@ button,input,select,textarea{font-family:inherit}
 .game-card-title small{font-size:10px;color:#a09286;font-weight:700}
 .sales-chart{height:250px;position:relative;background:linear-gradient(180deg,#fffefa,#fffbf5);border-radius:15px;overflow:hidden}
 .sales-grid{position:absolute;inset:14px 12px 30px 42px;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(25% - 1px),#eee7dd calc(25% - 1px),#eee7dd 25%)}
-.sales-bars{position:absolute;left:42px;right:12px;bottom:30px;height:190px;display:flex;align-items:flex-end;gap:5px}
+.sales-bars{position:absolute;left:42px;right:52px;bottom:30px;height:190px;display:flex;align-items:flex-end;gap:5px}
 .sales-bar{flex:1;min-width:4px;background:linear-gradient(180deg,#9edecb,#61c5ad);border-radius:7px 7px 2px 2px;opacity:.9}
-.sales-line{position:absolute;left:42px;right:12px;top:20px;height:170px;pointer-events:none}
+/* 折れ線は棒と同じ底辺・同じ高さにそろえる（以前は底辺が60pxずれていた） */
+.sales-line{position:absolute;left:42px;right:52px;bottom:30px;height:190px;pointer-events:none}
+.line-dot{position:absolute;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;background:#f28eae;border:2px solid #fff;box-shadow:0 2px 5px rgba(238,112,148,.45)}
 .sales-line svg{width:100%;height:100%;overflow:visible}
-.chart-axis{position:absolute;left:42px;right:12px;bottom:8px;display:flex;justify-content:space-between;color:#a29283;font-size:9px}
+.chart-axis{position:absolute;left:42px;right:52px;bottom:8px;display:flex;justify-content:space-between;color:#a29283;font-size:9px}
 .chart-y{position:absolute;left:8px;top:14px;bottom:30px;display:flex;flex-direction:column;justify-content:space-between;color:#a29283;font-size:9px}
-.today-bubble{position:absolute;right:12px;top:9px;background:#f28eae;color:#fff;border-radius:12px;padding:5px 9px;font-weight:900;font-size:11px;box-shadow:0 3px 8px rgba(238,112,148,.18)}
+/* 右軸＝累計売上のスケール（棒＝日別／折れ線＝累計で軸が別） */
+.chart-y2{position:absolute;right:6px;top:14px;bottom:30px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;color:#c79ab0;font-size:9px}
+.chart-legend{display:flex;align-items:center;gap:10px;font-size:10px;color:#9b8b7c;font-weight:700}
+.chart-legend i{display:inline-block;vertical-align:middle;margin-right:4px}
+.chart-legend .lg-bar{width:9px;height:9px;border-radius:3px;background:#8fd4bf}
+.chart-legend .lg-line{width:14px;height:3px;border-radius:2px;background:#f28eae}
+.today-bubble{position:absolute;left:50px;right:auto;top:9px;background:#f28eae;color:#fff;border-radius:12px;padding:5px 9px;font-weight:900;font-size:11px;box-shadow:0 3px 8px rgba(238,112,148,.18)}
 .dash-side{display:grid;gap:14px}
 .mission-list{display:grid;gap:9px}
 .mission-row{display:flex;align-items:center;gap:9px;padding:9px 10px;background:#fffaf0;border:1px solid #eee2cf;border-radius:13px}
@@ -553,21 +584,56 @@ button,input,select,textarea{font-family:inherit}
 .seg{background:#f0e8dc!important;border:1px solid var(--border)!important;border-radius:14px!important;padding:4px!important}
 .seg-btn{border-radius:10px!important}.seg-btn.on{background:#fff!important;color:#46a67e!important;box-shadow:0 2px 7px rgba(100,80,55,.10)!important}
 
+/* ---- 画面固定バーの整合（ヘッダー → 待ち時間 → タブ → 受付ボタン） ----
+   topはJSのupdateStickyOffsets()が実寸から計算した変数を使う。
+   ここに固定値を書くと画面幅や行折り返しでズレ、バー同士が重なったり
+   すき間から中身がすり抜けて見えるので、絶対にベタ書きしないこと。      */
+.wbar{z-index:95!important}
+.tabs{z-index:90!important}
+.btn-new-wrap{
+  z-index:85!important;background:var(--bg)!important;
+  margin:calc(var(--page-pad-y,18px) * -1) calc(var(--page-pad-x,18px) * -1) 12px!important;
+  padding:10px var(--page-pad-x,18px) 10px!important;
+  border-bottom:1px solid var(--border)!important;
+  box-shadow:0 6px 14px rgba(90,65,45,.08)!important;
+}
+#pt-toolbar{z-index:85!important;box-shadow:0 6px 14px rgba(90,65,45,.08)}
+
+/* iPad縦(768)〜小型ノート。3列レイアウトのまま各パーツを縮めて高さを抑える */
+@media(max-width:1000px){
+  .hdr{min-height:0!important;padding:10px 14px 12px!important;gap:5px 10px!important}
+  .hdr-logo{min-width:0!important;font-size:19px!important;padding:10px 14px 9px!important;border-width:2px!important}
+  .hdr-logo::after{font-size:9px;letter-spacing:.10em}
+  .hdr-clock{padding:6px 12px 7px!important;border-width:2px!important;border-radius:15px!important}
+  .clk-date{font-size:10px}
+  .clk-time b{font-size:27px;padding:2px 7px 4px;border-radius:9px}
+  .clk-time i{font-size:22px}
+  .hdr-mascot{width:54px;height:54px}
+  .pill{padding:4px 8px!important;font-size:10px!important}
+  #sync-btn{width:34px;height:34px}
+}
 @media(max-width:900px){
   .dash-kpis{grid-template-columns:repeat(2,1fr)}
   .dash-main-grid{grid-template-columns:1fr}
   .dash-bottom-grid{grid-template-columns:1fr 1fr}
-  .hdr{grid-template-columns:1fr auto!important;grid-template-areas:"logo status" "center sync"}
-  .hdr-logo{min-width:180px;font-size:20px!important}
 }
 @media(max-width:620px){
-  .hdr{min-height:92px!important;padding:10px 10px 12px!important;grid-template-columns:1fr auto!important;grid-template-areas:"logo sync" "center status";gap:4px 8px!important}
-  .hdr-logo{min-width:0;width:max-content;max-width:calc(100vw - 90px);font-size:16px!important;padding:9px 12px!important;border-width:2px!important;box-shadow:inset 0 1px rgba(255,255,255,.25),0 3px 0 #76502f!important}
+  /* iPhone等の狭い画面。固定部（ヘッダー＋待ち時間＋タブ）が画面を占有しすぎないよう詰める */
+  .hdr{min-height:0!important;padding:7px 9px 9px!important;grid-template-columns:1fr auto auto!important;grid-template-areas:"logo mascot sync" "center status status";gap:4px 8px!important}
+  .hdr-mascot{width:40px;height:40px;box-shadow:0 3px 8px rgba(70,95,70,.18),inset 0 0 0 2px rgba(255,255,255,.55)}
+  .wbar{padding:5px 12px!important}
+  .wbar-num{font-size:21px!important}
+  .wbar-lbl{font-size:9px}
+  .wd{width:7px;height:7px}
+  .hdr-logo{min-width:0;width:max-content;max-width:calc(100vw - 110px);font-size:15px!important;padding:7px 11px 6px!important;border-width:2px!important;box-shadow:inset 0 1px rgba(255,255,255,.25),0 3px 0 #76502f!important}
   .hdr-logo::after{font-size:8px}
-  .hdr-clock{font-size:14px!important;justify-self:start}.hdr-clock::before{font-size:15px}
+  .hdr-clock{justify-self:start;gap:1px;padding:4px 9px 5px!important;border-width:2px!important;border-radius:13px!important;box-shadow:inset 0 2px rgba(255,255,255,.95),0 3px 0 #c08c53!important}
+  .clk-date{font-size:8px;letter-spacing:.04em}
+  .clk-time b{font-size:22px;padding:1px 6px 2px;border-radius:8px;border-width:1.5px}
+  .clk-time i{font-size:17px}
   .hdr-pills{justify-content:flex-end;gap:3px!important}.pill{padding:3px 6px!important;font-size:9px!important}
-  .tabs{top:92px!important;padding:6px 7px!important}.tab{padding:8px 9px!important;font-size:11px!important}
-  .page{padding:12px 10px 70px!important}
+  .tabs{padding:6px 7px!important}.tab{padding:8px 9px!important;font-size:11px!important}
+  .page{padding:12px 10px 70px!important;--page-pad-x:10px;--page-pad-y:12px}
   .dash-hero{display:grid;grid-template-columns:1fr}.dash-level{min-width:0}.dash-welcome-title{font-size:20px}.dash-kpis{gap:9px}.dash-kpi{min-height:118px;padding:13px}.kpi-value{font-size:22px}.dash-bottom-grid{grid-template-columns:1fr}.sales-chart{height:220px}
 }
 
@@ -595,6 +661,7 @@ button,input,select,textarea{font-family:inherit}
 <header class="hdr">
   <div class="hdr-logo">おまんぼさん</div>
   <div class="hdr-clock" id="clock">--:--</div>
+  <div class="hdr-mascot" aria-hidden="true"></div>
   <div class="hdr-pills">
     <div class="pill">現地 <b id="st-loc">0</b></div>
     <div class="pill">作業中 <b id="st-wip">0</b></div>
@@ -651,10 +718,11 @@ button,input,select,textarea{font-family:inherit}
 
   <div class="dash-main-grid">
     <div class="game-card">
-      <div class="game-card-title"><span>📈 今月の売上推移</span><small>日別売上</small></div>
+      <div class="game-card-title"><span>📈 今月の売上推移</span><small class="chart-legend"><span><i class="lg-bar"></i>日別</span><span><i class="lg-line"></i>累計</span></small></div>
       <div class="sales-chart">
         <div class="sales-grid"></div>
-        <div class="chart-y" id="dash-chart-y"><span>¥60,000</span><span>¥45,000</span><span>¥30,000</span><span>¥15,000</span><span>¥0</span></div>
+        <div class="chart-y" id="dash-chart-y"><span>¥0</span><span>¥0</span><span>¥0</span><span>¥0</span><span>¥0</span></div>
+        <div class="chart-y2" id="dash-chart-y2"></div>
         <div class="sales-bars" id="dash-sales-bars"></div>
         <div class="sales-line" id="dash-sales-line"></div>
         <div class="chart-axis" id="dash-chart-axis"></div>
@@ -1458,13 +1526,15 @@ function updateStickyOffsets() {
   const wbar = document.querySelector('.wbar');
   const tabs = document.querySelector('.tabs');
   if (!hdr || !wbar || !tabs) return;
-  const hH = hdr.offsetHeight;
-  const wH = wbar.offsetHeight;
-  const tH = tabs.offsetHeight;
+  // offsetHeightは小数を切り捨てるためバー間に1px前後のすき間ができる。
+  // rectの実寸を切り上げ、さらに1pxずつ重ねてすり抜けを防ぐ。
+  const hH = Math.ceil(hdr.getBoundingClientRect().height);
+  const wH = Math.ceil(wbar.getBoundingClientRect().height);
+  const tH = Math.ceil(tabs.getBoundingClientRect().height);
   const r = document.documentElement.style;
-  r.setProperty('--wbar-top', hH + 'px');
-  r.setProperty('--tabs-top', (hH + wH) + 'px');
-  r.setProperty('--btn-top',  (hH + wH + tH) + 'px');
+  r.setProperty('--wbar-top', (hH - 1) + 'px');
+  r.setProperty('--tabs-top', (hH + wH - 2) + 'px');
+  r.setProperty('--btn-top',  (hH + wH + tH - 3) + 'px');
   // 価格設定ツールバーの高さを計算してテーブル高さに反映
   const ptToolbar = document.getElementById('pt-toolbar');
   if (ptToolbar) {
@@ -1474,6 +1544,15 @@ function updateStickyOffsets() {
   }
 }
 window.addEventListener('resize', updateStickyOffsets);
+// ヘッダー・待ち時間バー・タブは中身（ピル、待ちドット、タブ幅）で高さが変わるため、
+// リサイズ時だけでなくサイズ変化そのものを監視して固定位置を追従させる
+if (window.ResizeObserver) {
+  const stickyRO = new ResizeObserver(() => updateStickyOffsets());
+  ['.hdr','.wbar','.tabs'].forEach(sel => {
+    const el = document.querySelector(sel);
+    if (el) stickyRO.observe(el);
+  });
+}
 
 async function showApp() {
   document.getElementById('login-screen').style.display='none';
@@ -1569,9 +1648,18 @@ async function loadAll(showSpinner=false) {
 //  CLOCK & AUTO SYNC
 // ============================================================
 function startClock() {
+  const WD = ['日','月','火','水','木','金','土'];
+  let lastKey = '';
   const tick = () => {
-    const n = new Date();
-    document.getElementById('clock').textContent = String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+    const n  = new Date();
+    const hh = String(n.getHours()).padStart(2,'0');
+    const mm = String(n.getMinutes()).padStart(2,'0');
+    const key = `${n.getMonth()+1}/${n.getDate()}/${hh}:${mm}`;
+    if (key === lastKey) return;   // 分が変わったときだけ描き替える（コロンの点滅アニメを途切れさせない）
+    lastKey = key;
+    document.getElementById('clock').innerHTML =
+      `<span class="clk-date">${n.getMonth()+1}月${n.getDate()}日 (${WD[n.getDay()]})</span>` +
+      `<span class="clk-time"><b>${hh}</b><i>:</i><b>${mm}</b></span>`;
   };
   tick(); setInterval(tick, 1000);
   // 90秒ごとに自動同期（保存中はスキップ）
@@ -4146,7 +4234,7 @@ async function renderDashboard(force){
   const goalPct=Math.min(100,Math.round(monthSales/DASH_GOAL*100));
   set('dash-goal-pct',`${goalPct}%`);
   const gf=document.getElementById('dash-goal-fill'); if(gf) gf.style.width=goalPct+'%';
-  const todayBubble=document.getElementById('dash-today-bubble'); if(todayBubble) todayBubble.textContent=`今日 ${dashMoney(todaySales)}`;
+  const todayBubble=document.getElementById('dash-today-bubble'); if(todayBubble) todayBubble.textContent=`今日 ${dashMoney(todaySales)}／累計 ${dashMoney(monthSales)}`;
 
   // レベル・EXP：今月の売上から算出（¥50=1EXP／1000EXPで1レベル）
   const totalExp = Math.floor(monthSales / DASH_EXP_PER_YEN);
@@ -4170,12 +4258,22 @@ async function renderDashboard(force){
   if(chartY)chartY.innerHTML=[1,0.75,0.5,0.25,0].map(r=>`<span>${dashMoney(Math.round(max*r))}</span>`).join('');
   const axis=document.getElementById('dash-chart-axis');
   if(axis){const marks=[...new Set([1,Math.ceil(days/4),Math.ceil(days/2),Math.ceil(days*3/4),days])];axis.innerHTML=marks.map(d=>`<span>${d}日</span>`).join('');}
+  // 折れ線は「累計売上」。棒（日別）と同じ値を重ねても情報が重複するだけなので、
+  // 右軸を別に持たせて今日までの積み上げを描く
+  const cum=[]; let acc=0;
+  for(let i=0;i<today;i++){ acc+=daily[i]; cum.push(acc); }
+  const cumMax=Math.max(10000,Math.ceil((cum[cum.length-1]||0)/10000)*10000);
+  const chartY2=document.getElementById('dash-chart-y2');
+  if(chartY2)chartY2.innerHTML=[1,0.75,0.5,0.25,0].map(r=>`<span>${dashMoney(Math.round(cumMax*r))}</span>`).join('');
   const line=document.getElementById('dash-sales-line');
   if(line){
-    const w=100,h=170;
-    // 折れ線は今日までを描画（未来の日を0として下げない）
-    const pts=daily.slice(0,today).map((v,i)=>`${(i/(Math.max(1,days-1)))*w},${h-(v/max*h)}`).join(' ');
-    line.innerHTML=`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="#f28eae" stroke-width="2.8" vector-effect="non-scaling-stroke"/><circle cx="${((today-1)/Math.max(1,days-1))*w}" cy="${h-(daily[today-1]/max*h)}" r="4.5" fill="#f28eae" stroke="#fff" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+    const w=100,h=190;
+    const pts=cum.map((v,i)=>`${(i/(Math.max(1,days-1)))*w},${h-(v/cumMax*h)}`).join(' ');
+    const lastXp=((today-1)/Math.max(1,days-1))*100;
+    const lastYp=100-((cum[today-1]||0)/cumMax*100);
+    line.innerHTML=`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">`+
+      `<polyline points="${pts}" fill="none" stroke="#f28eae" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`+
+      `<div class="line-dot" style="left:${lastXp}%;top:${lastYp}%"></div>`;
   }
 
   // 今日のミッション（すべて実データで判定できる条件のみ）

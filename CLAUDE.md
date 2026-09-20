@@ -355,3 +355,17 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
   - グラフの目盛を実データに追従（`Math.max(10000, 切り上げ)`）、折れ線は今日までで打ち切り、ランキング・最近の注文は`esc()`通し・送料行（`pid`なし）を除外
 - 動作確認：Chromeヘッドレス（`--headless=new --dump-dom`）＋`window.api`をスタブに差し替えたテストページで、全8タブと受付シート・商品追加モーダルを描画し`window.onerror`/`console.error`がゼロであることを確認。スタブは本番ファイルには含まれていない
 - **作業フォルダが2つある点に注意**：git管理されている本体は`~/Desktop/開発/進捗管理・売上管理`（`deploy.sh`が動くのはこちら）。Googleドライブ側（`マイドライブ/おまんぼさん/開発/進捗管理・売上管理`）は`.git`を持たないコピーなので、両方に同じ内容を置くこと
+
+### 2026-09-20: 固定バーのすり抜け修正・ヘッダーのロゴ／時計刷新・累計グラフ化・iPhone/iPad対応（v95）
+- **固定バーのすり抜け（最重要）**: 「現地注文を受け付ける」の下をスクロールすると中身がすり抜けて見える不具合。原因は**ChatGPT版が`.tabs{top:112px!important}`（スマホは92px）と固定値をベタ書き**していたこと。本来は`updateStickyOffsets()`が実寸から計算する`--tabs-top`を使う設計だった。実測すると幅1200pxで `hdr 0-120 / wbar 122-191 / tabs 112-173（wbarに79px食い込み）/ btn-new-wrap 252-313（タブとの間に79pxのすき間）` となっており、そのすき間から本文が見えていた
+  - `.tabs`の`top`を`var(--tabs-top)`へ戻し、620px以下のメディアクエリの`top:92px`も削除
+  - `updateStickyOffsets()`を`offsetHeight`→`getBoundingClientRect().height`の切り上げに変更し、各段を1pxずつ重ねてヘアラインのすき間を潰した
+  - ヘッダー・待ち時間バー・タブは中身で高さが変わるため`ResizeObserver`で監視して追従（従来はresizeとロード時のみ）
+  - 重なり順を`hdr(100) > wbar(95) > tabs(90) > btn-new-wrap / #pt-toolbar(85)`に整理
+  - `.btn-new-wrap`の負マージンが`-10px`のまま（ゲームCSSで`.page`のpaddingが18pxに変更されていた）でページ幅より両側8px狭かったため、`--page-pad-x/y`変数を`.page`に持たせて全幅に揃えた。価格設定の`#pt-toolbar`も同様
+  - **今後の鉄則**: 固定バーの`top`にpx固定値を書かない。必ず`--wbar-top`/`--tabs-top`/`--btn-top`を使う
+- **ヘッダー右上のロゴ**: ChatGPTが背景の`radial-gradient`で描いていた装飾の白丸を廃止し、`.hdr-mascot`という**実要素＋グリッドの1列**（`grid-template-areas`に`mascot`を追加）に変更。装飾（78%位置）のままだと画面幅によってステータスピルと重なるため。画像は`~/Desktop/開発/イラストゲーム/omanbo-logo.png`（320px・7.5KB）をdata URIで埋め込み（単一HTML構成を維持）
+- **時計**: 太陽マーク（`.hdr-clock::before`の☀️）を削除し、木の看板風デジタル時計に刷新。日付＋曜日の小見出し＋数字タイル2枚＋点滅コロン。`startClock()`は分が変わったときだけ`innerHTML`を書き替える（毎秒書き替えるとコロンの点滅アニメが毎回リセットされるため）
+- **今月の売上推移グラフ**: 折れ線が棒グラフと同じ日別の値を重ねているだけで情報が重複していた（ユーザー指摘「これは積算グラフじゃないですか？」）。**棒＝日別（左軸）／折れ線＝累計（右軸）**に作り直し、凡例と右軸`#dash-chart-y2`を追加。あわせて`.sales-line`の底辺が`.sales-bars`より60pxずれていたのを一致させ、`preserveAspectRatio="none"`で楕円に潰れていた「今日」の印をHTML要素（`.line-dot`）に変更して真円を保つようにした
+- **iPhone/iPad対応**: 幅900pxでヘッダーが202pxまで肥大していた（ロゴ看板が`1fr`列で637pxまで伸びていた）。`@media(max-width:1000px)`を新設して3列レイアウトのまま各パーツを縮め、620px以下は`"logo mascot sync" / "center status status"`の2行に。固定部の合計高さは iPhone 390px幅で262px→230pxに圧縮
+- **検証方法**: ヘッドレスChromeは**ウィンドウ幅が500px未満に縮まらない**ため、iPhone幅の検証は`<iframe width="390">`に実寸を与えて行う（`devices.html`/`devprobe.html`方式）。固定バーは`getBoundingClientRect()`で各段の`top/bottom`を実測し、段と段のすき間が0以下であることと、ページ幅との左右ズレが0であることを確認する（375/390/768/1024/1200pxで確認済み）
