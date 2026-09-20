@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>受注管理 | おまんぼさん</title>
+<title>おまんぼさん｜ショップ経営ダッシュボード</title>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -398,6 +398,179 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
   .steps.loc-steps,.steps.ship-steps{gap:5px}
   .sbtn{height:52px}
 }
+
+/* ============================================================
+   GAME DASHBOARD DESIGN OVERRIDE
+   どうぶつの森 × スマホゲーム × おしゃれな管理画面
+   ※既存の業務ロジック・ID・クラスは変更せず、見た目を上書き
+   ============================================================ */
+:root{
+  --bg:#fff9ef;
+  --s1:#ffffff;
+  --s2:#f7f1e7;
+  --s3:#eee5d8;
+  --s4:#ded2c2;
+  --border:#e7dccb;
+  --text:#4b4038;
+  --dim:#8c7c70;
+  --dim2:#b8aa9d;
+  --gold:#e9aa3a;
+  --goldl:#f7cc67;
+  --goldd:#9b6918;
+  --red:#ed7c72;
+  --green:#52b98b;
+  --blue:#62b8df;
+  --orange:#f2a85b;
+  --purple:#a99be8;
+  --teal:#53c0b5;
+  --pink:#f28eae;
+  --game-cream:#fffaf2;
+  --game-wood:#9b6b3f;
+  --game-wood-dark:#76502f;
+  --game-shadow:0 8px 24px rgba(114,82,50,.10);
+}
+html{background:var(--bg)}
+body{background:linear-gradient(180deg,#fefbf5 0%,#fff8ee 100%);color:var(--text)}
+button,input,select,textarea{font-family:inherit}
+
+/* header becomes the illustrated game world */
+.hdr{
+  position:sticky!important;top:0!important;z-index:100;
+  min-height:112px!important;height:auto!important;
+  padding:14px 18px 16px!important;
+  display:grid!important;grid-template-columns:auto 1fr auto!important;
+  grid-template-areas:"logo center status" "logo center sync";
+  gap:6px 14px!important;
+  background:
+    radial-gradient(circle at 78% 28%,rgba(255,255,255,.75) 0 34px,transparent 35px),
+    linear-gradient(180deg,#8edcf0 0%,#bfeaf1 52%,#8ed5a2 53%,#6fc88b 100%)!important;
+  border:0!important;border-bottom:4px solid #f6d9a3!important;
+  box-shadow:0 5px 18px rgba(87,123,92,.18)!important;
+  overflow:hidden;
+}
+.hdr::before{content:"";position:absolute;inset:auto 0 0;height:30px;background:radial-gradient(ellipse at 10% 100%,#58b779 0 34px,transparent 35px),radial-gradient(ellipse at 28% 100%,#78c989 0 42px,transparent 43px),radial-gradient(ellipse at 52% 100%,#4faf74 0 38px,transparent 39px),radial-gradient(ellipse at 78% 100%,#79c98b 0 44px,transparent 45px),radial-gradient(ellipse at 96% 100%,#4ca96f 0 38px,transparent 39px);opacity:.95}
+.hdr-logo{
+  grid-area:logo;align-self:center;position:relative;z-index:2;
+  min-width:220px;padding:14px 20px 13px!important;
+  color:#fff!important;font-family:'Zen Kaku Gothic New',sans-serif!important;
+  font-size:24px!important;font-weight:900!important;letter-spacing:.08em!important;
+  text-align:center;background:linear-gradient(#b77c48,#8e5b34)!important;
+  border:3px solid #d9a36b!important;border-radius:15px!important;
+  box-shadow:inset 0 2px rgba(255,255,255,.25),0 5px 0 #76502f,0 9px 16px rgba(82,55,33,.18)!important;
+}
+.hdr-logo::after{content:"売上管理システム";display:block;font-size:11px;letter-spacing:.14em;margin-top:2px;color:#fff5e8}
+.hdr-clock{grid-area:center;align-self:center;justify-self:center;color:#4d463f!important;font-weight:900!important;font-size:18px!important;position:relative;z-index:2}
+.hdr-clock::before{content:"☀️  ";font-size:20px}
+.hdr-pills{grid-area:status;display:flex!important;gap:6px!important;justify-content:flex-end;position:relative;z-index:2}
+.pill{background:rgba(255,255,255,.86)!important;border:1px solid rgba(116,94,70,.14)!important;color:#67594d!important;border-radius:999px!important;box-shadow:0 3px 10px rgba(86,72,53,.10)!important;padding:5px 10px!important;font-weight:700!important}
+.pill b{color:var(--green)!important}
+#sync-btn{grid-area:sync;justify-self:end;position:relative;z-index:2;background:#fff!important;border:1px solid #eadfce!important;color:#786858!important;border-radius:50%!important;width:38px;height:38px;padding:0!important;box-shadow:0 3px 10px rgba(86,72,53,.12)!important}
+
+.wbar{background:#fffaf1!important;border:0!important;border-bottom:1px solid var(--border)!important;box-shadow:none!important;padding:7px 14px!important;color:var(--dim)!important}
+.wbar-num{color:var(--game-wood)!important;font-weight:900!important}
+.wdots .wd{border:2px solid #fff!important;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+
+.tabs{
+  position:sticky!important;top:112px!important;z-index:90;
+  display:flex!important;gap:7px!important;padding:9px 12px!important;
+  background:rgba(255,250,242,.96)!important;border-bottom:1px solid var(--border)!important;
+  backdrop-filter:blur(12px);box-shadow:0 4px 14px rgba(90,65,45,.06)!important;
+  overflow-x:auto!important;scrollbar-width:none!important;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:1px solid transparent!important;border-radius:14px!important;background:transparent!important;color:#725f50!important;padding:9px 12px!important;font-weight:800!important;white-space:nowrap!important;transition:.18s!important}
+.tab:hover{background:#f6eee2!important}
+.tab.on{background:linear-gradient(135deg,#61c39a,#46aa83)!important;color:#fff!important;border-color:#55ae8c!important;box-shadow:0 4px 10px rgba(71,164,126,.22)!important;transform:translateY(-1px)}
+
+.page{max-width:1180px!important;margin:0 auto!important;padding:18px 18px 90px!important}
+
+/* Dashboard */
+#page-dashboard{display:none}
+#page-dashboard.on{display:block}
+.dash-hero{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px}
+.dash-welcome{background:linear-gradient(135deg,#fff4df,#fffdf8);border:1px solid #eadbc8;border-radius:22px;padding:16px 20px;box-shadow:var(--game-shadow);flex:1;position:relative;overflow:hidden}
+.dash-welcome::after{content:"🌿  🌼  🌱  🌷";position:absolute;right:18px;bottom:5px;font-size:22px;opacity:.65}
+.dash-welcome-kicker{font-size:12px;color:#8d7a68;font-weight:800;margin-bottom:4px}
+.dash-welcome-title{font-size:24px;font-weight:900;color:#4b4038}
+.dash-welcome-title span{color:#48a982}
+.dash-level{min-width:260px;background:#fff;border:1px solid #eadfce;border-radius:20px;padding:13px 16px;box-shadow:var(--game-shadow)}
+.dash-level-top{display:flex;justify-content:space-between;align-items:center;font-weight:900;font-size:13px;margin-bottom:8px}
+.exp-track,.goal-track{height:10px;background:#eee8df;border-radius:99px;overflow:hidden}
+.exp-fill{height:100%;width:0%;background:linear-gradient(90deg,#7bd0a7,#45b589);border-radius:99px}
+.goal-fill{height:100%;background:linear-gradient(90deg,#5bc1c0,#57b8db);border-radius:99px}
+.dash-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:15px}
+.dash-kpi{border-radius:20px;padding:16px 17px;min-height:138px;box-shadow:var(--game-shadow);border:1px solid rgba(112,89,62,.10);position:relative;overflow:hidden}
+.dash-kpi:nth-child(1){background:linear-gradient(135deg,#ffe8e5,#fff5f0)}
+.dash-kpi:nth-child(2){background:linear-gradient(135deg,#e6f5ff,#f6fbff)}
+.dash-kpi:nth-child(3){background:linear-gradient(135deg,#e7f8ed,#f7fff9)}
+.dash-kpi:nth-child(4){background:linear-gradient(135deg,#eeeaff,#fbf9ff)}
+.kpi-icon{font-size:26px;line-height:1;margin-bottom:7px}
+.kpi-label{font-size:12px;font-weight:900;color:#746456}
+.kpi-value{font-size:28px;line-height:1.15;font-weight:900;margin:4px 0;color:#4b4038;letter-spacing:.01em}
+.kpi-sub{font-size:11px;color:#8b7c70;font-weight:700}
+.kpi-badge{display:inline-block;margin-top:5px;padding:3px 8px;border-radius:999px;background:rgba(77,183,137,.12);color:#3d9b72;font-weight:900}
+.dash-main-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(280px,.85fr);gap:14px;margin-bottom:14px;align-items:start}
+.game-card{background:rgba(255,255,255,.95);border:1px solid #eadfce;border-radius:22px;box-shadow:var(--game-shadow);padding:17px}
+.game-card-title{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:17px;font-weight:900;margin-bottom:12px}
+.game-card-title small{font-size:10px;color:#a09286;font-weight:700}
+.sales-chart{height:250px;position:relative;background:linear-gradient(180deg,#fffefa,#fffbf5);border-radius:15px;overflow:hidden}
+.sales-grid{position:absolute;inset:14px 12px 30px 42px;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(25% - 1px),#eee7dd calc(25% - 1px),#eee7dd 25%)}
+.sales-bars{position:absolute;left:42px;right:12px;bottom:30px;height:190px;display:flex;align-items:flex-end;gap:5px}
+.sales-bar{flex:1;min-width:4px;background:linear-gradient(180deg,#9edecb,#61c5ad);border-radius:7px 7px 2px 2px;opacity:.9}
+.sales-line{position:absolute;left:42px;right:12px;top:20px;height:170px;pointer-events:none}
+.sales-line svg{width:100%;height:100%;overflow:visible}
+.chart-axis{position:absolute;left:42px;right:12px;bottom:8px;display:flex;justify-content:space-between;color:#a29283;font-size:9px}
+.chart-y{position:absolute;left:8px;top:14px;bottom:30px;display:flex;flex-direction:column;justify-content:space-between;color:#a29283;font-size:9px}
+.today-bubble{position:absolute;right:12px;top:9px;background:#f28eae;color:#fff;border-radius:12px;padding:5px 9px;font-weight:900;font-size:11px;box-shadow:0 3px 8px rgba(238,112,148,.18)}
+.dash-side{display:grid;gap:14px}
+.mission-list{display:grid;gap:9px}
+.mission-row{display:flex;align-items:center;gap:9px;padding:9px 10px;background:#fffaf0;border:1px solid #eee2cf;border-radius:13px}
+.mission-check{width:22px;height:22px;border-radius:7px;background:#55b98d;color:#fff;display:grid;place-items:center;font-weight:900;flex:none}
+.mission-check.off{background:#fff;border:2px solid #d6ccbf;color:transparent}
+.mission-text{font-size:12px;font-weight:800;flex:1}
+.mission-exp{font-size:11px;font-weight:900;color:#45a57d}
+.reward{margin-top:10px;background:linear-gradient(135deg,#fff0bd,#fff9e8);border:1px solid #f1d993;border-radius:15px;padding:10px 12px;font-weight:900;color:#8d681c}
+.goal-card .goal-big{font-size:24px;font-weight:900;margin:5px 0 9px}
+.goal-meta{display:flex;justify-content:space-between;font-size:11px;color:#8c7d70;margin-bottom:7px}
+.dash-bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start}
+.rank-row-game{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #eee5da}
+.rank-row-game:last-child{border-bottom:0}
+.medal{width:29px;height:29px;border-radius:50%;display:grid;place-items:center;font-weight:900;flex:none;background:#f1e7d8}
+.medal.gold{background:#ffd96a;color:#8c6611}.medal.silver{background:#dfe4e8;color:#68717a}.medal.bronze{background:#e8b58c;color:#80502d}
+.rank-info{flex:1;min-width:0}.rank-name{font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rank-bar{height:6px;background:#eee8df;border-radius:99px;overflow:hidden;margin-top:5px}.rank-bar span{display:block;height:100%;background:linear-gradient(90deg,#f3b5c8,#f28eae);border-radius:99px}.rank-money{font-size:12px;font-weight:900;color:#9c7422;white-space:nowrap}
+.donut-wrap{display:flex;align-items:center;gap:15px}.donut{width:112px;height:112px;border-radius:50%;background:conic-gradient(#53c0b5 0 52%,#f28eae 52% 81%,#f2a85b 81% 100%);position:relative;flex:none}.donut::after{content:"利益";position:absolute;inset:24px;border-radius:50%;background:#fffdf8;display:grid;place-items:center;font-size:11px;font-weight:900;color:#8b7b6d;text-align:center;box-shadow:inset 0 0 0 1px #eee3d7}.summary-list{display:grid;gap:6px;flex:1}.summary-item{display:flex;justify-content:space-between;font-size:11px}.summary-item b{font-size:12px}.summary-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.recent-list{display:grid}.recent-row{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid #eee5da}.recent-row:last-child{border-bottom:0}.recent-ico{width:28px;height:28px;border-radius:9px;background:#f6eadb;display:grid;place-items:center}.recent-name{font-size:11px;font-weight:900}.recent-meta{font-size:9px;color:#9b8d80;margin-top:2px}.status-chip{font-size:9px;font-weight:900;border-radius:999px;padding:4px 7px;background:#e6f7ee;color:#439c74;white-space:nowrap}.status-chip.wait{background:#fff0d5;color:#c68120}
+.dash-mini-note{margin-top:12px;padding:9px 11px;border-radius:13px;background:#f5fbf7;color:#54846d;font-size:10px;font-weight:700}
+
+/* Existing operational screens become soft cards too */
+.btn-new{border-radius:16px!important;box-shadow:0 5px 0 rgba(76,151,113,.16),0 8px 18px rgba(76,151,113,.12)!important;background:linear-gradient(135deg,#64c49b,#47ad83)!important;border:0!important}
+.btn-new.ship{background:linear-gradient(135deg,#79c5e7,#5aaed4)!important}
+.stat-card,.an-section,.order-card,.hist-card,.acc-card,.master-card,.price-card{border-color:var(--border)!important;border-radius:18px!important;box-shadow:var(--game-shadow)!important;background:rgba(255,255,255,.96)!important}
+.stat-card{padding:14px!important}
+.stat-val{color:#4b4038!important}
+.an-title{color:#6c5a4b!important}
+.cal-nav{background:#fffaf2!important;border:1px solid var(--border)!important;border-radius:15px!important;box-shadow:var(--game-shadow)!important}
+.cal-arrow{border-radius:10px!important}
+.seg{background:#f0e8dc!important;border:1px solid var(--border)!important;border-radius:14px!important;padding:4px!important}
+.seg-btn{border-radius:10px!important}.seg-btn.on{background:#fff!important;color:#46a67e!important;box-shadow:0 2px 7px rgba(100,80,55,.10)!important}
+
+@media(max-width:900px){
+  .dash-kpis{grid-template-columns:repeat(2,1fr)}
+  .dash-main-grid{grid-template-columns:1fr}
+  .dash-bottom-grid{grid-template-columns:1fr 1fr}
+  .hdr{grid-template-columns:1fr auto!important;grid-template-areas:"logo status" "center sync"}
+  .hdr-logo{min-width:180px;font-size:20px!important}
+}
+@media(max-width:620px){
+  .hdr{min-height:92px!important;padding:10px 10px 12px!important;grid-template-columns:1fr auto!important;grid-template-areas:"logo sync" "center status";gap:4px 8px!important}
+  .hdr-logo{min-width:0;width:max-content;max-width:calc(100vw - 90px);font-size:16px!important;padding:9px 12px!important;border-width:2px!important;box-shadow:inset 0 1px rgba(255,255,255,.25),0 3px 0 #76502f!important}
+  .hdr-logo::after{font-size:8px}
+  .hdr-clock{font-size:14px!important;justify-self:start}.hdr-clock::before{font-size:15px}
+  .hdr-pills{justify-content:flex-end;gap:3px!important}.pill{padding:3px 6px!important;font-size:9px!important}
+  .tabs{top:92px!important;padding:6px 7px!important}.tab{padding:8px 9px!important;font-size:11px!important}
+  .page{padding:12px 10px 70px!important}
+  .dash-hero{display:grid;grid-template-columns:1fr}.dash-level{min-width:0}.dash-welcome-title{font-size:20px}.dash-kpis{gap:9px}.dash-kpi{min-height:118px;padding:13px}.kpi-value{font-size:22px}.dash-bottom-grid{grid-template-columns:1fr}.sales-chart{height:220px}
+}
+
 </style>
 </head>
 <body>
@@ -420,7 +593,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 <div id="app" style="display:none">
 
 <header class="hdr">
-  <div class="hdr-logo">受注管理</div>
+  <div class="hdr-logo">おまんぼさん</div>
   <div class="hdr-clock" id="clock">--:--</div>
   <div class="hdr-pills">
     <div class="pill">現地 <b id="st-loc">0</b></div>
@@ -444,17 +617,89 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
 
 <nav class="tabs">
-  <div class="tab on" data-tab="local">🏪 現地</div>
-  <div class="tab"    data-tab="shipping">📦 郵送</div>
-  <div class="tab"    data-tab="history">📅 履歴</div>
-  <div class="tab"    data-tab="analytics">📊 売上</div>
-  <div class="tab"    data-tab="accounting">💹 管理会計</div>
-  <div class="tab"    data-tab="master">⚙️ 商品</div>
-  <div class="tab"    data-tab="pricing">💴 価格設定</div>
+  <div class="tab on" data-tab="dashboard">🏝 ホーム</div>
+  <div class="tab" data-tab="local">🏪 現地</div>
+  <div class="tab" data-tab="shipping">📦 郵送</div>
+  <div class="tab" data-tab="history">📅 履歴</div>
+  <div class="tab" data-tab="analytics">📊 売上・分析</div>
+  <div class="tab" data-tab="accounting">💹 管理会計</div>
+  <div class="tab" data-tab="master">⚙️ 商品管理</div>
+  <div class="tab" data-tab="pricing">💴 価格設定</div>
 </nav>
 
+<!-- GAME DASHBOARD / HOME PAGE -->
+<div class="page on" id="page-dashboard">
+  <div class="dash-hero">
+    <div class="dash-welcome">
+      <div class="dash-welcome-kicker">🌿 おまんぼさんのショップ島</div>
+      <div class="dash-welcome-title">今日も <span>楽しくお店を育てよう！</span> ✨</div>
+      <div style="font-size:11px;color:#8f7f70;margin-top:5px;font-weight:700">売上・注文・利益をひとつの画面でチェックできます</div>
+    </div>
+    <div class="dash-level">
+      <div class="dash-level-top"><span id="dash-level-label">🌱 Lv.1 ショップ経営者</span><span id="dash-exp-label">0%</span></div>
+      <div class="exp-track"><div class="exp-fill" id="dash-exp-fill" style="width:0%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:#9a8c7e;margin-top:5px"><span>次のレベルまで</span><span id="dash-exp-detail">EXP 0 / 1000</span></div>
+    </div>
+  </div>
+
+  <div class="dash-kpis">
+    <div class="dash-kpi"><div class="kpi-icon">💰</div><div class="kpi-label">今日の売上</div><div class="kpi-value" id="dash-today-sales">¥0</div><div class="kpi-sub" id="dash-today-sub">昨日比 --</div></div>
+    <div class="dash-kpi"><div class="kpi-icon">🛒</div><div class="kpi-label">注文件数</div><div class="kpi-value" id="dash-order-count">0件</div><div class="kpi-sub" id="dash-order-sub">完了・受付中</div></div>
+    <div class="dash-kpi"><div class="kpi-icon">👥</div><div class="kpi-label">今月の注文</div><div class="kpi-value" id="dash-month-orders">0件</div><div class="kpi-sub">今月の実績</div></div>
+    <div class="dash-kpi"><div class="kpi-icon">⭐</div><div class="kpi-label">今月の売上</div><div class="kpi-value" id="dash-month-sales">¥0</div><div class="kpi-sub" id="dash-goal-sub">目標まであと ¥0</div></div>
+  </div>
+
+  <div class="dash-main-grid">
+    <div class="game-card">
+      <div class="game-card-title"><span>📈 今月の売上推移</span><small>日別売上</small></div>
+      <div class="sales-chart">
+        <div class="sales-grid"></div>
+        <div class="chart-y" id="dash-chart-y"><span>¥60,000</span><span>¥45,000</span><span>¥30,000</span><span>¥15,000</span><span>¥0</span></div>
+        <div class="sales-bars" id="dash-sales-bars"></div>
+        <div class="sales-line" id="dash-sales-line"></div>
+        <div class="chart-axis" id="dash-chart-axis"></div>
+        <div class="today-bubble" id="dash-today-bubble">今日 ¥0</div>
+      </div>
+    </div>
+
+    <div class="dash-side">
+      <div class="game-card">
+        <div class="game-card-title"><span>🎁 今日のミッション</span><small>EXPを獲得</small></div>
+        <div class="mission-list" id="dash-missions"></div>
+        <div class="reward">🪙 今日の報酬　<span id="dash-reward">+0 EXP</span></div>
+      </div>
+      <div class="game-card goal-card">
+        <div class="game-card-title"><span>🚩 今月の目標</span><small>ショップ目標</small></div>
+        <div class="goal-meta"><span>目標金額</span><b id="dash-goal-total">¥500,000</b></div>
+        <div class="goal-big" id="dash-goal-current">¥0</div>
+        <div class="goal-meta"><span>現在の売上</span><span id="dash-goal-pct">0%</span></div>
+        <div class="goal-track"><div class="goal-fill" id="dash-goal-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dash-bottom-grid">
+    <div class="game-card">
+      <div class="game-card-title"><span>👑 商品別売上ランキング</span><small>今月</small></div>
+      <div id="dash-ranking"></div>
+    </div>
+    <div class="game-card">
+      <div class="game-card-title"><span>👜 売上・利益サマリー</span><small>今月</small></div>
+      <div class="donut-wrap">
+        <div class="donut" id="dash-donut"></div>
+        <div class="summary-list" id="dash-summary"></div>
+      </div>
+      <div class="dash-mini-note">🌱 売上だけでなく、原価・経費・利益もここで確認できます。</div>
+    </div>
+    <div class="game-card">
+      <div class="game-card-title"><span>📦 最近の注文</span><small>最新5件</small></div>
+      <div class="recent-list" id="dash-recent"></div>
+    </div>
+  </div>
+</div>
+
 <!-- LOCAL PAGE -->
-<div class="page on" id="page-local">
+<div class="page" id="page-local">
   <div class="btn-new-wrap">
     <button class="btn-new" id="btn-new-local">＋ 現地注文を受け付ける</button>
   </div>
@@ -1340,7 +1585,7 @@ function startClock() {
 // ============================================================
 //  RENDER
 // ============================================================
-function render() { renderLocal(); renderShipping(); updateWait(); renderMaster(); }
+function render() { renderLocal(); renderShipping(); updateWait(); renderMaster(); renderDashboard(); }
 
 function getStepDefs(deliveryType) {
   return deliveryType === 'shipping' ? SHIP_STEPS : LOC_STEPS;
@@ -3819,6 +4064,191 @@ async function renderAnalytics() {
 
 document.getElementById('csv-btn').addEventListener('click',async()=>{const res=await api('exportCSV',{});if(res?.url)window.open(res.url,'_blank');});
 
+
+// ============================================================
+// ============================================================
+//  GAME DASHBOARD / HOME（ホーム画面）
+//  既存の注文・履歴・経費データだけを使った見える化。画像ファイルは使用しない。
+//  ダミー値は一切表示しない（データが無い場合は0またはプレースホルダを出す）。
+// ============================================================
+let dashHistory    = [];   // 今月の完了履歴（getHistory）
+let dashExpenses   = [];   // 今月の経費（getExpenses）
+let dashLoadedKey  = '';   // 読み込み済みの「年-月」。月が変わったら再取得
+let dashLoading    = false;
+const DASH_GOAL    = 500000;   // 今月の売上目標（円）
+const DASH_EXP_PER_YEN = 50;   // ¥50 = 1EXP
+const DASH_EXP_PER_LV  = 1000; // 1レベル = 1000EXP
+
+function dashMoney(n){ return '¥' + Number(n||0).toLocaleString(); }
+function dashDateKey(d){ const x=new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
+function dashMonthKey(d){ const x=new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`; }
+function dashHistorySales(h){ return (h.salesItems||[]).reduce((s,si)=>s+Number(si.price||0),0); }
+
+// 注文（未完了）の商品名を products から解決する
+function dashOrderLabel(o){
+  const items = o.items||[];
+  if (!items.length) return '受付中の注文';
+  const first = items[0];
+  const p = S.products.find(x=>x.id===first.pid);
+  const base = p?.name || first.productName || '注文';
+  const name = first.typeName ? `${base} [${first.typeName}]` : base;
+  return items.length>1 ? `${name} 他${items.length-1}点` : name;
+}
+
+// force=true : タブ切替時など、強制的に最新データを取り直す
+async function renderDashboard(force){
+  const page = document.getElementById('page-dashboard');
+  if (!page) return;
+  // ホームが表示されていないときは通信しない（render()から毎回呼ばれるため）
+  if (!force && !page.classList.contains('on')) return;
+  if (dashLoading) return;
+
+  const now = new Date();
+  const y=now.getFullYear(), m=now.getMonth()+1, today=now.getDate();
+  const key = `${y}-${m}`;
+  if (force || dashLoadedKey !== key) {
+    dashLoading = true;
+    try {
+      const [hRes, eRes] = await Promise.all([
+        api('getHistory',  { year:y, month:m }),
+        api('getExpenses', { year:y, month:m })
+      ]);
+      // 通信に失敗した場合は前回のデータを保持したまま描画を続ける
+      if (hRes) { dashHistory = hRes.history || []; dashLoadedKey = key; }
+      if (eRes) { dashExpenses = eRes.expenses || []; }
+    } finally {
+      dashLoading = false;
+    }
+  }
+
+  const dayKey        = dashDateKey(now);
+  const yesterday     = new Date(now); yesterday.setDate(today-1);
+  const yesterdayKey  = dashDateKey(yesterday);
+  const todayHist     = dashHistory.filter(h=>dashDateKey(h.completedAt)===dayKey);
+  const todaySales    = todayHist.reduce((s,h)=>s+dashHistorySales(h),0);
+  const yesterdaySales= dashHistory.filter(h=>dashDateKey(h.completedAt)===yesterdayKey).reduce((s,h)=>s+dashHistorySales(h),0);
+  const monthSales    = dashHistory.reduce((s,h)=>s+dashHistorySales(h),0);
+  const monthOrders   = dashHistory.length;
+  const activeOrders  = S.orders.filter(o=>o.status!=='done');
+  const allOrders     = monthOrders + activeOrders.length;
+  const pct           = yesterdaySales ? Math.round((todaySales-yesterdaySales)/yesterdaySales*100) : 0;
+
+  const set=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
+  set('dash-today-sales',  dashMoney(todaySales));
+  set('dash-order-count',  `${allOrders}件`);
+  set('dash-order-sub',    `完了 ${monthOrders}件 / 受付中 ${activeOrders.length}件`);
+  set('dash-month-orders', `${monthOrders}件`);
+  set('dash-month-sales',  dashMoney(monthSales));
+  set('dash-today-sub',    yesterdaySales?`昨日比 ${pct>=0?'+':''}${pct}%`:'昨日比 --');
+  set('dash-goal-sub',     `目標まであと ${dashMoney(Math.max(0,DASH_GOAL-monthSales))}`);
+  set('dash-goal-total',   dashMoney(DASH_GOAL));
+  set('dash-goal-current', dashMoney(monthSales));
+  const goalPct=Math.min(100,Math.round(monthSales/DASH_GOAL*100));
+  set('dash-goal-pct',`${goalPct}%`);
+  const gf=document.getElementById('dash-goal-fill'); if(gf) gf.style.width=goalPct+'%';
+  const todayBubble=document.getElementById('dash-today-bubble'); if(todayBubble) todayBubble.textContent=`今日 ${dashMoney(todaySales)}`;
+
+  // レベル・EXP：今月の売上から算出（¥50=1EXP／1000EXPで1レベル）
+  const totalExp = Math.floor(monthSales / DASH_EXP_PER_YEN);
+  const level    = Math.floor(totalExp / DASH_EXP_PER_LV) + 1;
+  const expInLv  = totalExp % DASH_EXP_PER_LV;
+  const expPct   = Math.round(expInLv / DASH_EXP_PER_LV * 100);
+  set('dash-level-label', `🌱 Lv.${level} ショップ経営者`);
+  set('dash-exp-label',   `${expPct}%`);
+  set('dash-exp-detail',  `EXP ${expInLv} / ${DASH_EXP_PER_LV}`);
+  const ef=document.getElementById('dash-exp-fill'); if(ef) ef.style.width=expPct+'%';
+
+  // 日別売上グラフ
+  const days=new Date(y,m,0).getDate();
+  const daily=Array(days).fill(0);
+  dashHistory.forEach(h=>{const d=new Date(h.completedAt);if(d.getFullYear()===y&&d.getMonth()+1===m){daily[d.getDate()-1]+=dashHistorySales(h);}});
+  const rawMax=Math.max(0,...daily);
+  const max=Math.max(10000,Math.ceil(rawMax/5000)*5000); // 実データに合わせて目盛を自動調整
+  const bars=document.getElementById('dash-sales-bars');
+  if(bars)bars.innerHTML=daily.map((v,i)=>`<div class="sales-bar" title="${i+1}日 ${dashMoney(v)}" style="height:${Math.max(3,Math.round(v/max*180))}px"></div>`).join('');
+  const chartY=document.getElementById('dash-chart-y');
+  if(chartY)chartY.innerHTML=[1,0.75,0.5,0.25,0].map(r=>`<span>${dashMoney(Math.round(max*r))}</span>`).join('');
+  const axis=document.getElementById('dash-chart-axis');
+  if(axis){const marks=[...new Set([1,Math.ceil(days/4),Math.ceil(days/2),Math.ceil(days*3/4),days])];axis.innerHTML=marks.map(d=>`<span>${d}日</span>`).join('');}
+  const line=document.getElementById('dash-sales-line');
+  if(line){
+    const w=100,h=170;
+    // 折れ線は今日までを描画（未来の日を0として下げない）
+    const pts=daily.slice(0,today).map((v,i)=>`${(i/(Math.max(1,days-1)))*w},${h-(v/max*h)}`).join(' ');
+    line.innerHTML=`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="#f28eae" stroke-width="2.8" vector-effect="non-scaling-stroke"/><circle cx="${((today-1)/Math.max(1,days-1))*w}" cy="${h-(daily[today-1]/max*h)}" r="4.5" fill="#f28eae" stroke="#fff" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+
+  // 今日のミッション（すべて実データで判定できる条件のみ）
+  const lowStock = S.products.filter(p=>{
+    if ((p.types||[]).length) return (p.types||[]).some(t=>Number(t.stockLoc||0)+Number(t.stockShip||0) <= 0);
+    return Number(p.stockLoc||0)+Number(p.stockShip||0) <= 0;
+  }).length;
+  const missions=[
+    {ok:todayHist.length>=3,    text:'今日 3件以上完了する',        exp:30},
+    {ok:todaySales>=30000,      text:'今日 ¥30,000以上売る',        exp:50},
+    {ok:lowStock===0,           text:'在庫切れの商品をゼロにする',  exp:40}
+  ];
+  const missionEl=document.getElementById('dash-missions');
+  if(missionEl)missionEl.innerHTML=missions.map(x=>`<div class="mission-row"><div class="mission-check ${x.ok?'':'off'}">✓</div><div class="mission-text">${x.text}</div><div class="mission-exp">+${x.exp} EXP</div></div>`).join('');
+  const bonusExp=missions.filter(x=>x.ok).reduce((s,x)=>s+x.exp,0);
+  set('dash-reward',`+${bonusExp} EXP`);
+
+  // 商品別売上ランキング（今月）
+  const pMap={};
+  dashHistory.forEach(h=>(h.salesItems||[]).forEach(si=>{
+    if(!si.pid) return; // 送料行は除外
+    const name=si.productName||'商品';
+    if(!pMap[name])pMap[name]={total:0,cnt:0};
+    pMap[name].total+=Number(si.price||0); pMap[name].cnt++;
+  }));
+  const ranked=Object.entries(pMap).sort((a,b)=>b[1].total-a[1].total).slice(0,5);
+  const rmax=ranked[0]?.[1]?.total||1;
+  const rankEl=document.getElementById('dash-ranking');
+  if(rankEl)rankEl.innerHTML=ranked.length
+    ? ranked.map(([name,v],i)=>`<div class="rank-row-game"><div class="medal ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i+1}</div><div class="rank-info"><div class="rank-name">${esc(name)} <span style="color:#a39588;font-weight:700">${v.cnt}個</span></div><div class="rank-bar"><span style="width:${Math.round(v.total/rmax*100)}%"></span></div></div><div class="rank-money">${dashMoney(v.total)}</div></div>`).join('')
+    : `<div style="padding:20px 5px;text-align:center;color:#a39588;font-size:12px">まだ売上データがありません</div>`;
+
+  // 売上・原価・経費・利益（管理会計と同じ calcOrderPL / 経費シートを使用）
+  let cost=0;
+  dashHistory.forEach(h=>{ cost += calcOrderPL(h).cost; });
+  const expense=dashExpenses.reduce((s,e)=>s+Number(e.amount||0),0);
+  const profit=monthSales-cost-expense;
+  const summary=[['#53c0b5','売上',monthSales],['#f28eae','原価',cost],['#f2a85b','経費',expense],['#52b98b','利益',profit]];
+  const summaryEl=document.getElementById('dash-summary');
+  if(summaryEl)summaryEl.innerHTML=summary.map(([c,l,v])=>`<div class="summary-item"><span><i class="summary-dot" style="background:${c}"></i>${l}</span><b>${dashMoney(v)}</b></div>`).join('');
+  const donut=document.getElementById('dash-donut');
+  if(donut){
+    const base=Math.max(1,monthSales);
+    const costPct   = Math.max(0,Math.min(100,Math.round(cost/base*100)));
+    const expPctD   = Math.max(0,Math.min(100-costPct,Math.round(expense/base*100)));
+    const profitPct = Math.max(0,100-costPct-expPctD);
+    donut.style.background=`conic-gradient(#52b98b 0 ${profitPct}%,#f28eae ${profitPct}% ${profitPct+costPct}%,#f2a85b ${profitPct+costPct}% 100%)`;
+  }
+
+  // 最近の注文（完了履歴＋受付中の注文／商品画像は使わない）
+  const recent=[];
+  dashHistory.slice().sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt)).slice(0,5).forEach(h=>{
+    const first=(h.salesItems||[])[0];
+    const more=Math.max(0,(h.salesItems||[]).filter(si=>si.pid).length-1);
+    recent.push({
+      name:(first?.productName||'注文')+(more?` 他${more}点`:''),
+      date:h.completedAt, price:dashHistorySales(h),
+      status:h.deliveryType==='shipping'?'発送済み':'お渡し済み'
+    });
+  });
+  S.orders.slice().sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).forEach(o=>{
+    if(o.status==='done') return;
+    recent.unshift({
+      name:dashOrderLabel(o), date:o.createdAt,
+      price:(o.items||[]).reduce((s,it)=>s+Number(it.price||0),0)+Number(o.shippingFee||0)-Number(o.discount||0),
+      status:o.deliveryType==='shipping'?'発送準備中':'制作中'
+    });
+  });
+  const recentEl=document.getElementById('dash-recent');
+  if(recentEl)recentEl.innerHTML=recent.slice(0,5).map(r=>`<div class="recent-row"><div class="recent-ico">📦</div><div><div class="recent-name">${esc(r.name)}</div><div class="recent-meta">${r.date?new Date(r.date).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}):'--'}　${dashMoney(r.price)}</div></div><div class="status-chip ${r.status.includes('準備')||r.status.includes('制作')?'wait':''}">${r.status}</div></div>`).join('')
+    || `<div style="padding:20px 5px;text-align:center;color:#a39588;font-size:12px">最近の注文はありません</div>`;
+}
+
 // ============================================================
 //  TABS
 // ============================================================
@@ -3828,6 +4258,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
     tab.classList.add('on');
     document.getElementById('page-'+tab.dataset.tab).classList.add('on');
+    if(tab.dataset.tab==='dashboard'){renderDashboard(true);}
     if(tab.dataset.tab==='history'){historyData=[];renderHistory();}
     if(tab.dataset.tab==='analytics'){anAllHistory=[];window._stepAvgCache={};window._prodAvgCache={};window._shipAvgCache=null;renderAnalytics();}
     if(tab.dataset.tab==='accounting'){initAccounting();}

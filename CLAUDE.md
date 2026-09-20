@@ -339,3 +339,19 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - `handleDeleteOrder`を修正し、注文削除前に対象注文の`items`（pid・typeId）と`deliveryType`を読み取り、`handleAdjustStock`で1点につき+1ずつ在庫を戻すよう変更。これにより進捗タブ・履歴タブどちらから削除しても同じ経路で在庫が戻る
 - 上記に伴い、フロント側`confirmDeleteOrder`が独自に呼んでいた`api('adjustStock', ...)`は二重復元になるため削除。画面の即時反映用に`S.products`をその場で書き換える楽観的更新のみ残した（実際の永続化はサーバー側`handleDeleteOrder`が担う）
 - **How to apply**: 今後「削除しても在庫が減ったまま」系の相談が来たら、まず`handleDeleteOrder`が呼ばれているか（`confirmDeleteOrder`／`confirmDeleteHistory`のどちらの経路か）を確認すること。在庫復元ロジックは`handleDeleteOrder`に一本化されているので、新しい削除経路を追加する場合もそちらを呼ぶだけでよい
+
+### 2026-09-20: ChatGPT作成の「ショップ経営ダッシュボード」デザインを現行機能にマージ（v94）
+- ユーザーがChatGPTにデザイン変更を依頼したHTML（`~/Downloads/index_game_dashboard.html`）を受け取り、現行版の機能を一切落とさずにマージした。マージ直前の状態はコミット`5f5b9b9`（frontend v93: XSS対策）そのものなので、バックアップファイルは作らずgit履歴に委ねている
+- **ChatGPT版はコミット`5f5b9b9`より前のスナップショット（`releases/index_v93.html`＝XSS対策前）をベースにしていたため、最新のセキュリティ修正が巻き戻っていた**。以下を全て復元済み（JS差分32ハンクのうち29ハンクが退行、3ハンクだけが新機能。`patch -R`で退行分だけ逆適用した）
+  - `esc()`（XSS対策）の定義と全呼び出し箇所（受付メモ・商品名・タイプ名・経費メモ等 計42箇所）
+  - 在庫移動のタイプ選択ボタン：`onclick`内にタイプ名を直接埋め込む形 → `data-xfer-tid` + `addEventListener`方式
+  - `CH_ICONS[o.channel]||''` のフォールバック（未知チャネルで`undefined`表示になるのを防ぐ）
+  - 弥生インポートの確認ボタン：`onclick="confirmYayoiImport(${JSON.stringify(preview).replace(/</g,'&lt;')})"` はダブルクォートで属性が壊れる → `esc(JSON.stringify(preview))`に戻した
+- **機能欠落の検証方法（外部ツール製HTMLを受け取ったら毎回この手順で確認すること）**：①関数定義一覧をdiff ②`getElementById`の参照IDが全てHTMLに存在するか突合 ③`class="..."`で使用中のクラスが新CSSに全て定義されているか突合 ④インラインハンドラ（onclick等）の呼び先関数が全て定義済みか ⑤旧版と新版のid・ボタンラベル一覧を`comm`で突合。今回は①〜⑤すべてで欠落ゼロ（新CSSは旧CSSの完全な上位互換＝旧`:root`の後ろに新パレットの`:root`を重ねる方式）
+- 追加された「🏝 ホーム」タブ（`page-dashboard` / `renderDashboard()`）はChatGPTの実装をそのまま使わず、以下を作り直した
+  - ダミー値の排除：Lv.12・EXP 780/1000 のハードコードを廃止し、今月売上から算出（¥50＝1EXP、1000EXPで1レベル。`dash-level-label`/`dash-exp-label`/`dash-exp-detail`にidを付与）。ミッションも「リピーター獲得（常にfalse）」を廃止し、実データで判定できる3条件（今日3件完了／今日¥30,000／在庫切れゼロ）に変更
+  - 通信の無駄打ち修正：元実装は`if(dashHistoryKey!==key || !dashHistory.length)`だったため、**売上ゼロの月は`render()`のたびに`getHistory`を呼び続ける**状態だった。`dashLoadedKey`＋`dashLoading`フラグに変更し、さらにホームが非表示のときは通信しない（`page-dashboard`に`.on`が無ければ即return）。タブ切替時は`renderDashboard(true)`で強制リロード
+  - 原価は商品名マッチではなく`calcOrderPL(h)`（管理会計と同じ計算）に統一。経費は`getExpenses`から取得（元実装は経費が常に¥0固定だった）
+  - グラフの目盛を実データに追従（`Math.max(10000, 切り上げ)`）、折れ線は今日までで打ち切り、ランキング・最近の注文は`esc()`通し・送料行（`pid`なし）を除外
+- 動作確認：Chromeヘッドレス（`--headless=new --dump-dom`）＋`window.api`をスタブに差し替えたテストページで、全8タブと受付シート・商品追加モーダルを描画し`window.onerror`/`console.error`がゼロであることを確認。スタブは本番ファイルには含まれていない
+- **作業フォルダが2つある点に注意**：git管理されている本体は`~/Desktop/開発/進捗管理・売上管理`（`deploy.sh`が動くのはこちら）。Googleドライブ側（`マイドライブ/おまんぼさん/開発/進捗管理・売上管理`）は`.git`を持たないコピーなので、両方に同じ内容を置くこと
