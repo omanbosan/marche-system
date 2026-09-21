@@ -449,3 +449,13 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 **デプロイ時の注意**
 - **GASの更新が必須**。`getDashData`/`getDashSettings`/`saveDashSetting`に加え、今回`adjustStockBatch`・`serverStock`・`skipDupCheck`・決定的ステップIDが入った
 - フロントだけ先に出しても動く（在庫はフォールバック、ホームは3通信のまま）が、速度改善の大半はGAS側にある
+
+### 2026-09-21: 作業環境が変わった件（Windows機）とデプロイ手順の現状
+このセッションはWindows機で作業した。**これまでの記述と環境が異なる**ので注意：
+
+- **`~/Desktop/開発/進捗管理・売上管理` の `.git` は失われている**。中身はGoogleドライブ側と同じ同期コピーで、`.github/workflows/deploy-gas.yml` と `.gitignore` も欠落し、古い `releases/*` は改行コードがリポジトリと食い違う。**ここに `.git` を置いて `deploy.sh`（`git add -A`）を走らせると、それらの削除や改行差分まで巻き込んでコミットしてしまう**ので、このフォルダはgit管理下に置かないこと
+- **git作業コピーは `~/Desktop/marche-system`**（このセッションで `git clone` し直したもの）。`git status` がきれいな状態で、ここから `deploy.sh` も使える
+- **このWindows機には node / npm / npx / clasp / gh が入っていない**。`gas/node_modules` は残っているが実行できる node が無い。したがって**claspによるGASデプロイはこの機体からは不可**。Apps Scriptエディタに貼り付ける手動デプロイで対応する
+- **Gitの認証がこのセッションからは通らない**。Git Credential Manager（`manager`）は入っているが、シェルに `/dev/tty` が無いため `fatal: could not read Username for 'https://github.com'` で失敗する。`GCM_GITHUB_AUTHMODES=device` でも出力が返らなかった。**pushはユーザー自身の対話セッションで実行する必要がある**（Claude Codeなら `! cd ~/Desktop/marche-system && git push origin main`）
+
+**How to apply**: 次回このWindows機で作業する場合、(1) フロントのpushは必ずユーザーに実行してもらう、(2) GASはApps Scriptエディタへの貼り付け＋「デプロイを管理」からの手動デプロイを案内する、(3) 恒久対策として Node.js と GitHub CLI を入れてもらえば従来どおり `deploy.sh` と `clasp` が使える。
