@@ -654,6 +654,13 @@ button,input,select,textarea{font-family:inherit}
 .dash-goal-btn{margin-left:auto;border:0;border-radius:999px;padding:9px 16px;font-size:12px;font-weight:900;color:#fff;background:linear-gradient(135deg,#f6a15c,#eb6834);box-shadow:0 4px 0 rgba(180,80,30,.18);cursor:pointer;touch-action:manipulation}
 .dash-goal-btn:active{transform:translateY(2px);box-shadow:none}
 .mini-btn{border:1px solid #e6d8c4;background:#fffaf0;border-radius:999px;padding:4px 11px;font-size:11px;font-weight:800;color:#8d681c;cursor:pointer;touch-action:manipulation}
+/* 未送信バッジ（アウトボックス） */
+.ob-pill{cursor:pointer;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;flex:none;background:#fff4df!important;color:#8d681c!important;border-color:#e6c990!important;font-weight:900!important}
+/* 狭い画面では「未送信」「件」を省いて ⏳2 だけにし、現地／作業中／郵送のピルを押し出さないようにする */
+@media(max-width:700px){.ob-pill .ob-txt{display:none}.ob-pill .ob-cnt-unit{display:none}.hdr-pills .pill{white-space:nowrap;flex:none}}
+.ob-pill.bad{background:#fdeceb!important;color:#c0392b!important;border-color:#f0b9b3!important;animation:obBlink 1.6s ease-in-out infinite}
+@keyframes obBlink{0%,100%{opacity:1}50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.ob-pill.bad{animation:none}}
 
 /* KPI：前期比 */
 .dash-kpi{min-height:0!important}
@@ -841,6 +848,7 @@ textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
   <div class="hdr-logo">おまんぼさん</div>
   <div class="hdr-clock" id="clock">--:--</div>
   <div class="hdr-pills">
+    <div class="pill ob-pill" id="ob-pill" style="display:none" onclick="obRetryNow()" title="未送信の操作。タップで再送します"></div>
     <div class="pill">現地 <b id="st-loc">0</b></div>
     <div class="pill">作業中 <b id="st-wip">0</b></div>
     <div class="pill">郵送 <b id="st-ship">0</b></div>
@@ -1608,7 +1616,7 @@ let calYear = new Date().getFullYear(), calMonth = new Date().getMonth()+1;
 let anYear  = new Date().getFullYear(), anMonth  = new Date().getMonth()+1;
 let anDay   = new Date().getDate(), anPeriod = 'day';
 let anAllHistory = [];
-let isSaving = false;
+let isSaving = false;   // 自動同期を止めたいブロッキング保存があるとき用。注文受付はキュー送信になったので通常はfalseのまま
 let editingHistId = null;
 
 let T = {
@@ -1686,27 +1694,187 @@ async function api(action, data={}, retry=1, forceShow=null, quiet=false) {
 }
 
 // fire-and-forget（ローディング表示なし・画面をブロックしない）
-// 失敗してもUIはブロックしないが、原因調査できるようconsoleにはエラーを残す
-function apiAsync(action, data={}) {
+// 中身は送信キュー（アウトボックス）への登録。以前は fetch を投げっぱなしで、
+// 電波が切れた瞬間の工程タップ・保留・入金確認は黙って消えていた（次の自動同期で巻き戻る）。
+// いまは送信できるまで順番に再送し、ブラウザを閉じても次回起動時に続きから送る
+function apiAsync(action, data={}) { obEnqueue(action, data); }
+
+// ============================================================
+//  送信キュー（アウトボックス）
+//  現地マルシェの不安定な電波でも操作を失わないための仕組み。
+//  ・画面の操作は即座に反映し、GASへの送信はこのキューが裏で順番に行う
+//  ・localStorageに保存するので、途中でブラウザを閉じても次回起動時に再送する
+//  ・必ず1件ずつ順番に送る（「注文作成→その注文の工程更新」の順序が崩れないようにするため）
+//  ・サーバー側は注文ID・ステップIDで冪等なので、同じものを2回送っても二重登録にならない
+// ============================================================
+const OB_KEY = 'mb_outbox_v1';
+let outbox        = [];     // [{id, action, data, kind?, tries, sent, failed}]
+let obBusy        = false;  // 送信ループ実行中
+let obTimer       = null;
+let obPausedAuth  = false;  // トークン切れで一時停止中（再ログインで再開）
+const obLiveOrders = {};    // 送信待ちの注文の「生きているオブジェクト」（画面上の更新を保つため）
+
+function obLoad() {
+  try { const r = localStorage.getItem(OB_KEY); outbox = r ? JSON.parse(r) : []; } catch(e) { outbox = []; }
+  if (!Array.isArray(outbox)) outbox = [];
+  outbox.forEach(op => { op.sent = false; });   // 前回の送信中フラグは持ち越さない
+}
+function obSave() { try { localStorage.setItem(OB_KEY, JSON.stringify(outbox)); } catch(e){} }
+
+function obEnqueue(action, data, extra) {
+  const op = Object.assign({ id: uid(), action, data, tries: 0, sent: false, failed: false }, extra || {});
+  if (op.kind === 'createOrder' && op.order) obLiveOrders[op.order.id] = op.order;
+  outbox.push(op); obSave(); obRenderBadge(); obKick(0);
+  return op.id;
+}
+
+// GASへの1回の送信（api()と同じ分割送信つき）。ネットワーク障害のときだけ throw する
+async function obSend(action, data) {
   const dataStr = JSON.stringify(data);
   const MAX = 4000;
+  let r;
   if (dataStr.length <= MAX) {
-    const url = `${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&d=${encodeURIComponent(dataStr)}`;
-    fetch(url).then(r=>r.json()).then(j=>{ if(!j.ok) console.error('apiAsync failed:', action, j.error); }).catch(e=>console.error('apiAsync network error:', action, e));
+    r = await fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&d=${encodeURIComponent(dataStr)}`);
   } else {
-    // 長いデータは分割して非同期送信
-    const sid = uid();
-    const chunks = [];
+    const sid = uid(), chunks = [];
     for (let i = 0; i < dataStr.length; i += MAX) chunks.push(dataStr.slice(i, i+MAX));
-    (async () => {
-      for (let i = 0; i < chunks.length-1; i++) {
-        await fetch(`${GAS_URL}?action=storeChunk&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${i}&d=${encodeURIComponent(chunks[i])}`).catch(()=>{});
+    for (let i = 0; i < chunks.length-1; i++) {
+      await fetch(`${GAS_URL}?action=storeChunk&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${i}&d=${encodeURIComponent(chunks[i])}`);
+    }
+    r = await fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`);
+  }
+  return await r.json();
+}
+
+function obBackoff(tries) { return [2000,5000,10000,20000,40000][Math.min(tries-1,4)] || 60000; }
+function obKick(delay) { clearTimeout(obTimer); obTimer = setTimeout(obRun, delay||0); }
+
+async function obRun() {
+  if (obBusy || obPausedAuth || !token) return;
+  if (!outbox.length) { obRenderBadge(); return; }
+  if (navigator.onLine === false) { obKick(5000); return; }
+  obBusy = true;
+  try {
+    while (outbox.length) {
+      const op = outbox[0];
+      if (op.failed) break;            // 手動で再送されるまで先頭で止める（データを捨てない）
+      op.sent = true;
+      let res = null, netErr = false;
+      try { res = await obSend(op.action, op.data); }
+      catch(e) { netErr = true; console.error('outbox network error:', op.action, e); }
+
+      if (netErr) {                    // 圏外・電波切れ：何度でも再送する
+        op.sent = false; op.tries++; obSave(); obKick(obBackoff(op.tries)); break;
       }
-      fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`)
-        .then(r=>r.json()).then(j=>{ if(!j.ok) console.error('apiAsync failed:', action, j.error); }).catch(e=>console.error('apiAsync network error:', action, e));
-    })();
+      if (res && res.ok) {
+        outbox.shift();
+        if (op.kind === 'createOrder' && op.order) delete obLiveOrders[op.order.id];
+        obSave();
+        try { obOnSuccess(op, res.data); } catch(e) { console.error('outbox success handler:', e); }
+        obRenderBadge();
+        continue;
+      }
+      if (res && res.error === 'Unauthorized') {   // トークン切れ：捨てずに止めて再ログインを促す
+        op.sent = false; obPausedAuth = true; obSave(); obRenderBadge(); showLoginScreen(); break;
+      }
+      op.sent = false; op.tries++;
+      if (op.tries >= 4) {             // サーバーが受け付けない：止めて手動再送できるようにする
+        op.failed = true; op.error = (res && res.error) || '不明なエラー'; obSave(); obRenderBadge();
+        try { obOnFailed(op); } catch(e) { console.error('outbox failure handler:', e); }
+        toast(`⚠️ 保存できていない操作があります（ヘッダーの「未送信」をタップで再送）`);
+        break;
+      }
+      obSave(); obKick(obBackoff(op.tries)); break;
+    }
+  } finally { obBusy = false; obRenderBadge(); }
+}
+
+// サーバーに拒否され続けた（＝自動再送では直らない）ときだけ呼ばれる
+function obOnFailed(op) {
+  if (op.kind === 'completeOrder' && op.order) {
+    // 完了が保存できていないので一覧に戻す（v83で入れた「完了を押しても残る」対策と同じ考え方）
+    if (!S.orders.find(o => o.id === op.order.id)) S.orders.push(op.order);
+    toast(`⚠️ ${fmtOrderNum(op.order.num,false)} の完了保存に失敗しました。もう一度お試しください`);
+    renderLocal(); renderShipping(); updateWait(); renderMaster();
   }
 }
+
+function obOnSuccess(op, resData) {
+  if (op.kind !== 'createOrder') return;
+  // GASが未更新で在庫がサーバー側で引かれなかった場合だけ、従来どおり商品ごとに在庫を引く
+  if (!(resData && resData.stockApplied) && (op.stockAdj||[]).length) {
+    op.stockAdj.forEach(a => {
+      const d = { productId: a.pid, delta: -a.count, isShip: a.isShip, reason: 'order' };
+      if (a.tid) d.typeId = a.tid;
+      obEnqueue('adjustStock', d);
+    });
+  }
+}
+
+// 未送信バッジ（ヘッダー）
+function obRenderBadge() {
+  const el = document.getElementById('ob-pill');
+  if (!el) return;
+  const n = outbox.length;
+  el.style.display = n ? '' : 'none';
+  if (!n) return;
+  const bad = outbox.some(o => o.failed) || obPausedAuth;
+  el.className = 'pill ob-pill' + (bad ? ' bad' : '');
+  // 「未送信」の文字は狭い画面ではCSSで隠す（ヘッダーの他のピルを押し出さないため）
+  el.textContent = '';
+  const ico = document.createElement('b');   ico.textContent = bad ? '⚠️' : '⏳';
+  const txt = document.createElement('span');txt.className = 'ob-txt'; txt.textContent = '未送信';
+  const cnt = document.createElement('b');   cnt.textContent = String(n);
+  const unit = document.createElement('span'); unit.className = 'ob-cnt-unit'; unit.textContent = '件';
+  el.appendChild(ico); el.appendChild(txt); el.appendChild(cnt); el.appendChild(unit);
+}
+function obRetryNow() {
+  outbox.forEach(o => { o.failed = false; o.tries = 0; });
+  obPausedAuth = false; obSave(); obRenderBadge();
+  toast(outbox.length ? '🔄 再送しています…' : '未送信の操作はありません');
+  obKick(0);
+}
+
+// 未送信の注文を、サーバーから読み直したS.orders / S.productsに重ねて画面から消えないようにする。
+// まだ送っていない操作だけが対象（送信中のものはサーバーに届いている可能性があるので二重に足さない）
+function obApplyPendingLocal() {
+  outbox.forEach(op => {
+    if (op.sent) return;
+    if (op.kind === 'createOrder') {
+      const o = obLiveOrders[op.order && op.order.id] || op.order;
+      if (o && !op.allInstant && !S.orders.find(x => x.id === o.id)) S.orders.push(o);
+      (op.stockAdj||[]).forEach(a => obStockDelta(a, -a.count));
+    } else if (op.kind === 'deleteOrder' || op.kind === 'completeOrder') {
+      // 削除・完了がまだ送れていない注文は、サーバーにはまだ残っているので画面からは消しておく
+      // （これをしないと自動同期のたびに「完了したはずの注文が一覧に戻る」ように見える）
+      S.orders = S.orders.filter(x => x.id !== op.orderId);
+      (op.stockAdj||[]).forEach(a => obStockDelta(a, a.count));
+    }
+  });
+}
+function obStockDelta(a, delta) {
+  const p = S.products.find(x => x.id === a.pid);
+  if (!p) return;
+  if (a.tid) {
+    const t = (p.types||[]).find(x => x.id === a.tid);
+    if (!t) return;
+    if (a.isShip) t.stockShip = Math.max(0,(t.stockShip||0)+delta);
+    else          t.stockLoc  = Math.max(0,(t.stockLoc ||0)+delta);
+    return;
+  }
+  const ep = getEffectiveProduct(p);
+  if (a.isShip) ep.stockShip = Math.max(0,(ep.stockShip||0)+delta);
+  else          ep.stockLoc  = Math.max(0,(ep.stockLoc ||0)+delta);
+}
+
+obLoad();
+obRenderBadge();
+window.addEventListener('online', () => obKick(0));
+// 未送信のまま閉じようとしたら確認する（注文の消失を防ぐ）
+window.addEventListener('beforeunload', e => {
+  if (!outbox.length) return;
+  e.preventDefault(); e.returnValue = '';
+});
 
 // ============================================================
 //  AUTH
@@ -1724,6 +1892,7 @@ async function doLogin() {
   const exp30 = Date.now() + 30 * 24 * 60 * 60 * 1000;
   localStorage.setItem('mb_token', token);
   localStorage.setItem('mb_token_exp', exp30.toString());
+  obPausedAuth = false; obKick(0);   // トークン切れで止めていた未送信分を再開する
   showApp();
 }
 
@@ -1802,6 +1971,7 @@ async function showApp() {
       }
     }
   } catch(e){}
+  obKick(0);   // 前回終了時に送りきれなかった操作があれば再送を始める
   await loadAll();
   startClock();
   requestAnimationFrame(updateStickyOffsets); // レイアウト確定後に計算
@@ -1857,23 +2027,31 @@ function normalizeLoadedData() {
   });
 }
 
-async function loadAll(showSpinner=false) {
-  const res = await api('getAll', {}, 1, showSpinner);
-  if (!res) return;
-  S.orders   = res.orders || [];
-  S.products = (res.products && res.products.length) ? res.products : DEFAULT_PRODUCTS;
-  if (typeof res.laborRatePerHour === 'number') S.laborRatePerHour = res.laborRatePerHour;
-  if (typeof res.maxOrderNum === 'number') S.maxOrderNum = res.maxOrderNum;
-  if (typeof res.maxOrderNumEngrave === 'number') S.maxOrderNumEngrave = res.maxOrderNumEngrave;
-  if (typeof res.maxOrderNumGoods === 'number') S.maxOrderNumGoods = res.maxOrderNumGoods;
-  normalizeLoadedData();
-  // データをlocalStorageにキャッシュ（次回起動を高速化）
-  try {
-    localStorage.setItem('mb_data_cache', JSON.stringify({
-      orders: res.orders||[], products: res.products||[], ts: Date.now()
-    }));
-  } catch(e){}
-  render();
+// 同時に何本も走らないよう、実行中は同じPromiseを返す（自動同期・手動同期・画面復帰が重なっても通信は1回）
+let loadAllPromise = null;
+function loadAll(showSpinner=false) {
+  if (loadAllPromise) return loadAllPromise;
+  loadAllPromise = (async () => {
+    const res = await api('getAll', {}, 1, showSpinner);
+    if (!res) return;
+    S.orders   = res.orders || [];
+    S.products = (res.products && res.products.length) ? res.products : DEFAULT_PRODUCTS;
+    if (typeof res.laborRatePerHour === 'number') S.laborRatePerHour = res.laborRatePerHour;
+    if (typeof res.maxOrderNum === 'number') S.maxOrderNum = res.maxOrderNum;
+    if (typeof res.maxOrderNumEngrave === 'number') S.maxOrderNumEngrave = res.maxOrderNumEngrave;
+    if (typeof res.maxOrderNumGoods === 'number') S.maxOrderNumGoods = res.maxOrderNumGoods;
+    normalizeLoadedData();
+    // データをlocalStorageにキャッシュ（次回起動を高速化）
+    try {
+      localStorage.setItem('mb_data_cache', JSON.stringify({
+        orders: res.orders||[], products: res.products||[], ts: Date.now()
+      }));
+    } catch(e){}
+    // まだ送信できていない受付・削除を、サーバーの内容に重ねる（画面から消えないように）
+    obApplyPendingLocal();
+    render();
+  })().finally(() => { loadAllPromise = null; });
+  return loadAllPromise;
 }
 
 // ============================================================
@@ -1894,12 +2072,11 @@ function startClock() {
       `<span class="clk-time"><b>${hh}</b><i>:</i><b>${mm}</b></span>`;
   };
   tick(); setInterval(tick, 1000);
-  // 90秒ごとに自動同期（保存中はスキップ）
-  setInterval(() => {
-    if (!token || isSaving) return;
-    const tab = document.querySelector('.tab.on');
-    if (tab && (tab.dataset.tab==='local' || tab.dataset.tab==='shipping')) loadAll();
-  }, 20000);
+  // 自動同期のタイマーはここには置かない。
+  // 以前はこの20秒タイマーと、初期化側の30秒タイマー（入力中はスキップする判定つき）の
+  // 2本が同時に動いていて、1台あたり毎分3〜5回 getAll を呼んでいた。
+  // さらにこちらは入力中・モーダル表示中でも実行するため、受付入力中に
+  // S.orders / S.products がサーバーの内容で丸ごと上書きされる原因にもなっていた
 }
 
 // ============================================================
@@ -2186,14 +2363,12 @@ function tapStep(btn, deliveryType) {
       });
       // 送料の支払い方法はアイテムの支払い方法に統一（shippingPaymentは使わない）
       const orderPayForShipping = items4hist[0]?.paymentMethod || order.items?.[0]?.paymentMethod || 'cash';
-      api('completeOrder', { orderId:order.id, num:order.num, completedAt:now, deliveryType:order.deliveryType, channel:order.channel||'marche', items:items4hist, shippingFee:order.shippingFee||0, discount:order.discount||0, shippingPayment:orderPayForShipping }, 1, false).then(res => {
-        if (!res) {
-          // 保存失敗：一覧に戻してユーザーに知らせる
-          if (!S.orders.find(o2=>o2.id===order.id)) S.orders.push(order);
-          toast(`⚠️ #${String(order.num).padStart(3,'0')} の完了保存に失敗しました。もう一度お試しください`);
-          renderLocal(); renderShipping(); updateWait(); renderMaster();
-        }
-      });
+      // 完了もキュー送信。受付そのものがまだ送信待ちの場合でも、キューが順番を守るので
+      // 「サーバーにまだ無い注文を完了しようとして失敗する」ことがない。
+      // 通信失敗は自動で再送し、サーバーに拒否され続けた場合だけ一覧に戻して知らせる
+      obEnqueue('completeOrder',
+        { orderId:order.id, num:order.num, completedAt:now, deliveryType:order.deliveryType, channel:order.channel||'marche', items:items4hist, shippingFee:order.shippingFee||0, discount:order.discount||0, shippingPayment:orderPayForShipping },
+        { kind:'completeOrder', orderId:order.id, order });
     } else {
       const nextItem = (order.items||[]).find(it=>!it.steps.every(s=>s.done));
       if (nextItem) {
@@ -2877,15 +3052,18 @@ async function saveOrder() {
   if (T.editOrderId) {
     const editSubtotal = calcOrderSubtotalForDiscount();
     const editDiscount = calcDiscountAmount(editSubtotal);
-    await api('updateOrder',{orderId:T.editOrderId,num,note,deliveryType:T.delivery,channel:T.channel,shippingFee:T.shippingFee||0,discount:editDiscount});
+    // 注文編集もキュー送信にする。以前は 注文更新→アイテム更新→削除→追加 を1件ずつawaitしており、
+    // GASの応答が最短でも1秒強かかるため、3点の注文の支払い方法を変えるだけで5秒前後かかっていた。
+    // キューは必ず順番どおりに送るので、削除と追加が入れ替わることはない
+    apiAsync('updateOrder',{orderId:T.editOrderId,num,note,deliveryType:T.delivery,channel:T.channel,shippingFee:T.shippingFee||0,discount:editDiscount});
     const o=S.orders.find(x=>x.id===T.editOrderId);
     if(o){
       o.num=num; o.note=note; o.deliveryType=T.delivery; o.channel=T.channel; o.shippingFee=T.shippingFee||0; o.discount=editDiscount;
-      // 支払い方法が変わった場合は全アイテムに反映（awaitで確実に保存）
+      // 支払い方法が変わった場合は全アイテムに反映（キューが確実に再送する）
       for (const it of (o.items||[])) {
         if(it.paymentMethod !== orderPayment){
           it.paymentMethod = orderPayment;
-          await api('updateItem',{itemId:it.id, paymentMethod:orderPayment});
+          apiAsync('updateItem',{itemId:it.id, paymentMethod:orderPayment});
         }
       }
       // 商品構成（個数・タイプ）が変わった場合は pid×tid の組ごとに個数差分を取り、
@@ -2931,7 +3109,7 @@ async function saveOrder() {
             o.items = o.items.filter(x=>x.id!==it.id);
             if (typeObj) { isShipEdit ? typeObj.stockShip++ : typeObj.stockLoc++; }
             else         { isShipEdit ? ep.stockShip++       : ep.stockLoc++; }
-            await api('deleteItem', { itemId:it.id, productId:pid, typeId:tid||'', isShip:isShipEdit });
+            apiAsync('deleteItem', { itemId:it.id, productId:pid, typeId:tid||'', isShip:isShipEdit });
           }
         } else {
           // 不足分を追加 + 在庫を引く
@@ -2949,17 +3127,17 @@ async function saveOrder() {
             const engraveLabelAdd = engraveOptAdd ? (opt.engraveLabel||'') : '';
             const newPrice = (p.price||0) + (opt.fee>0 ? Number(opt.fee||0) : 0) + engraveFeeAdd;
             const addDoubleBinarize = opt.fee>0 && pTypeAdd!=='goods_opt';
-            const res = await api('addItemToOrder', {
+            apiAsync('addItemToOrder', {
               orderId:o.id, itemId:newId, pid, idx:maxIdx+1,
               price:newPrice, paymentMethod:orderPayment,
               typeId:tid||'', typeName:typeObj?.name||'', productName:p.name||'',
               optionFee:opt.fee>0?opt.fee:0, doubleBinarize:addDoubleBinarize, engraveOpt:engraveOptAdd, engraveLabel:engraveLabelAdd,
               deliveryType:o.deliveryType, productId:pid, isShip:isShipEdit, allDone:instantAdd
             });
+            // 工程IDはサーバーと同じ規則（アイテムID-工程番号）で組み立てるので、応答を待つ必要がない
             const stepList=[];
-            const stepIds = res?.item?.stepIds || [];
             for (let si=0; si<nStepsEdit; si++){
-              stepList.push({ id:stepIds[si]||('s'+si), itemId:newId, stepIndex:si,
+              stepList.push({ id:`${newId}-${si}`, itemId:newId, stepIndex:si,
                 done:instantAdd?true:si===0, startedAt:instantAdd?now2:(si<=1?now2:''), completedAt:instantAdd?now2:(si===0?now2:''), durationMins:'' });
             }
             o.items.push({ id:newId, orderId:o.id, pid, idx:maxIdx+1, typeId:tid||'', typeName:typeObj?.name||'',
@@ -3022,7 +3200,7 @@ async function saveOrder() {
     for(let i=0;i<qty;i++){
       const iid=uid();
       const steps=stepDefs.map((_,si)=>({
-        id:uid(),itemId:iid,stepIndex:si,
+        id:`${iid}-${si}`,itemId:iid,stepIndex:si,
         done:instant?true:si===0,startedAt:instant?now:(si===0?now:''),completedAt:instant?now:(si===0?now:''),durationMins:0
       }));
       // count=0の場合は1個目のみオプション料金を載せる（1オーダーあたりの追加料金）
@@ -3055,7 +3233,7 @@ async function saveOrder() {
     for(let i=0;i<qty;i++){
       const iid=uid();
       const steps=stepDefs.map((_,si)=>({
-        id:uid(),itemId:iid,stepIndex:si,
+        id:`${iid}-${si}`,itemId:iid,stepIndex:si,
         done:instant2?true:si===0,startedAt:instant2?now:(si===0?now:''),completedAt:instant2?now:(si===0?now:''),durationMins:0
       }));
       const applyOpt2 = optCount2===0 ? i===0 : i<optCount2;
@@ -3083,29 +3261,27 @@ async function saveOrder() {
 
   const order={id:orderId,num,note,deliveryType:T.delivery,channel:T.channel,createdAt:now,
     status:allInstant?'done':'active',completedAt:allInstant?now:'',items,shippingFee:T.shippingFee||0,discount};
-  isSaving=true;
   closeOverlay('ov-order');
-  toast('⏳ 登録中...');
 
+  // 送信内容。工程IDは「アイテムID-工程番号」でサーバー側と同じ規則で決まるので送らない。
+  // paid/onHold/step0Done/step0At も常に同じ値（サーバーが既定値で埋める）なので省く。
+  // 送信量が半分近くになり、商品点数の多い注文でも分割送信（通信の直列化）が起きにくくなる
   const lightItems=items.map(it=>({
     id:it.id,pid:it.pid,idx:it.idx,totalOf:it.totalOf,
-    price:it.price,paymentMethod:it.paymentMethod,paid:false,onHold:false,
+    price:it.price,paymentMethod:it.paymentMethod,
     typeId:it.typeId||'',typeName:it.typeName||'',
     optionFee:it.optionFee||0,optionNote:it.optionNote||'',
     doubleBinarize:it.doubleBinarize||false,engraveOpt:it.engraveOpt||false,engraveLabel:it.engraveLabel||'',
-    stepIds:it.steps.map(s=>s.id),step0Done:true,step0At:now,allDone:!!it.allDone
+    allDone:!!it.allDone
   }));
-  const saved=await api('saveOrderFast',{id:orderId,num,note,deliveryType:T.delivery,channel:T.channel,createdAt:now,items:lightItems,shippingFee:T.shippingFee||0,discount});
-  isSaving=false;
-  if (!saved) { toast('❌ 登録失敗。もう一度お試しください'); return; }
   // 物販のみ（全アイテム即完了）の注文は進捗タブ対象外のため S.orders には積まない（次回同期時に履歴へ反映される）
   if (!allInstant) S.orders.push(order);
   // レーザー彫刻あり／物販のみで受付番号を別連番管理するため、保存先キーもグループ別にする
   localStorage.setItem(allInstant ? 'mb_last_num_goods' : 'mb_last_num_engrave', String(num));
 
   // 注文登録時に在庫を引き落とし
-  // 同一商品・同一タイプへの複数API呼び出し競合を防ぐため、個数を集計してから
-  // product/type ごとに1回だけ、合計delta分をまとめて送る
+  // 画面上の在庫はその場で引き、サーバー側は saveOrderFast が1回のロックでまとめて引く
+  // （serverStock:true。GASが未更新で処理されなかった場合だけ、従来どおり商品ごとのadjustStockに切り替える）
   const isShip = T.delivery === 'shipping';
   const adjMap = new Map(); // key -> {pid, tid, count}
   items.forEach(it => {
@@ -3128,14 +3304,13 @@ async function saveOrder() {
       adjMap.get(p.id).count++;
     }
   });
-  // product/type ごとに1回だけ GAS へ送信（合計個数ぶんのdeltaを送るので競合なし）
-  adjMap.forEach(({pid, tid, count}) => {
-    if (tid) {
-      api('adjustStock',{ productId:pid, typeId:tid, delta:-count, isShip, reason:'order' }, 2, false);
-    } else {
-      api('adjustStock',{ productId:pid, delta:-count, isShip, reason:'order' }, 2, false);
-    }
-  });
+  // 送信は待たずにキューへ。GASの応答は最短でも1秒強かかるため、以前はここで
+  // 画面が止まっていた（ローディング表示のまま3〜6秒）。電波が切れていても操作は失われず、
+  // 送信できるまで自動で再送する（サーバー側は注文IDで冪等なので二重登録にならない）
+  obEnqueue('saveOrderFast',
+    { id:orderId,num,note,deliveryType:T.delivery,channel:T.channel,createdAt:now,
+      items:lightItems,shippingFee:T.shippingFee||0,discount,serverStock:true },
+    { kind:'createOrder', orderId, order, allInstant, stockAdj:[...adjMap.values()].map(a=>({ ...a, isShip })) });
 
   renderLocal(); renderShipping(); updateWait(); renderMaster();
   toast(allInstant ? `✅ ${fmtOrderNum(num,true)} 物販受付・完了しました` : `✅ ${fmtOrderNum(num,false)} 受付しました`);
@@ -3445,7 +3620,7 @@ async function saveItemEdit() {
         const stepList = [];
         const stepIds = res?.item?.stepIds || [];
         for (let si = 0; si < nSteps; si++) {
-          stepList.push({ id: stepIds[si]||('s'+si), itemId: newId, stepIndex: si,
+          stepList.push({ id: stepIds[si]||`${newId}-${si}`, itemId: newId, stepIndex: si,
             done: gInstant?true:si===0, startedAt: gInstant?now:(si<=1?now:''), completedAt: gInstant?now:(si===0?now:''), durationMins:'' });
         }
         o.items.push({ id:newId, orderId:oid, pid:g.pid, idx:newIdx, typeId:g.tid, typeName:g.typeName,
@@ -3467,6 +3642,7 @@ function confirmDeleteOrder(oid) {
     // 在庫の戻し自体はサーバー側（handleDeleteOrder）が一括で行う（履歴タブからの削除と経路を統一するため）。
     // ここではUIをすぐに更新するための楽観的な見た目上の反映のみ行う
     const isShipDel = o.deliveryType === 'shipping';
+    const delAdj = new Map();
     (o.items||[]).forEach(it => {
       const p = S.products.find(x=>x.id===it.pid);
       if (!p) return;
@@ -3477,14 +3653,21 @@ function confirmDeleteOrder(oid) {
         if (!typeObj) return;
         if (isShipDel) typeObj.stockShip = (typeObj.stockShip||0)+1;
         else           typeObj.stockLoc  = (typeObj.stockLoc ||0)+1;
+        const k = `${p.id}__${it.typeId}`;
+        if (!delAdj.has(k)) delAdj.set(k, { pid:p.id, tid:it.typeId, count:0, isShip:isShipDel });
+        delAdj.get(k).count++;
       } else {
         if (isShipDel) ep.stockShip = (ep.stockShip||0)+1;
         else           ep.stockLoc  = (ep.stockLoc ||0)+1;
+        if (!delAdj.has(p.id)) delAdj.set(p.id, { pid:p.id, tid:'', count:0, isShip:isShipDel });
+        delAdj.get(p.id).count++;
       }
     });
     S.orders=S.orders.filter(x=>x.id!==oid);
     renderLocal(); renderShipping(); updateWait(); renderMaster();
-    await api('deleteOrder',{orderId:oid}); toast('削除しました');
+    // 削除もキュー送信（在庫の戻しはサーバー側のhandleDeleteOrderがまとめて行う）
+    obEnqueue('deleteOrder', { orderId:oid }, { kind:'deleteOrder', orderId:oid, stockAdj:[...delAdj.values()] });
+    toast('削除しました');
   });
 }
 function confirmDeleteHistory(hid,oid) {
@@ -5480,6 +5663,7 @@ async function manualSync() {
   btn.style.opacity = '0.4';
   btn.style.pointerEvents = 'none';
   showLoading(true);
+  obKick(0);            // 未送信が残っていれば送信も促す
   await loadAll(false); // ローディングはここで制御
   showLoading(false);
   btn.style.opacity = '1';
@@ -5519,15 +5703,19 @@ function elapsedStr(d){const m=Math.floor((Date.now()-new Date(d))/60000);return
     if (!token)        return; // 未ログイン
     if (isSaving)      return; // 登録中
     if (isInputting()) return; // 入力中・モーダル表示中
+    // 画面が見えていないとき（スリープ・別アプリ）は同期しない。復帰時に下のvisibilitychangeで取り直す
+    if (document.visibilityState !== 'visible') return;
     const tab = document.querySelector('.tab.on');
     if (!tab || (tab.dataset.tab !== 'local' && tab.dataset.tab !== 'shipping')) return;
     await loadAll();
   }, 30000); // 30秒ごと
 
-  // 画面復帰時（スリープ解除・タブ切替）も同期
+  // 画面復帰時（スリープ解除・タブ切替）も同期。未送信があれば送信も再開する
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState !== 'visible') return;
-    if (!token || isSaving || isInputting()) return;
+    if (!token) return;
+    obKick(0);
+    if (isSaving || isInputting()) return;
     await loadAll();
   });
 

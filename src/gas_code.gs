@@ -630,19 +630,26 @@ function handleSaveOrderFast(data) {
   // 同じ注文が2重作成（在庫二重減算・売上二重計上）されるのを防ぐ。
   var existingIds = oSh.getLastRow() > 1 ? oSh.getRange(2, 1, oSh.getLastRow()-1, 1).getValues() : [];
   for (var ei = 0; ei < existingIds.length; ei++) {
-    if (existingIds[ei][0] === data.id) return ok({ saved: true, duplicate: true });
+    // 既に保存済み＝最初の呼び出しで在庫も引き済みなので stockApplied も true を返す。
+    // （ここで false を返すとフロントが在庫引き落としのフォールバックを実行して二重に引いてしまう）
+    if (existingIds[ei][0] === data.id) return ok({ saved: true, duplicate: true, stockApplied: data.serverStock === true });
   }
 
   // typeId→typeName, productId→productName 補完用マップ
+  // 在庫をサーバー側で引く場合の「タイプ別在庫かどうか」の判定にも使う
   var typeNameMap = {};
   var prodNameMap = {};
+  var prodTypeCount = {};
+  var prodShared    = {};
   try {
     sheetToObjects(ss.getSheetByName(SH.PRODUCTS)).forEach(function(p){
       prodNameMap[String(p.id)] = p.name || '';
+      prodShared[String(p.id)]  = !!p.sharedStockWith;
       try {
         var types = JSON.parse(p.typesJson || '[]');
+        prodTypeCount[String(p.id)] = (types||[]).length;
         (types||[]).forEach(function(t){ typeNameMap[String(t.id)] = t.name || ''; });
-      } catch(e){}
+      } catch(e){ prodTypeCount[String(p.id)] = 0; }
     });
   } catch(e){}
 
@@ -671,6 +678,11 @@ function handleSaveOrderFast(data) {
       it.engraveOpt?1:0, it.engraveLabel||''
     ]);
     var stepIds = it.stepIds || [];
+    // ステップIDは itemId + '-' + 工程番号 で一意に決まるので、フロントから送らなくてよい
+    // （送信量を減らして分割送信＝通信の直列化を避けるため。stepIdsが来たら従来どおりそれを使う）
+    // 受付(step0)は常に完了扱い。step0Done は旧フロントからのみ送られてくる
+    var step0Done = (it.step0Done === undefined) ? true : !!it.step0Done;
+    var step0At   = it.step0At || data.createdAt || '';
     // 郵送は7ステップ、現地は6ステップ
     var nSteps = data.deliveryType === 'shipping' ? 7 : 6;
     for (var si = 0; si < nSteps; si++) {
@@ -678,16 +690,16 @@ function handleSaveOrderFast(data) {
       if (it.allDone) {
         // 物販のみ／彫刻オプション不使用アイテムは全工程を作成時点で完了扱いにする
         isDone = 1;
-        stepAt = it.step0At || data.createdAt;
+        stepAt = step0At;
       } else {
-        isDone = (si === 0 && it.step0Done) ? 1 : 0;
-        stepAt = (si === 0 && it.step0Done) ? (it.step0At||'') : '';
+        isDone = (si === 0 && step0Done) ? 1 : 0;
+        stepAt = (si === 0 && step0Done) ? step0At : '';
       }
       // 受付完了時は2値化の startedAt も同時に設定（時間計算を正確にするため）
-      var startedAt   = it.allDone ? stepAt : ((si === 0) ? stepAt : (si === 1 && it.step0Done ? (it.step0At||'') : ''));
+      var startedAt   = it.allDone ? stepAt : ((si === 0) ? stepAt : (si === 1 && step0Done ? step0At : ''));
       var completedAt = it.allDone ? stepAt : ((si === 0) ? stepAt : '');
       var durMins     = isDone ? 0 : '';
-      stepRows.push([stepIds[si]||Utilities.getUuid(), it.id, si, isDone, startedAt, completedAt, durMins]);
+      stepRows.push([stepIds[si] || (it.id + '-' + si), it.id, si, isDone, startedAt, completedAt, durMins]);
     }
   });
 
@@ -707,10 +719,28 @@ function handleSaveOrderFast(data) {
       };
     });
     var firstPayMethod = salesItems.length > 0 ? (salesItems[0].paymentMethod || 'cash') : 'cash';
-    recordSalesForOrder(ss, data.id, data.num||'', data.deliveryType, salesItems, data.shippingFee||0, firstPayMethod, data.discount||0);
+    // skipDupCheck=true：この関数は冒頭で「ordersに同じIDが無い＝新規」を確認済み。
+    // historyの行はordersの行が出来た後にしか作られないので、この注文の履歴が既にあることはない。
+    // historyシートは増え続けるため、ここでの全件読み込みを省くと注文登録が目に見えて速くなる
+    recordSalesForOrder(ss, data.id, data.num||'', data.deliveryType, salesItems, data.shippingFee||0, firstPayMethod, data.discount||0, true);
   }
 
-  return ok({ saved: true });
+  // 在庫の引き落とし（serverStock=true の新しいフロントのみ。旧フロントは従来どおり自分でadjustStockを呼ぶ）
+  // 商品ごとに通信していたものを1回にまとめ、ロックも1回で済ませる
+  var stockApplied = false;
+  if (data.serverStock === true) {
+    var adjList = [];
+    (data.items||[]).forEach(function(it){
+      var pid = String(it.pid||'');
+      if (!pid) return;
+      var useType = !!it.typeId && (prodTypeCount[pid]||0) > 0 && !prodShared[pid];
+      adjList.push({ productId: pid, typeId: useType ? it.typeId : '', delta: -1, isShip: data.deliveryType === 'shipping' });
+    });
+    var adjRes = adjustStockBatch(ss, adjList, '注文登録');
+    stockApplied = !adjRes.locked;
+  }
+
+  return ok({ saved: true, stockApplied: stockApplied });
 }
 
 function handleSaveOrderHeader(data) {
@@ -928,12 +958,16 @@ function handleUpdateOrder(data) {
 // ============================================================
 //  売上記録ヘルパー（現地：登録時、郵送：入金確認時に呼ぶ）
 // ============================================================
-function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee, shippingPayment, discount) {
-  // 重複チェック：既に履歴があればスキップ（冪等性）
-  var hSh   = ss.getSheetByName(SH.HISTORY);
-  var hRows = hSh.getDataRange().getValues();
-  for (var hi = 1; hi < hRows.length; hi++) {
-    if (hRows[hi][1] === orderId) return hRows[hi][0]; // 既に記録済み → hId を返す
+// skipDupCheck=true : 呼び出し側で「この注文は新規＝履歴がまだ無い」ことが確定している場合のみ。
+//                     historyシートの全件読み込み（行数が増え続ける重い処理）を省く
+function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee, shippingPayment, discount, skipDupCheck) {
+  var hSh = ss.getSheetByName(SH.HISTORY);
+  if (!skipDupCheck) {
+    // 重複チェック：既に履歴があればスキップ（冪等性）
+    var hRows = hSh.getDataRange().getValues();
+    for (var hi = 1; hi < hRows.length; hi++) {
+      if (hRows[hi][1] === orderId) return hRows[hi][0]; // 既に記録済み → hId を返す
+    }
   }
   var now  = new Date().toISOString();
   var hId  = Utilities.getUuid();
@@ -1077,11 +1111,12 @@ function handleDeleteOrder(orderId) {
   const orderItems = iRows.filter(function(r){ return r[1]===orderId; });
   const ids = orderItems.map(function(r){ return r[0]; });
 
-  // 注文登録時に引き落とした在庫を、削除経路（進捗タブ・履歴タブどちらから消しても）確実に戻す
-  orderItems.forEach(function(r){
-    var pid = r[2], typeId = r[11] || '';
-    handleAdjustStock({ productId: pid, typeId: typeId, delta: 1, isShip: isShip, reason: '注文削除（在庫復元）' });
-  });
+  // 注文登録時に引き落とした在庫を、削除経路（進捗タブ・履歴タブどちらから消しても）確実に戻す。
+  // 以前はアイテムごとにhandleAdjustStockを呼んでいたため、ロック取得とproductsシート全件読み込みが
+  // アイテム数だけ繰り返されていた。1回のロックでまとめて戻す
+  adjustStockBatch(ss, orderItems.map(function(r){
+    return { productId: r[2], typeId: r[11] || '', delta: 1, isShip: isShip };
+  }), '注文削除（在庫復元）');
 
   deleteRowsWhere(oSh, 0, orderId);
   deleteRowsWhere(iSh, 1, orderId);
@@ -1137,7 +1172,9 @@ function handleAddItemToOrder(data) {
   var stepIds = [];
   var stepRows = [];
   for (var si = 0; si < nSteps; si++) {
-    var sid = Utilities.getUuid();
+    // ステップIDは itemId + '-' + 工程番号。フロントも同じ規則で組み立てるため、
+    // 通信が失敗してこのレスポンスが届かなくてもIDがずれない（従来は's0'等の仮IDになり工程更新が効かなくなっていた）
+    var sid = data.itemId + '-' + si;
     stepIds.push(sid);
     var isDone, stepAt, startedAt;
     if (data.allDone) {
@@ -1304,6 +1341,93 @@ function handleAdjustStock(data) {
   }
   try {
     return handleAdjustStockLocked(data);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 在庫の増減をまとめて1回のロック・1回のproducts読み込みで処理する（デルタ専用）。
+// 1注文で複数商品の在庫を動かす処理（注文登録・注文削除）が、商品ごとに
+// handleAdjustStock を呼んでいたため、ロック取得とproductsシート全件読み込みが
+// 商品の数だけ繰り返され、2人同時操作時の待ち行列の原因になっていた。
+// list: [{productId, typeId, delta, isShip}]
+// 戻り値の locked=true はロックが取れなかった場合（呼び出し側でフォールバックする）
+function adjustStockBatch(ss, list, reason) {
+  if (!list || !list.length) return { applied: 0, notFound: [] };
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(30000); } catch (eLock) { return { applied: 0, notFound: [], locked: true }; }
+  try {
+    var sh   = ss.getSheetByName(SH.PRODUCTS);
+    var rows = sh.getDataRange().getValues();
+    var rowOf = {};
+    for (var i = 1; i < rows.length; i++) rowOf[String(rows[i][0])] = i;
+
+    // sharedStockWith（在庫連動）を解決したうえで、同じ商品・タイプ・現地/郵送の増減をまとめる
+    var agg = {}, keys = [];
+    list.forEach(function(a) {
+      var pid = String(a.productId || ''), tid = a.typeId ? String(a.typeId) : '';
+      if (!pid) return;
+      var ri = rowOf[pid];
+      if (ri !== undefined && rows[ri][10]) { pid = String(rows[ri][10]); tid = ''; } // col11: sharedStockWith
+      var key = pid + '\u0000' + tid + '\u0000' + (a.isShip ? 1 : 0);
+      if (!agg[key]) { agg[key] = { pid: pid, tid: tid, isShip: !!a.isShip, delta: 0 }; keys.push(key); }
+      agg[key].delta += Number(a.delta || 0);
+    });
+
+    var typesDirty = {};  // 行index -> types配列（同じ商品の複数タイプを1回で書き込むため）
+    var plainDirty = {};  // 行index -> {loc, ship}
+    var notFound = [], logRows = [], now = new Date().toISOString();
+
+    keys.forEach(function(key) {
+      var a = agg[key];
+      if (!a.delta) return;
+      var ri = rowOf[a.pid];
+      if (ri === undefined) {
+        // 商品が見つからない場合も、あとから追えるようにログには残す（旧実装と同じ★NOT_FOUND★表記）
+        notFound.push(a.pid);
+        logRows.push([Utilities.getUuid(), a.pid, 0,
+          (reason || '') + ' delta:' + a.delta + ' ★NOT_FOUND★', now]);
+        return;
+      }
+      var logLoc = 0, logShip = 0;
+      if (a.tid) {
+        var types = typesDirty[ri];
+        if (!types) {
+          try { types = JSON.parse(rows[ri][7] || '[]'); } catch (e) { types = []; }
+          typesDirty[ri] = types;
+        }
+        types.forEach(function(t) {
+          if (String(t.id) !== a.tid) return;
+          if (a.isShip) t.stockShip = Math.max(0, Number(t.stockShip || 0) + a.delta);
+          else          t.stockLoc  = Math.max(0, Number(t.stockLoc  || 0) + a.delta);
+          logLoc = Number(t.stockLoc || 0); logShip = Number(t.stockShip || 0);
+        });
+      } else {
+        var cur = plainDirty[ri];
+        if (!cur) { cur = plainDirty[ri] = { loc: Number(rows[ri][8] || 0), ship: Number(rows[ri][9] || 0) }; }
+        if (a.isShip) cur.ship = Math.max(0, cur.ship + a.delta);
+        else          cur.loc  = Math.max(0, cur.loc  + a.delta);
+        logLoc = cur.loc; logShip = cur.ship;
+      }
+      logRows.push([
+        Utilities.getUuid(), a.pid, a.isShip ? logShip : logLoc,
+        (reason || '') + ' ' + (a.tid ? 'type:' + a.tid + ' ' : '') + 'delta:' + a.delta
+          + ' loc:' + logLoc + ' ship:' + logShip + (a.isShip ? ' [郵送]' : ' [現地]'),
+        now
+      ]);
+    });
+
+    Object.keys(typesDirty).forEach(function(ri) {
+      sh.getRange(Number(ri) + 1, 8).setValue(JSON.stringify(typesDirty[ri]));
+    });
+    Object.keys(plainDirty).forEach(function(ri) {
+      sh.getRange(Number(ri) + 1, 9, 1, 2).setValues([[plainDirty[ri].loc, plainDirty[ri].ship]]);
+    });
+    var logSh = ss.getSheetByName(SH.STOCK_LOG);
+    if (logSh && logRows.length) {
+      logSh.getRange(logSh.getLastRow() + 1, 1, logRows.length, 5).setValues(logRows);
+    }
+    return { applied: logRows.length, notFound: notFound };
   } finally {
     lock.releaseLock();
   }
