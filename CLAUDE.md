@@ -527,3 +527,21 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - `renderQuestPage(force)`はホームと独立してデータを読む（現在の年＋年またぎ用に前の年）。タブ切替時に`renderQuestPage(true)`
 
 検証：全22シーン エラー0件。ホームに大きいカードが無いこと、ボタン3つ、タブのバッジがタップで増減すること、iPhone幅での折り返しなしを確認。
+
+### 2026-09-21: 「画面が固まりスクロールできなくなる」不具合の修正（v101）
+現場から「画面が固まりスクロールできなくなる時がある」との報告。原因は3つあり、いずれも**全画面を覆う要素が残って操作を受け付けなくなる**という同じ形だった。
+
+1. **【主因】モーダルを背景タップで閉じるとスクロール禁止が解除されなかった**
+   - `openOverlay`が`document.body`に`position:fixed; overflow:hidden`を掛け、`closeOverlay`で解除する作りだった。ところが背景タップの経路は`ov.classList.remove('on')`を直接呼ぶだけで`closeOverlay`を通らないため、**モーダルは消えるのにbodyのロックだけが残る**（＝画面は普通に見えるのにスクロールできない）。v99で背景タップの判定を直したときも、この経路自体はそのままだった
+   - 修正：ロックを`openOverlay`/`closeOverlay`の対で管理するのをやめ、**「`.overlay.on`が1つでもあるか」だけで決める**`syncBodyScrollLock()`にした。さらに`MutationObserver`で`.overlay`のclass変化を監視し、**どの経路で開閉しても必ず整合する**ようにした（`watchOverlay()`）
+   - **今後の鉄則**：モーダルを閉じるコードを書くときは`closeOverlay(id)`を使う。直接`classList.remove('on')`する場合も監視が拾うが、`syncBodyScrollLock()`を明示的に呼ぶこと
+2. **`manualSync()`にtry/finallyが無く、同期に失敗するとローディングの膜が残り続けた**
+   - `showLoading(true)`のあと`await loadAll(false)`が例外を投げると、`showLoading(false)`も`_syncLock=false`も実行されない。全画面の膜（`z-index:300`・`pointer-events:all`）が残り、同期ボタンも無効のままになる
+3. **`fetch`にタイムアウトが無く、電波が切れかけだと応答が返らないまま待ち続けた**
+   - 修正：`gasFetch()`（AbortControllerで60秒打ち切り）を追加し、`api()`と`obSend()`の通信を全てこれ経由にした。GASは正常でも20〜30秒かかることがあるので60秒にしている
+   - あわせて`showLoading`に保険を入れた：**8秒でタップして閉じられる案内**を出し、**70秒で自動解除**する（通信自体は裏で継続）
+
+検証：全23シーン エラー0件。背景タップ／class直接操作／二重モーダル／同期失敗／通信無応答の5パターンでロックと膜が残らないことを確認。
+
+**作業ミスの記録（再発防止）**：この修正中、PowerShellの自作関数が配列ではなく文字列を返し、`$r[0]`が先頭1文字になった状態で`src/index.html`に書き込み、**ファイルを1バイトに破壊した**。`releases/index_v100.html`から復元して作り直した。
+- **教訓**：PowerShellで本体ファイルを書き換えるときは、(1) 複数値を返す自作関数を使わない、(2) 書き込み前に**必ず文字数が増減の想定どおりか検証**してから`WriteAllText`する（`$s.Length`は文字数、`(Get-Item).Length`はバイト数。日本語が多いので両者は一致しない。閾値をバイト数で書くと誤判定する）

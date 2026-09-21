@@ -352,6 +352,9 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 /* LOADING */
 .loading-overlay{position:fixed;inset:0;background:rgba(244,244,246,.75);z-index:300;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;opacity:0;pointer-events:none;transition:opacity .18s}
 .loading-overlay.on{opacity:1;pointer-events:all}
+.loading-overlay .loading-slow{display:none;font-size:11px;font-weight:800;color:#b4501e;text-align:center;line-height:1.7;padding:0 26px}
+.loading-overlay.slow .loading-slow{display:block}
+.loading-overlay.slow{cursor:pointer}
 .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .65s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -1594,7 +1597,7 @@ textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
 </div>
 
 <div class="toast" id="toast"></div>
-<div class="loading-overlay" id="loading"><div class="spinner"></div><div style="font-size:12px;color:var(--dim)">通信中…</div></div>
+<div class="loading-overlay" id="loading" onclick="if(this.classList.contains('slow'))showLoading(false)"><div class="spinner"></div><div style="font-size:12px;color:var(--dim)">通信中…</div><div class="loading-slow">📶 通信に時間がかかっています<br>タップで閉じられます（送信は続きます）</div></div>
 
 <script>
 // ============================================================
@@ -1692,6 +1695,15 @@ let orderPayment = 'cash';
 // ============================================================
 //  GAS API
 // ============================================================
+// GASへの通信。タイムアウトが無いと、電波が切れかけのときに応答が返らないまま
+// 待ち続け、ローディングの膜が消えず画面が固まったように見える。
+// GASは正常でも20〜30秒かかることがあるので、余裕をみて60秒で打ち切る
+function gasFetch(url, ms) {
+  if (typeof AbortController === 'undefined') return fetch(url);
+  const ctl = new AbortController();
+  const t = setTimeout(()=>{ try { ctl.abort(); } catch(e){} }, ms || 60000);
+  return fetch(url, { signal: ctl.signal }).finally(()=>clearTimeout(t));
+}
 async function api(action, data={}, retry=1, forceShow=null, quiet=false) {
   // 軽微な操作はローディング非表示
   const showLoad = forceShow !== null ? forceShow : !['updateStep','updateItem','ping','getAll','getHistory'].includes(action);
@@ -1699,21 +1711,21 @@ async function api(action, data={}, retry=1, forceShow=null, quiet=false) {
   try {
     let r;
     if (action === 'auth') {
-      r = await fetch(`${GAS_URL}?action=auth&password=${encodeURIComponent(data.password||'')}`);
+      r = await gasFetch(`${GAS_URL}?action=auth&password=${encodeURIComponent(data.password||'')}`);
     } else {
       const dataStr = JSON.stringify(data);
       const MAX = 4000; // GAS URLの安全な上限（4000文字以下ならチャンク不要）
       if (dataStr.length <= MAX) {
-        r = await fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&d=${encodeURIComponent(dataStr)}`);
+        r = await gasFetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&d=${encodeURIComponent(dataStr)}`);
       } else {
         // 分割送信
         const sid = uid();
         const chunks = [];
         for (let i = 0; i < dataStr.length; i += MAX) chunks.push(dataStr.slice(i, i+MAX));
         for (let i = 0; i < chunks.length-1; i++) {
-          await fetch(`${GAS_URL}?action=storeChunk&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${i}&d=${encodeURIComponent(chunks[i])}`);
+          await gasFetch(`${GAS_URL}?action=storeChunk&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${i}&d=${encodeURIComponent(chunks[i])}`);
         }
-        r = await fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`);
+        r = await gasFetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`);
       }
     }
     const j = await r.json();
@@ -1783,14 +1795,14 @@ async function obSend(action, data) {
   const MAX = 4000;
   let r;
   if (dataStr.length <= MAX) {
-    r = await fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&d=${encodeURIComponent(dataStr)}`);
+    r = await gasFetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&d=${encodeURIComponent(dataStr)}`);
   } else {
     const sid = uid(), chunks = [];
     for (let i = 0; i < dataStr.length; i += MAX) chunks.push(dataStr.slice(i, i+MAX));
     for (let i = 0; i < chunks.length-1; i++) {
-      await fetch(`${GAS_URL}?action=storeChunk&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${i}&d=${encodeURIComponent(chunks[i])}`);
+      await gasFetch(`${GAS_URL}?action=storeChunk&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${i}&d=${encodeURIComponent(chunks[i])}`);
     }
-    r = await fetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`);
+    r = await gasFetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`);
   }
   return await r.json();
 }
@@ -5767,6 +5779,35 @@ async function quickTransferStock(pid, tid, amt) {
 //  OVERLAY / CONFIRM / TOAST
 // ============================================================
 let _savedScrollY = 0;
+// body スクロール禁止は「開いているモーダルが1つでもあるか」だけで決める。
+// 以前は openOverlay でロックし closeOverlay で解除する作りだったため、
+// 背景タップで閉じた場合（classList.remove('on') を直接呼ぶ経路）にロックが
+// 解除されず、画面が固まってスクロールできなくなっていた。
+// MutationObserver でも監視し、どの経路で開閉しても必ず整合させる
+let _scrollLocked = false;
+function syncBodyScrollLock() {
+  const anyOpen = !!document.querySelector('.overlay.on');
+  if (anyOpen === _scrollLocked) return;
+  if (anyOpen) {
+    // iOS Safari 対応: position:fixed + top でスクロール位置を保持する
+    _savedScrollY = window.scrollY;
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${_savedScrollY}px`;
+    document.body.style.width = '100%';
+    _scrollLocked = true;
+  } else {
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    _scrollLocked = false;
+    window.scrollTo(0, _savedScrollY);
+  }
+}
+const _ovObserver = window.MutationObserver ? new MutationObserver(()=>syncBodyScrollLock()) : null;
+function watchOverlay(ov){ if (_ovObserver) _ovObserver.observe(ov, { attributes:true, attributeFilter:['class'] }); }
+
 function openOverlay(id) {
   const el = document.getElementById(id);
   el.classList.add('on');
@@ -5774,20 +5815,12 @@ function openOverlay(id) {
   const sheet = el.querySelector('.sheet');
   if (sheet) sheet.scrollTop = 0;
   updateSheetMaxH();
-  // body スクロール禁止（iOS Safari 対応: position:fixed + top で位置を保持）
-  _savedScrollY = window.scrollY;
-  document.body.style.overflow = 'hidden';
-  document.body.style.position = 'fixed';
-  document.body.style.top = `-${_savedScrollY}px`;
-  document.body.style.width = '100%';
+  syncBodyScrollLock();
 }
 function closeOverlay(id) {
-  document.getElementById(id).classList.remove('on');
-  document.body.style.overflow = '';
-  document.body.style.position = '';
-  document.body.style.top = '';
-  document.body.style.width = '';
-  window.scrollTo(0, _savedScrollY);
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('on');
+  syncBodyScrollLock();
 }
 function updateSheetMaxH() {
   // visualViewport 対応（キーボード表示時の実際の表示高さを使う）
@@ -5807,8 +5840,9 @@ if (window.visualViewport) {
 let _ovDownTarget = null;
 document.addEventListener('pointerdown', e => { _ovDownTarget = e.target; }, true);
 function attachOverlayDismiss(ov){
+  watchOverlay(ov);   // どの経路で開閉してもスクロール禁止が残らないように監視する
   ov.addEventListener('click', e => {
-    if (e.target === ov && _ovDownTarget === ov) ov.classList.remove('on');
+    if (e.target === ov && _ovDownTarget === ov) { ov.classList.remove('on'); syncBodyScrollLock(); }
   });
 }
 document.querySelectorAll('.overlay').forEach(attachOverlayDismiss);
@@ -5818,7 +5852,20 @@ document.getElementById('cf-cancel').addEventListener('click',()=>closeOverlay('
 document.getElementById('cf-ok').addEventListener('click',()=>{closeOverlay('ov-confirm');if(_cfCb)_cfCb();});
 let _toastT;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(_toastT);_toastT=setTimeout(()=>t.classList.remove('on'),2800);}
-function showLoading(on){document.getElementById('loading').classList.toggle('on',on);}
+// ローディング表示。通信が長引いても画面が固まったままにならないようにする。
+// ・8秒を過ぎたら「タップで閉じられる」案内を出す（通信自体は裏で続く）
+// ・万一どこかで消し忘れても70秒で自動解除する（全画面の膜が残ると操作不能になるため）
+let _loadingSlowT = null, _loadingMaxT = null;
+function showLoading(on){
+  const el = document.getElementById('loading');
+  if (!el) return;
+  clearTimeout(_loadingSlowT); clearTimeout(_loadingMaxT);
+  el.classList.toggle('on', on);
+  if (!on) { el.classList.remove('slow'); return; }
+  el.classList.remove('slow');
+  _loadingSlowT = setTimeout(()=>el.classList.add('slow'), 8000);
+  _loadingMaxT  = setTimeout(()=>{ el.classList.remove('on','slow'); }, 70000);
+}
 
 // ============================================================
 //  MANUAL SYNC
@@ -5832,12 +5879,20 @@ async function manualSync() {
   btn.style.pointerEvents = 'none';
   showLoading(true);
   obKick(0);            // 未送信が残っていれば送信も促す
-  await loadAll(false); // ローディングはここで制御
-  showLoading(false);
-  btn.style.opacity = '1';
-  btn.style.pointerEvents = '';
-  _syncLock = false;
-  toast('🔄 データを更新しました');
+  // try/finally が無いと、同期に失敗したときローディングの膜とボタンの無効化が
+  // 戻らず、画面が固まったままになる
+  try {
+    await loadAll(false); // ローディングはここで制御
+    toast('🔄 データを更新しました');
+  } catch(e) {
+    console.error('manualSync failed:', e);
+    toast('❌ 更新できませんでした');
+  } finally {
+    showLoading(false);
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = '';
+    _syncLock = false;
+  }
 }
 
 // ============================================================
