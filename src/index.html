@@ -1849,6 +1849,31 @@ function obApplyPendingLocal() {
       // （これをしないと自動同期のたびに「完了したはずの注文が一覧に戻る」ように見える）
       S.orders = S.orders.filter(x => x.id !== op.orderId);
       (op.stockAdj||[]).forEach(a => obStockDelta(a, a.count));
+    } else if (op.action === 'updateStep') {
+      // まだ送れていない工程タップを、サーバーの内容の上に描き直す。
+      // キューが詰まっている間（前の注文が再送中など）に自動同期が走ると、
+      // 押したはずの工程が一瞬戻って見えてしまうため
+      const d = op.data || {};
+      for (const o of S.orders) {
+        let hit = null;
+        for (const it of (o.items||[])) { hit = (it.steps||[]).find(s => s.id === d.stepId); if (hit) break; }
+        if (!hit) continue;
+        if (d.done !== undefined) hit.done = !!d.done;
+        if (d.completedAt) hit.completedAt = d.completedAt;
+        else if (d.done === false) hit.completedAt = '';
+        if (d.startedAt) hit.startedAt = d.startedAt;
+        break;
+      }
+    } else if (op.action === 'updateItem') {
+      // 保留・入金確認も同様に、送信待ちの間は自分の操作を優先して表示する
+      const d = op.data || {};
+      for (const o of S.orders) {
+        const it = (o.items||[]).find(x => x.id === d.itemId);
+        if (!it) continue;
+        ['onHold','paid','skipBinarize','skipDesign'].forEach(k => { if (d[k] !== undefined) it[k] = !!d[k]; });
+        ['price','paymentMethod','optionFee','optionNote'].forEach(k => { if (d[k] !== undefined) it[k] = d[k]; });
+        break;
+      }
     }
   });
 }
@@ -2438,6 +2463,15 @@ function openNewOrder(deliveryType) {
   document.getElementById('num-group-hint').textContent = '';
   openOverlay('ov-order');
   setTimeout(()=>{ const inp=document.getElementById('inp-num'); inp.select(); }, 300);
+  // 2人が交互に受付する運用では、相手が採番した番号を自分の端末がまだ知らないことがあり、
+  // 同じ受付番号を提案してしまう。モーダルを開いた時点で最新を取り直し、
+  // 手入力していなければ番号を出し直す（loadAllはrenderPPickを呼ばないので選択中の商品は消えない）
+  loadAll().then(()=>{
+    const ov = document.getElementById('ov-order');
+    if (!ov || !ov.classList.contains('on')) return;  // 既に閉じていたら何もしない
+    if (T.editOrderId) return;
+    updateSuggestedOrderNum();
+  }).catch(()=>{});
 }
 
 function openEditOrder(oid) {
@@ -5708,7 +5742,11 @@ function elapsedStr(d){const m=Math.floor((Date.now()-new Date(d))/60000);return
     const tab = document.querySelector('.tab.on');
     if (!tab || (tab.dataset.tab !== 'local' && tab.dataset.tab !== 'shipping')) return;
     await loadAll();
-  }, 30000); // 30秒ごと
+  }, 15000); // 15秒ごと
+  // 2人で工程を分担する運用（1人目が受付→2人目が2値化→1人目がデザイン…）では、
+  // 相手の操作が自分の画面に出るまでの時間がそのまま待ち時間になる。
+  // 以前は20秒と30秒の2本のタイマーが動いていて実質12秒ほどだったので、
+  // 1本化しても体感が遅くならないよう15秒にしている
 
   // 画面復帰時（スリープ解除・タブ切替）も同期。未送信があれば送信も再開する
   document.addEventListener('visibilitychange', async () => {
