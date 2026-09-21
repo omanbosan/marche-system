@@ -459,3 +459,29 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - **Gitの認証がこのセッションからは通らない**。Git Credential Manager（`manager`）は入っているが、シェルに `/dev/tty` が無いため `fatal: could not read Username for 'https://github.com'` で失敗する。`GCM_GITHUB_AUTHMODES=device` でも出力が返らなかった。**pushはユーザー自身の対話セッションで実行する必要がある**（Claude Codeなら `! cd ~/Desktop/marche-system && git push origin main`）
 
 **How to apply**: 次回このWindows機で作業する場合、(1) フロントのpushは必ずユーザーに実行してもらう、(2) GASはApps Scriptエディタへの貼り付け＋「デプロイを管理」からの手動デプロイを案内する、(3) 恒久対策として Node.js と GitHub CLI を入れてもらえば従来どおり `deploy.sh` と `clasp` が使える。
+
+### 2026-09-21: v96/v97 を本番デプロイ完了（Windows機・clasp再セットアップ）
+**デプロイ結果**
+- GitHub: `39b0d4e`(v96) `f57ce9a`(v97) `cf4cb13`(docs) を main にpush済み。GitHub Pagesが新しい`index.html`（394,047バイト）を配信していることを実URLで確認（送信キュー・getDashDataの存在、JSエラー0件）
+- GAS: **バージョン98** を作成し、**2つのデプロイIDを両方**更新
+  - `AKfycbwQ8-M1...GF28Ulg` @98 ← GitHub Pages版が呼ぶAPI本体
+  - `AKfycbyGx2qJ...` @98 ← 案内ページ用
+  - 残り2つ（`AKfycbxnVs71...`@HEAD、`AKfycbz-1sda...`@4）は未使用のため触っていない
+- 実URLで`getDashSettings`・`getDashData`が新形式で応答し、本番データが1通信で返ることを確認済み
+
+**この機体で clasp が使えるようになった**
+- Node.js 24.19.0 (LTS) と Windows Terminal を winget で導入済み。`gas/`で`npm install`すると clasp 3.3.0 が入る
+- **clasp 3.x はコマンド名が変わっている**（旧`clasp deploy --deploymentId`は使えるが、確実なのは以下）
+  ```
+  cd ~/Desktop/marche-system/gas && npm install
+  npx clasp login                 # 必ず omanbo.monodukuri@gmail.com を選ぶ
+  npx clasp create-version "説明"  # → 新バージョン番号が出る
+  npx clasp redeploy <deploymentId> --versionNumber <n> --description "説明"
+  npx clasp list-deployments      # 両方が同じ番号か確認
+  ```
+- **push前に必ず本番の現状を別フォルダに`clasp pull`して照合すること**。今回もそうした（本番は3ファイル構成＝appsscript.json / Index.html / コード.js）。`clasp push --force`はrootDirの内容で上書きするため、`コード.js`だけ差し替え、他2ファイルは本番から取得したものをそのまま戻す形にした。`.claspignore`で`node_modules`・`package*.json`を除外している
+
+**認証まわりの注意（この機体）**
+- Claude Codeのシェルには`/dev/tty`が無く、`git push`も`clasp login`も**そのままでは認証できない**。`Start-Process powershell`で別ウィンドウを開き、そこで実行してもらう方式で通った
+- GitHubは**github.comへのログインだけでは不十分**で、ブラウザに出る「Git Credential Manager の認可」を承認する必要がある（1回目はこれを見落として失敗した）
+- `clasp login`は端末のメインアカウント（`omanbosan.lv@gmail.com`）が既定で選ばれやすい。間違えたら`npx clasp logout`＋`~/.clasprc.json`削除でやり直す
