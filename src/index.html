@@ -654,6 +654,10 @@ button,input,select,textarea{font-family:inherit}
 .dash-goal-btn{margin-left:auto;border:0;border-radius:999px;padding:9px 16px;font-size:12px;font-weight:900;color:#fff;background:linear-gradient(135deg,#f6a15c,#eb6834);box-shadow:0 4px 0 rgba(180,80,30,.18);cursor:pointer;touch-action:manipulation}
 .dash-goal-btn:active{transform:translateY(2px);box-shadow:none}
 .mini-btn{border:1px solid #e6d8c4;background:#fffaf0;border-radius:999px;padding:4px 11px;font-size:11px;font-weight:800;color:#8d681c;cursor:pointer;touch-action:manipulation}
+/* レベル帯：挨拶ブロックを削除したので横いっぱいに使う */
+.dash-level-wide{flex:1;min-width:0}
+.dash-level-wide .dash-level-top{font-size:14px}
+
 /* 未送信バッジ（アウトボックス） */
 .ob-pill{cursor:pointer;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;flex:none;background:#fff4df!important;color:#8d681c!important;border-color:#e6c990!important;font-weight:900!important}
 /* 狭い画面では「未送信」「件」を省いて ⏳2 だけにし、現地／作業中／郵送のピルを押し出さないようにする */
@@ -882,17 +886,24 @@ textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
 
 <!-- GAME DASHBOARD / HOME PAGE -->
 <div class="page on" id="page-dashboard">
+  <!-- 挨拶の飾りは現場の要望で削除。クエストとミッションを最上段に置く -->
   <div class="dash-hero">
-    <div class="dash-welcome">
-      <div class="dash-welcome-kicker">🌿 おまんぼさんのショップ島</div>
-      <div class="dash-welcome-title">今日も <span>楽しくお店を育てよう！</span> ✨</div>
-      <div style="font-size:11px;color:#8f7f70;margin-top:5px;font-weight:700">月・年の売上、目標との差、記帳クエストをひとつの画面でチェック</div>
-    </div>
-    <div class="dash-level">
+    <div class="dash-level dash-level-wide">
       <div class="dash-level-top"><span id="dash-level-label">🌱 Lv.1 見習い店主</span><span id="dash-exp-label">0%</span></div>
       <div class="exp-track"><div class="exp-fill" id="dash-exp-fill" style="width:0%"></div></div>
       <div style="display:flex;justify-content:space-between;font-size:9px;color:#9a8c7e;margin-top:5px"><span>次のレベルまで</span><span id="dash-exp-detail">EXP 0 / 3,000</span></div>
       <div style="font-size:9px;color:#b2a595;margin-top:3px" id="dash-exp-src"></div>
+    </div>
+  </div>
+
+  <!-- クエストと今日のミッション（毎日ここから始められるよう最上段に置く） -->
+  <div class="dash-main-grid">
+    <div class="game-card" id="dash-quests"></div>
+    <div class="game-card">
+      <div class="game-card-title"><span>🎁 今日のミッション</span><small>売上UP・認知度UP</small></div>
+      <div class="mission-list" id="dash-missions"></div>
+      <div class="reward" id="dash-reward">🪙 今日の報酬　+0 EXP</div>
+      <div class="dash-streak" id="dash-streak"></div>
     </div>
   </div>
 
@@ -929,16 +940,6 @@ textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
     </div>
     <div class="dash-side">
       <div class="game-card goal-card" id="dash-goal-card"></div>
-    </div>
-  </div>
-
-  <div class="dash-main-grid">
-    <div class="game-card" id="dash-quests"></div>
-    <div class="game-card">
-      <div class="game-card-title"><span>🎁 今日のミッション</span><small>売上UP・認知度UP</small></div>
-      <div class="mission-list" id="dash-missions"></div>
-      <div class="reward" id="dash-reward">🪙 今日の報酬　+0 EXP</div>
-      <div class="dash-streak" id="dash-streak"></div>
     </div>
   </div>
 
@@ -4383,7 +4384,7 @@ function openEditHistory(hid) {
         </div>
       </div>`;
     document.body.appendChild(ov);
-    ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('on'); });
+    attachOverlayDismiss(ov);   // 押し始めが背景のときだけ閉じる（ドラッグ選択で消えないように）
     document.querySelectorAll('#hist-seg-delivery .seg-btn').forEach(b=>{
       b.addEventListener('click',()=>{
         document.querySelectorAll('#hist-seg-delivery .seg-btn').forEach(x=>x.classList.remove('on'));
@@ -5053,12 +5054,14 @@ function dashDrawTrend(){
   const cum=[]; let acc=0; for(let i=0;i<Math.min(lastIdx,n);i++){ acc+=v.series.sales[i]; cum.push(acc); }
   const pcum=[]; acc=0; for(let i=0;i<n;i++){ acc+=(v.prevSeries[i]||0); pcum.push(acc); }
   const gcum=[]; acc=0; for(let i=0;i<n;i++){ acc+=goalPer[i]; gcum.push(Math.round(acc)); }
-  dashSet('dash-cum-title', isM ? '📈 今月の累計売上（先月・目標との比較）'.replace('今月', v.isCur?'今月':`${dashM}月`) : '📈 年間の累計売上（昨年・目標との比較）');
+  // 系列名は期間に合わせる（月次で「今期」と出ていて分かりにくい、との指摘に対応）
+  const curLbl = isM ? (v.isCur ? '今月' : `${dashM}月`) : (v.isCur ? '今年' : `${dashY}年`);
+  dashSet('dash-cum-title', isM ? `📈 ${curLbl}の累計売上（${prevLbl}・目標との比較）` : `📈 ${curLbl}の累計売上（${prevLbl}・目標との比較）`);
   document.getElementById('dash-cum-legend').innerHTML =
-    `<span><i class="lg-line" style="background:${DC.sales}"></i>${v.isCur?'今期':'この期間'}</span><span><i class="lg-line" style="background:${DC.prev}"></i>${prevLbl}</span>` + (hasGoal?`<span><i class="lg-line dash" style="background:${DC.goal}"></i>目標ペース</span>`:'');
+    `<span><i class="lg-line" style="background:${DC.sales}"></i>${curLbl}</span><span><i class="lg-line" style="background:${DC.prev}"></i>${prevLbl}</span>` + (hasGoal?`<span><i class="lg-line dash" style="background:${DC.goal}"></i>目標ペース</span>`:'');
   dashCumChart(document.getElementById('dash-cum'), {
     n, cur:cum, prev:pcum, goal:hasGoal?gcum:null, mode:dashMode, aria:'累計売上の推移',
-    curLabel:v.isCur?'今期':'この期間', prevLabel:prevLbl, tipTitle:lbl
+    curLabel:curLbl, prevLabel:prevLbl, tipTitle:lbl
   });
   // 表で見る（グラフの値をすべて表でも確認できる）
   const rows=[`<tr><th>${isM?'日':'月'}</th><th>売上</th><th>累計</th><th>${prevLbl}累計</th>${hasGoal?'<th>目標累計</th>':''}</tr>`];
@@ -5264,7 +5267,7 @@ function dashRenderQuests(){
   const nudge = (sel===prevKey && doneN<total) ? `<div class="quest-nudge">⚠ 先月分の記帳があと <b>${total-doneN}つ</b> 残っています。会計ソフトに入れるのは、思い出せる今のうちに！</div>` : '';
   const clear = doneN===total ? `<div class="quest-clear"><span class="qc-stamp">MISSION<br>CLEAR!</span><div><b>${ph}の記帳、ぜんぶ完了！</b><br><small>+${DASH_QUEST_EXP*total+DASH_QUEST_ALL} EXP（全クリアボーナス +${DASH_QUEST_ALL} 込み）</small></div></div>` : '';
   el.innerHTML = `
-    <div class="game-card-title"><span>📒 記帳クエスト</span><small>入力して EXP ゲット</small></div>
+    <div class="game-card-title"><span>📒 クエスト</span><small>入力して EXP ゲット</small></div>
     <div class="quest-tabs">
       <button class="quest-tab ${sel===prevKey?'on':''}" onclick="dashQuestPick('${prevKey}')">先月分 <em>${dashQuestCount(prevKey)}/${total}</em></button>
       <button class="quest-tab ${sel===curKey?'on':''}" onclick="dashQuestPick('${curKey}')">今月分 <em>${dashQuestCount(curKey)}/${total}</em></button>
@@ -5677,7 +5680,18 @@ if (window.visualViewport) {
     updateStickyOffsets();
   });
 }
-document.querySelectorAll('.overlay').forEach(ov=>{ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('on');});});
+// 背景をクリックして閉じる処理。
+// 「押し始めが背景のとき」だけ閉じる。入力欄の文字をドラッグ選択して指やマウスが
+// シートの外（背景）で離れると、clickの対象が背景になってしまい、入力中のモーダルが
+// 突然閉じて入力内容が消えていたため（現場で「左に動かすと消える」と報告された不具合）
+let _ovDownTarget = null;
+document.addEventListener('pointerdown', e => { _ovDownTarget = e.target; }, true);
+function attachOverlayDismiss(ov){
+  ov.addEventListener('click', e => {
+    if (e.target === ov && _ovDownTarget === ov) ov.classList.remove('on');
+  });
+}
+document.querySelectorAll('.overlay').forEach(attachOverlayDismiss);
 let _cfCb=null;
 function showConfirm(title,sub,cb){document.getElementById('cf-title').textContent=title;document.getElementById('cf-sub').textContent=sub;_cfCb=cb;openOverlay('ov-confirm');}
 document.getElementById('cf-cancel').addEventListener('click',()=>closeOverlay('ov-confirm'));
