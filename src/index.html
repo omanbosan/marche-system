@@ -7,7 +7,16 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>おまんぼさん｜ショップ経営ダッシュボード</title>
-<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- 日本語のWebフォントはCSSだけで約570KB・フォント本体は最大7.8MBあり、
+     rel="stylesheet" のままだと読み込み終わるまで画面が出ない（スマホで待たされる主因）。
+     media="print" で読み込み、完了時に media="all" へ切り替えることで描画を止めない。
+     文字は先に端末標準の日本語フォントで表示され、あとからWebフォントに差し替わる。
+     Noto Sans JP の 500 は実際には使っていないので外した（CSSが約1/5減る） -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" media="print" onload="this.media='all';this.onload=null"
+      href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700;900&family=Noto+Sans+JP:wght@400;700&display=swap">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700;900&family=Noto+Sans+JP:wght@400;700&display=swap"></noscript>
 <style>
 :root{
   --bg:#f4f4f6;--s1:#fff;--s2:#f0f0f3;--s3:#e4e4e8;--s4:#d0d0d6;
@@ -20,24 +29,24 @@
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:15px}
-body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;-webkit-tap-highlight-color:transparent;overflow-x:hidden}
+body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;min-height:100vh;-webkit-tap-highlight-color:transparent;overflow-x:hidden}
 
 /* LOGIN */
 #login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;padding:24px;z-index:1000}
-.login-logo{font-family:'Zen Kaku Gothic New',sans-serif;font-size:24px;font-weight:900;color:var(--gold);letter-spacing:.1em}
+.login-logo{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:24px;font-weight:900;color:var(--gold);letter-spacing:.1em}
 .login-sub{font-size:12px;color:var(--dim);text-align:center}
 .login-box{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:24px 20px;width:100%;max-width:360px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
 .login-lbl{font-size:11px;color:var(--dim);font-weight:700;letter-spacing:.08em;margin-bottom:8px}
-.login-inp{width:100%;background:var(--s2);border:1.5px solid var(--border);border-radius:8px;padding:13px 14px;font-size:18px;color:var(--text);outline:none;text-align:center;letter-spacing:.2em;font-family:'Zen Kaku Gothic New',sans-serif}
+.login-inp{width:100%;background:var(--s2);border:1.5px solid var(--border);border-radius:8px;padding:13px 14px;font-size:18px;color:var(--text);outline:none;text-align:center;letter-spacing:.2em;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif}
 .login-inp:focus{border-color:var(--goldd)}
-.login-btn{width:100%;margin-top:14px;background:var(--gold);color:#fff;border:none;border-radius:10px;padding:14px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;font-weight:900;letter-spacing:.08em;cursor:pointer}
+.login-btn{width:100%;margin-top:14px;background:var(--gold);color:#fff;border:none;border-radius:10px;padding:14px;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:15px;font-weight:900;letter-spacing:.08em;cursor:pointer}
 .login-btn:active{background:var(--goldl)}
 .login-err{font-size:13px;color:var(--red);text-align:center;display:none;margin-top:8px}
 
 /* HEADER */
 .hdr{position:sticky;top:0;z-index:80;background:var(--s1);border-bottom:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;padding:8px 14px;transform:translateZ(0);will-change:transform}
-.hdr-logo{font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;font-weight:900;color:var(--gold);letter-spacing:.06em;flex-shrink:0}
-.hdr-clock{font-family:'Zen Kaku Gothic New',sans-serif;font-size:21px;font-weight:900;color:var(--text)}
+.hdr-logo{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:15px;font-weight:900;color:var(--gold);letter-spacing:.06em;flex-shrink:0}
+.hdr-clock{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:21px;font-weight:900;color:var(--text)}
 .hdr-pills{display:flex;gap:5px;margin-left:auto;flex-wrap:nowrap;overflow:hidden}
 .pill{background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:3px 10px;font-size:11px;color:var(--dim);display:flex;align-items:center;gap:4px}
 .pill b{color:var(--gold);font-size:13px}
@@ -45,7 +54,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 /* WAIT BAR */
 .wbar{position:sticky;top:var(--wbar-top,49px);z-index:79;background:var(--s1);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:translateZ(0);will-change:transform}
 .wbar-lbl{font-size:10px;color:var(--dim);line-height:1.4}
-.wbar-num{font-family:'Zen Kaku Gothic New',sans-serif;font-size:26px;font-weight:900;color:var(--gold);line-height:1}
+.wbar-num{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:26px;font-weight:900;color:var(--gold);line-height:1}
 .wbar-num.warn{color:var(--orange)}.wbar-num.alert{color:var(--red)}
 .wdots{display:flex;flex-wrap:wrap;gap:4px;flex:1;align-items:center}
 .wd{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--border);background:var(--s3)}
@@ -66,7 +75,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
 /* BUTTONS */
 .btn-new-wrap{position:sticky;top:var(--btn-top,167px);z-index:76;background:var(--bg);padding:8px 0 6px;margin:-10px -10px 2px;padding-left:10px;padding-right:10px;border-bottom:1px solid var(--border);transform:translateZ(0);will-change:transform}
-.btn-new{width:100%;background:var(--gold);color:#fff;border:none;border-radius:10px;padding:13px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:14px;font-weight:900;letter-spacing:.08em;cursor:pointer;transition:background .15s,transform .1s}
+.btn-new{width:100%;background:var(--gold);color:#fff;border:none;border-radius:10px;padding:13px;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:14px;font-weight:900;letter-spacing:.08em;cursor:pointer;transition:background .15s,transform .1s}
 .btn-new:active{transform:scale(.98);background:var(--goldl)}
 .btn-new.ship{background:var(--blue)}
 .btn-new.ship:active{background:#3a8ae8}
@@ -81,7 +90,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
 /* ORDER HEAD */
 .och{display:flex;align-items:flex-start;gap:7px;padding:9px 11px 7px 15px;border-bottom:1px solid var(--border)}
-.och-num{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:4px 10px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:20px;font-weight:900;color:var(--gold);flex-shrink:0;letter-spacing:.05em}
+.och-num{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:4px 10px;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:20px;font-weight:900;color:var(--gold);flex-shrink:0;letter-spacing:.05em}
 .badge{font-size:9px;font-weight:700;border-radius:3px;padding:2px 5px;flex-shrink:0;align-self:center}
 .badge-loc{background:rgba(184,134,11,.12);color:var(--gold)}
 .badge-ship{background:rgba(40,120,200,.12);color:var(--blue)}
@@ -159,12 +168,12 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
 /* CALENDAR / HISTORY */
 .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.cal-mon{font-family:'Zen Kaku Gothic New',sans-serif;font-size:17px;font-weight:900;color:var(--gold);flex:1;text-align:center}
+.cal-mon{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:17px;font-weight:900;color:var(--gold);flex:1;text-align:center}
 .cal-arrow{background:var(--s2);border:1px solid var(--border);border-radius:7px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;color:var(--text);touch-action:manipulation}
 .cal-arrow:active{background:var(--s3)}
 .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px}
 .stat-card{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:10px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.stat-val{font-family:'Zen Kaku Gothic New',sans-serif;font-size:20px;font-weight:900;color:var(--gold)}
+.stat-val{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:20px;font-weight:900;color:var(--gold)}
 .stat-lbl{font-size:10px;color:var(--dim);margin-top:2px}
 .pay-breakdown{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:10px;margin-bottom:10px}
 .pay-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)}
@@ -183,8 +192,8 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
 /* MASTER */
 .master-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.master-ttl{font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;font-weight:900;color:var(--gold)}
-.btn-add{background:var(--gold);color:#fff;border:none;border-radius:7px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Zen Kaku Gothic New',sans-serif}
+.master-ttl{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:15px;font-weight:900;color:var(--gold)}
+.btn-add{background:var(--gold);color:#fff;border:none;border-radius:7px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif}
 .btn-add:active{background:var(--goldl)}
 .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .pcard{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:11px;position:relative;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:opacity .15s,border-color .15s,background .15s;user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
@@ -217,7 +226,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .ssc{background:var(--s1);border:1px solid var(--border);border-radius:7px;padding:8px;text-align:center}
 .ssc-who{font-size:8px;font-weight:700;margin-bottom:3px}
 .ssc-lbl{font-size:9px;color:var(--dim)}
-.ssc-val{font-family:'Zen Kaku Gothic New',sans-serif;font-size:16px;font-weight:900;color:var(--gold)}
+.ssc-val{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:16px;font-weight:900;color:var(--gold)}
 
 /* PRICING TABLE */
 .pt-table{width:100%;border-collapse:collapse;font-size:11px;white-space:nowrap;background:var(--s1)}
@@ -231,14 +240,14 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .pt-r{text-align:center}
 .pt-unit{font-size:9px;font-weight:400;color:var(--dim2)}
 .pt-rec{background:#e2e8f0!important;color:var(--blue)}
-.pt-inp{width:62px;background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:4px 5px;font-size:12px;text-align:right;font-family:'Noto Sans JP',sans-serif;color:var(--text);outline:none;-moz-appearance:textfield}
+.pt-inp{width:62px;background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:4px 5px;font-size:12px;text-align:right;font-family:'Noto Sans JP',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;color:var(--text);outline:none;-moz-appearance:textfield}
 .pt-inp::-webkit-inner-spin-button,.pt-inp::-webkit-outer-spin-button{-webkit-appearance:none}
 .pt-inp:focus{border-color:var(--goldd);background:var(--s1)}
-.pt-calc{font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px;color:var(--dim)}
-.pt-rec-val{color:var(--blue);font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:13px;text-align:right;padding:0 5px}
-.pt-diff-pos{color:var(--green);font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px}
-.pt-diff-neg{color:var(--red);font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px}
-.pt-diff-zero{color:var(--dim);font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px}
+.pt-calc{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px;color:var(--dim)}
+.pt-rec-val{color:var(--blue);font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-weight:900;font-size:13px;text-align:right;padding:0 5px}
+.pt-diff-pos{color:var(--green);font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px}
+.pt-diff-neg{color:var(--red);font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px}
+.pt-diff-zero{color:var(--dim);font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-weight:700;font-size:12px;text-align:right;padding:0 5px}
 .pt-act{text-align:center;min-width:44px}
 .pt-save-btn{font-size:10px;padding:4px 8px;background:var(--gold);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;white-space:nowrap;touch-action:manipulation}
 .pt-save-btn:active{background:var(--goldl)}
@@ -251,13 +260,13 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .acc-kpi.green{border-color:rgba(40,160,96,.3);background:rgba(40,160,96,.04)}
 .acc-kpi.red{border-color:rgba(208,48,48,.2);background:rgba(208,48,48,.03)}
 .acc-kpi-lbl{font-size:10px;color:var(--dim);font-weight:700;letter-spacing:.05em;margin-bottom:2px}
-.acc-kpi-val{font-family:'Zen Kaku Gothic New',sans-serif;font-size:20px;font-weight:900;color:var(--text)}
+.acc-kpi-val{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:20px;font-weight:900;color:var(--text)}
 .acc-kpi-sub{font-size:10px;color:var(--dim);margin-top:1px}
 .acc-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px}
 .acc-table th{background:var(--s2);color:var(--dim);font-weight:700;padding:6px 7px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
 .acc-table td{padding:6px 7px;border-bottom:1px solid var(--s3);vertical-align:middle}
 .acc-table tr:last-child td{border-bottom:none}
-.acc-table .num{text-align:right;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700}
+.acc-table .num{text-align:right;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-weight:700}
 .acc-table .pos{color:var(--green)}
 .acc-table .neg{color:var(--red)}
 .exp-row{display:flex;align-items:center;gap:8px;padding:9px 11px;background:var(--s1);border:1px solid var(--border);border-radius:8px;margin-bottom:5px}
@@ -265,19 +274,19 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .exp-info{flex:1;min-width:0}
 .exp-date{font-size:10px;color:var(--dim)}
 .exp-name{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.exp-amt{font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;font-weight:900;color:var(--orange);flex-shrink:0}
+.exp-amt{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:15px;font-weight:900;color:var(--orange);flex-shrink:0}
 
 /* MODALS */
 .overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s}
 .overlay.on{opacity:1;pointer-events:all}
 .sheet{background:var(--s1);border-radius:18px 18px 0 0;border-top:1px solid var(--border);width:100%;max-width:640px;padding:18px 15px calc(30px + env(safe-area-inset-bottom,0px));max-height:var(--sheet-max-h,82vh);overflow-y:auto;transform:translateY(36px);transition:transform .22s}
 .overlay.on .sheet{transform:translateY(0)}
-.sh-title{font-family:'Zen Kaku Gothic New',sans-serif;font-size:16px;font-weight:900;color:var(--gold);margin-bottom:14px}
+.sh-title{font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:16px;font-weight:900;color:var(--gold);margin-bottom:14px}
 .sh-lbl{font-size:11px;font-weight:700;color:var(--dim);letter-spacing:.06em;margin-bottom:5px}
-.sh-input{width:100%;background:var(--s2);border:1.5px solid var(--border);border-radius:7px;padding:10px 12px;font-size:15px;color:var(--text);margin-bottom:11px;outline:none;font-family:'Noto Sans JP',sans-serif}
+.sh-input{width:100%;background:var(--s2);border:1.5px solid var(--border);border-radius:7px;padding:10px 12px;font-size:15px;color:var(--text);margin-bottom:11px;outline:none;font-family:'Noto Sans JP',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif}
 .sh-input:focus{border-color:var(--goldd)}
-.sh-num{text-align:center;font-family:'Zen Kaku Gothic New',sans-serif;font-size:22px;font-weight:900;letter-spacing:.1em}
-.sh-textarea{width:100%;background:var(--s2);border:1.5px solid var(--border);border-radius:7px;padding:10px 12px;font-size:13px;color:var(--text);margin-bottom:11px;outline:none;font-family:'Noto Sans JP',sans-serif;resize:none;height:56px}
+.sh-num{text-align:center;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:22px;font-weight:900;letter-spacing:.1em}
+.sh-textarea{width:100%;background:var(--s2);border:1.5px solid var(--border);border-radius:7px;padding:10px 12px;font-size:13px;color:var(--text);margin-bottom:11px;outline:none;font-family:'Noto Sans JP',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;resize:none;height:56px}
 .sh-textarea:focus{border-color:var(--goldd)}
 .seg{display:flex;background:var(--s2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:11px}
 .seg-btn{flex:1;padding:9px 5px;font-size:12px;font-weight:700;text-align:center;cursor:pointer;color:var(--dim);touch-action:manipulation;transition:all .13s}
@@ -300,7 +309,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .qbtn:first-child{border-radius:6px 0 0 6px}
 .qbtn:last-child{border-radius:0 6px 6px 0}
 .qbtn:active{background:var(--s4)}
-.qval{width:36px;text-align:center;background:var(--s2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:16px;font-weight:900;color:var(--text);font-family:'Zen Kaku Gothic New',sans-serif;height:32px;display:flex;align-items:center;justify-content:center}
+.qval{width:36px;text-align:center;background:var(--s2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:16px;font-weight:900;color:var(--text);font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;height:32px;display:flex;align-items:center;justify-content:center}
 .sinp{text-align:center;font-size:16px;font-weight:700;color:var(--text);background:var(--s1);border:1.5px solid var(--border);border-radius:6px;padding:4px 2px;outline:none;-webkit-appearance:none;-moz-appearance:textfield}
 .sinp::-webkit-outer-spin-button,.sinp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .pay-pick{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:11px}
@@ -315,7 +324,7 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .opt-chip:active{transform:scale(.92)}
 .opt-chip.on{background:rgba(184,134,11,.12);border-color:var(--goldd);color:var(--gold)}
 .tadj{display:flex;align-items:center;gap:7px;margin-bottom:11px}
-.tbox{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:7px 14px;font-size:20px;font-weight:900;color:var(--gold);font-family:'Zen Kaku Gothic New',sans-serif;min-width:78px;text-align:center}
+.tbox{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:7px 14px;font-size:20px;font-weight:900;color:var(--gold);font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;min-width:78px;text-align:center}
 .tadjcol{display:flex;flex-direction:column;gap:3px}
 .tadjb{background:var(--s2);border:1px solid var(--border);border-radius:5px;width:40px;height:26px;font-size:12px;font-weight:700;color:var(--gold);cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
 .tadjb:active{background:var(--s3)}
@@ -330,10 +339,10 @@ body{background:var(--s1);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .stb:first-child{border-radius:4px 0 0 4px}
 .stb:last-child{border-radius:0 4px 4px 0}
 .stb:active{background:var(--s4)}
-.stv{width:36px;text-align:center;background:var(--s2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text);font-family:'Zen Kaku Gothic New',sans-serif;height:26px;display:flex;align-items:center;justify-content:center}
+.stv{width:36px;text-align:center;background:var(--s2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text);font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;height:26px;display:flex;align-items:center;justify-content:center}
 .sh-actions{display:flex;gap:7px;margin-top:5px}
-.sh-cancel{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--dim);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
-.sh-ok{flex:2;background:var(--gold);border:none;border-radius:8px;padding:12px;color:#fff;font-size:13px;font-weight:900;cursor:pointer;font-family:'Zen Kaku Gothic New',sans-serif;letter-spacing:.04em}
+.sh-cancel{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--dim);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif}
+.sh-ok{flex:2;background:var(--gold);border:none;border-radius:8px;padding:12px;color:#fff;font-size:13px;font-weight:900;cursor:pointer;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;letter-spacing:.04em}
 .sh-cancel:active,.sh-ok:active{transform:scale(.97)}
 .cf-title{font-size:15px;font-weight:700;color:var(--text);text-align:center;margin-bottom:6px}
 .cf-sub{font-size:12px;color:var(--dim);text-align:center;margin-bottom:20px}
@@ -454,7 +463,7 @@ button,input,select,textarea{font-family:inherit}
 .hdr-logo{
   grid-area:logo;align-self:center;position:relative;z-index:2;
   min-width:220px;padding:14px 20px 13px!important;
-  color:#fff!important;font-family:'Zen Kaku Gothic New',sans-serif!important;
+  color:#fff!important;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif!important;
   font-size:24px!important;font-weight:900!important;letter-spacing:.08em!important;
   text-align:center;background:linear-gradient(#b77c48,#8e5b34)!important;
   border:3px solid #d9a36b!important;border-radius:15px!important;
@@ -467,7 +476,7 @@ button,input,select,textarea{font-family:inherit}
   padding:7px 16px 9px!important;border-radius:18px!important;
   background:linear-gradient(#fffdf7,#fff3e0)!important;border:3px solid #e2b378!important;
   box-shadow:inset 0 2px rgba(255,255,255,.95),0 5px 0 #c08c53,0 9px 16px rgba(82,55,33,.16)!important;
-  font-family:'Zen Kaku Gothic New',sans-serif!important;
+  font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif!important;
 }
 .clk-date{font-size:11px;font-weight:800;color:#a3805a;letter-spacing:.10em;line-height:1}
 .clk-time{display:flex;align-items:center;gap:3px;line-height:1}
@@ -650,7 +659,7 @@ button,input,select,textarea{font-family:inherit}
 .dash-arrow{width:34px;height:34px;border:0;border-radius:11px;background:transparent;font-size:22px;font-weight:900;color:#725f50;cursor:pointer;touch-action:manipulation}
 .dash-arrow:hover:not(:disabled){background:#f6eee2}
 .dash-arrow:disabled{opacity:.3;cursor:default}
-.dash-period{min-width:116px;text-align:center;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:17px;color:#4b4038}
+.dash-period{min-width:116px;text-align:center;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-weight:900;font-size:17px;color:#4b4038}
 .dash-chips{display:flex;gap:6px}
 .dash-chip{border:1px solid var(--border);background:#fff;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:800;color:#725f50;cursor:pointer;touch-action:manipulation}
 .dash-chip.on{background:linear-gradient(135deg,#61c39a,#46aa83);color:#fff;border-color:#55ae8c}
@@ -2285,7 +2294,7 @@ function renderCard(o, container, deliveryType) {
   const totalAmountHtml = `
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 15px;background:rgba(40,120,200,.07);border-bottom:1px solid rgba(40,120,200,.15)">
       <span style="font-size:12px;color:var(--blue);font-weight:700;flex-shrink:0">💰 お支払い合計</span>
-      <span style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:20px;font-weight:900;color:var(--blue);flex-shrink:0">¥${totalAmount.toLocaleString()}</span>
+      <span style="font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-size:20px;font-weight:900;color:var(--blue);flex-shrink:0">¥${totalAmount.toLocaleString()}</span>
       ${sfPart}
     </div>`;
 
@@ -4400,7 +4409,7 @@ function toggleHistDetail(hid) {
       ? `${created.getMonth()+1}/${created.getDate()} 〜 ${completed.getMonth()+1}/${completed.getDate()}`
       : '';
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--s1);border:1px solid var(--border);border-radius:8px">
-      <div style="font-size:28px;font-weight:900;color:var(--blue);font-family:'Zen Kaku Gothic New',sans-serif;line-height:1">${days}</div>
+      <div style="font-size:28px;font-weight:900;color:var(--blue);font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;line-height:1">${days}</div>
       <div>
         <div style="font-size:10px;color:var(--dim)">日間（登録〜完了）</div>
         ${periodStr?`<div style="font-size:11px;color:var(--dim2);margin-top:1px">${periodStr}</div>`:''}
@@ -6316,7 +6325,7 @@ function renderBizOverview() {
     const valColor = r.val===null ? '' : r.cls||'var(--text)';
     return `<tr>
       <td style="padding:6px 14px;font-size:${r.big?'14px':'12px'};font-weight:${r.bold?700:400};color:var(--text);border:none;border-bottom:1px solid var(--s3)">${r.label}</td>
-      <td style="padding:6px 14px;font-size:${r.big?'18px':'13px'};font-weight:${r.bold?900:700};font-family:'Zen Kaku Gothic New',sans-serif;color:${valColor};text-align:right;border:none;border-bottom:1px solid var(--s3)">${valStr}</td>
+      <td style="padding:6px 14px;font-size:${r.big?'18px':'13px'};font-weight:${r.bold?900:700};font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;color:${valColor};text-align:right;border:none;border-bottom:1px solid var(--s3)">${valStr}</td>
     </tr>`;
   }).join('');
 
@@ -6663,10 +6672,10 @@ function renderPricingTable() {
         <input type="number" inputmode="numeric" class="pt-inp" value="${st.price}"
           oninput="onPtChange('${p.id}','price',this.value)" onchange="onPtChange('${p.id}','price',this.value)">
       </td>
-      <td id="pt-ml-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;color:${marginalCls};background:rgba(24,152,168,.04)">¥${Math.round(marginal).toLocaleString()}</td>
-      <td id="pt-mlr-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:13px;color:${marginalCls};background:rgba(24,152,168,.04)">${marginalRate}%</td>
-      <td id="pt-gp-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:12px;color:${curMarginCls};background:rgba(40,160,96,.04)">¥${Math.round(st.price - totalCost).toLocaleString()}</td>
-      <td id="pt-cur-margin-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:13px;color:${curMarginCls};background:rgba(40,160,96,.04)">${curMargin}%</td>
+      <td id="pt-ml-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-weight:700;font-size:12px;color:${marginalCls};background:rgba(24,152,168,.04)">¥${Math.round(marginal).toLocaleString()}</td>
+      <td id="pt-mlr-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-weight:900;font-size:13px;color:${marginalCls};background:rgba(24,152,168,.04)">${marginalRate}%</td>
+      <td id="pt-gp-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-weight:700;font-size:12px;color:${curMarginCls};background:rgba(40,160,96,.04)">¥${Math.round(st.price - totalCost).toLocaleString()}</td>
+      <td id="pt-cur-margin-${p.id}" style="text-align:right;padding:0 6px;font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;font-weight:900;font-size:13px;color:${curMarginCls};background:rgba(40,160,96,.04)">${curMargin}%</td>
       <td class="${diffCls}">${diffStr}</td>
       <td class="pt-act"><button class="${saveBtnCls}" id="pt-save-${p.id}" onclick="savePricingRow('${p.id}')">${saveBtnTxt}</button></td>
     </tr>`;
