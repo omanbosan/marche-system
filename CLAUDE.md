@@ -514,3 +514,16 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 4. **「記帳クエスト」→「クエスト」に改称**（見出しのみ。内部の変数名・localStorageキーは`quests`のまま）
 
 検証：全21シーン エラー0件。ドラッグで閉じない／背景タップでは従来どおり閉じる／並び順と文言をDOMで確認。
+
+### 2026-09-21: 「弥生会計記帳」へ改称・記帳／ミッション／レベルを専用タブへ分離（v100）
+ホームに全部載せるとiPhone/iPadで縦に長くなりすぎるとの指摘を受けた対応。「単独ページ可・ホームはボタンのみ可」との許可をもらって構成を変えた。
+
+- **「クエスト」→「弥生会計記帳」に改称**（カードの見出しのみ。内部の変数名・localStorageキーは`quests`のまま。`dashQuestIds()`等も変更なし）
+- **新タブ「📒 記帳・ミッション」（`page-quest`）を追加**し、レベル帯・弥生会計記帳・今日のミッションをここへ移した。**要素のidは変えずに移動しただけ**なので、`dashRenderQuests()`／`dashRenderMissions()`／`dashRenderHero()`は無変更で動く
+- **ホームは「ボタンのみ」**（`#home-quest-btns`／`renderHomeQuestButtons()`）。レベル・ミッション・弥生会計記帳の3つを要約表示し、タップで上記タブへ飛ぶ（`gotoQuestTab()`）。**375/390/768/1280pxすべてで1行に収まり横はみ出しなし**を実測で確認
+- **タブに残件バッジ**（`#quest-badge`／`updateQuestBadge()`）。「先月分の記帳の残り＋今日のミッションの残り」を赤バッジで出す。ヘッダー付近に常時出るので記帳のリマインダーになる
+- タップに即追従させるため、`dashRenderMissions()`と`dashRenderQuests()`の末尾で`updateQuestBadge()`と`renderHomeQuestButtons()`を呼んでいる。**ミッション・記帳の表示を変える改修をしたら、この2つの呼び出しを消さないこと**
+- ミッションの達成数は`dashMissionDone`/`dashMissionTotal`に控えて共有している
+- `renderQuestPage(force)`はホームと独立してデータを読む（現在の年＋年またぎ用に前の年）。タブ切替時に`renderQuestPage(true)`
+
+検証：全22シーン エラー0件。ホームに大きいカードが無いこと、ボタン3つ、タブのバッジがタップで増減すること、iPhone幅での折り返しなしを確認。

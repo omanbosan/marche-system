@@ -654,9 +654,52 @@ button,input,select,textarea{font-family:inherit}
 .dash-goal-btn{margin-left:auto;border:0;border-radius:999px;padding:9px 16px;font-size:12px;font-weight:900;color:#fff;background:linear-gradient(135deg,#f6a15c,#eb6834);box-shadow:0 4px 0 rgba(180,80,30,.18);cursor:pointer;touch-action:manipulation}
 .dash-goal-btn:active{transform:translateY(2px);box-shadow:none}
 .mini-btn{border:1px solid #e6d8c4;background:#fffaf0;border-radius:999px;padding:4px 11px;font-size:11px;font-weight:800;color:#8d681c;cursor:pointer;touch-action:manipulation}
-/* レベル帯：挨拶ブロックを削除したので横いっぱいに使う */
-.dash-level-wide{flex:1;min-width:0}
-.dash-level-wide .dash-level-top{font-size:14px}
+/* ===== 記帳・ミッションのタブと、ホームのボタン ===== */
+.tab-badge{display:none;margin-left:5px;padding:1px 6px;border-radius:999px;background:#e0533f;color:#fff;font-size:10px;font-weight:900;vertical-align:middle}
+.tab-badge.on{display:inline-block}
+.tab-badge.done{background:#46aa83}
+.tab.on .tab-badge{background:#fff;color:#2f7d5e}
+.tab.on .tab-badge.on{background:#fff;color:#c0392b}
+
+/* ホームは「ボタンのみ」。3つ並べても iPhone 幅で1行に収まる大きさにしている */
+.home-quest-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:14px}
+.hq-btn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;
+  border:1px solid #eadfce;border-radius:16px;padding:11px 12px;background:rgba(255,255,255,.96);
+  box-shadow:var(--game-shadow);cursor:pointer;touch-action:manipulation;text-align:left;font-family:inherit}
+.hq-btn:active{transform:translateY(1px)}
+.hq-btn.warn{border-color:#f0c9a8;background:#fff6ec}
+.hq-top{display:flex;align-items:center;gap:5px;width:100%;min-width:0}
+.hq-ico{font-size:17px;flex:none}
+.hq-name{font-size:11px;font-weight:900;color:#725f50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hq-val{font-size:17px;font-weight:900;color:#4b4038;line-height:1.1}
+.hq-val small{font-size:11px;color:#8b7c70;margin-left:2px}
+.hq-sub{font-size:10px;font-weight:700;color:#8b7c70;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.hq-btn.warn .hq-sub{color:#b4501e}
+.hq-bar{width:100%;height:6px;border-radius:99px;background:#eee8df;overflow:hidden;margin-top:2px}
+.hq-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#7bd0a7,#45b589)}
+
+/* 記帳・ミッションのページ */
+#page-quest{display:none}
+#page-quest.on{display:block}
+.quest-page-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:14px;align-items:start}
+.quest-level-card{grid-column:1/-1}
+.quest-level-card .dash-level-top{font-size:15px;margin-bottom:9px}
+.quest-level-meta{display:flex;justify-content:space-between;font-size:10px;color:#9a8c7e;margin-top:6px;font-weight:700}
+.quest-level-src{font-size:10px;color:#b2a595;margin-top:3px}
+
+@media(max-width:900px){
+  .quest-page-grid{grid-template-columns:1fr}
+}
+@media(max-width:620px){
+  /* iPhone：ボタンは3つのまま1行。文字を詰めて折り返さないようにする */
+  .home-quest-strip{gap:7px}
+  .hq-btn{padding:9px 9px;border-radius:14px}
+  .hq-ico{font-size:15px}
+  .hq-name{font-size:10px}
+  .hq-val{font-size:15px}
+  .hq-sub{font-size:9px}
+  .quest-page-grid{gap:10px}
+}
 
 /* 未送信バッジ（アウトボックス） */
 .ob-pill{cursor:pointer;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;flex:none;background:#fff4df!important;color:#8d681c!important;border-color:#e6c990!important;font-weight:900!important}
@@ -875,6 +918,7 @@ textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
 
 <nav class="tabs">
   <div class="tab on" data-tab="dashboard">🏝 ホーム</div>
+  <div class="tab" data-tab="quest">📒 記帳・ミッション<span class="tab-badge" id="quest-badge"></span></div>
   <div class="tab" data-tab="local">🏪 現地</div>
   <div class="tab" data-tab="shipping">📦 郵送</div>
   <div class="tab" data-tab="history">📅 履歴</div>
@@ -886,26 +930,9 @@ textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
 
 <!-- GAME DASHBOARD / HOME PAGE -->
 <div class="page on" id="page-dashboard">
-  <!-- 挨拶の飾りは現場の要望で削除。クエストとミッションを最上段に置く -->
-  <div class="dash-hero">
-    <div class="dash-level dash-level-wide">
-      <div class="dash-level-top"><span id="dash-level-label">🌱 Lv.1 見習い店主</span><span id="dash-exp-label">0%</span></div>
-      <div class="exp-track"><div class="exp-fill" id="dash-exp-fill" style="width:0%"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:9px;color:#9a8c7e;margin-top:5px"><span>次のレベルまで</span><span id="dash-exp-detail">EXP 0 / 3,000</span></div>
-      <div style="font-size:9px;color:#b2a595;margin-top:3px" id="dash-exp-src"></div>
-    </div>
-  </div>
-
-  <!-- クエストと今日のミッション（毎日ここから始められるよう最上段に置く） -->
-  <div class="dash-main-grid">
-    <div class="game-card" id="dash-quests"></div>
-    <div class="game-card">
-      <div class="game-card-title"><span>🎁 今日のミッション</span><small>売上UP・認知度UP</small></div>
-      <div class="mission-list" id="dash-missions"></div>
-      <div class="reward" id="dash-reward">🪙 今日の報酬　+0 EXP</div>
-      <div class="dash-streak" id="dash-streak"></div>
-    </div>
-  </div>
+  <!-- レベル・ミッション・記帳は「記帳・ミッション」タブに移し、ここはボタンだけ置く。
+       iPhone/iPadでも縦に積まれず1行に収まる大きさにしている -->
+  <div class="home-quest-strip" id="home-quest-btns"></div>
 
   <!-- 期間の切替：月次／年次、前後の期間、今月・先月ショートカット -->
   <div class="dash-bar">
@@ -972,6 +999,27 @@ textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
     <div class="game-card">
       <div class="game-card-title"><span>📦 最近の注文</span><small>最新5件</small></div>
       <div class="recent-list" id="dash-recent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- QUEST PAGE（レベル・弥生会計記帳・今日のミッション） -->
+<!-- ホームに詰め込むとiPhone/iPadで縦に長くなりすぎるため独立ページにした。
+     描画関数は従来と同じ（要素のidを変えずにここへ移しただけ） -->
+<div class="page" id="page-quest">
+  <div class="quest-page-grid">
+    <div class="game-card quest-level-card">
+      <div class="dash-level-top"><span id="dash-level-label">🌱 Lv.1 見習い店主</span><span id="dash-exp-label">0%</span></div>
+      <div class="exp-track"><div class="exp-fill" id="dash-exp-fill" style="width:0%"></div></div>
+      <div class="quest-level-meta"><span>次のレベルまで</span><span id="dash-exp-detail">EXP 0 / 3,000</span></div>
+      <div class="quest-level-src" id="dash-exp-src"></div>
+    </div>
+    <div class="game-card" id="dash-quests"></div>
+    <div class="game-card">
+      <div class="game-card-title"><span>🎁 今日のミッション</span><small>売上UP・認知度UP</small></div>
+      <div class="mission-list" id="dash-missions"></div>
+      <div class="reward" id="dash-reward">🪙 今日の報酬　+0 EXP</div>
+      <div class="dash-streak" id="dash-streak"></div>
     </div>
   </div>
 </div>
@@ -5208,6 +5256,7 @@ function dashRenderMissions(){
       <div class="mission-exp">+${r.exp}<small>EXP</small></div>
     </div>`).join('');
   const done=rows.filter(r=>r.done).length;
+  dashMissionDone = done; dashMissionTotal = rows.length;   // ホームのボタン・タブのバッジ用
   const all = rows.length===done;
   const gained = dashDayExp(list);
   document.getElementById('dash-reward').innerHTML = all
@@ -5216,6 +5265,8 @@ function dashRenderMissions(){
   const st=dashStreakDays();
   dashSet('dash-streak', st>0 ? `🔥 ${st}日連続でミッションに挑戦中！` : '今日1つクリアして連続記録をスタート！');
   if (changed) { dashRenderHero(); }
+  // タップの結果をホームのボタンとタブのバッジにも即反映する
+  updateQuestBadge(); renderHomeQuestButtons();
 }
 function dashToggleMission(id,el){
   const c=dashMissionCtx(), list=dashDayList(c.dayKey);
@@ -5267,7 +5318,7 @@ function dashRenderQuests(){
   const nudge = (sel===prevKey && doneN<total) ? `<div class="quest-nudge">⚠ 先月分の記帳があと <b>${total-doneN}つ</b> 残っています。会計ソフトに入れるのは、思い出せる今のうちに！</div>` : '';
   const clear = doneN===total ? `<div class="quest-clear"><span class="qc-stamp">MISSION<br>CLEAR!</span><div><b>${ph}の記帳、ぜんぶ完了！</b><br><small>+${DASH_QUEST_EXP*total+DASH_QUEST_ALL} EXP（全クリアボーナス +${DASH_QUEST_ALL} 込み）</small></div></div>` : '';
   el.innerHTML = `
-    <div class="game-card-title"><span>📒 クエスト</span><small>入力して EXP ゲット</small></div>
+    <div class="game-card-title"><span>📒 弥生会計記帳</span><small>入力して EXP ゲット</small></div>
     <div class="quest-tabs">
       <button class="quest-tab ${sel===prevKey?'on':''}" onclick="dashQuestPick('${prevKey}')">先月分 <em>${dashQuestCount(prevKey)}/${total}</em></button>
       <button class="quest-tab ${sel===curKey?'on':''}" onclick="dashQuestPick('${curKey}')">今月分 <em>${dashQuestCount(curKey)}/${total}</em></button>
@@ -5284,6 +5335,8 @@ function dashRenderQuests(){
           <div class="quest-acts">${x.acts.map(a=>`<button class="quest-btn" onclick="${a.f}">${a.l}</button>`).join('')}</div></div>
         <button class="quest-check ${done?'on':''}" onclick="dashToggleQuest('${sel}','${x.id}',this)">${done?'✔ クリア済み':(x.empty?'該当なしでクリア':'入力した！')}</button>
       </div>`;}).join('')}</div>`;
+  // クリアの結果をホームのボタンとタブのバッジにも即反映する
+  updateQuestBadge(); renderHomeQuestButtons();
 }
 function dashQuestPick(key){ dashQuestSel=key; dashRenderQuests(); }
 function dashToggleQuest(key,id,btn){
@@ -5437,6 +5490,70 @@ function saveGoals(){
   dashDraw();
 }
 
+// ---------- ホームのボタン／タブのバッジ／記帳・ミッションページ ----------
+let dashMissionDone = 0, dashMissionTotal = 5;
+
+function gotoQuestTab(){ const t=document.querySelector('.tab[data-tab="quest"]'); if(t) t.click(); }
+
+// 先月分の記帳が残っているか（残っていればタブとボタンで知らせる）
+function dashQuestPending(){
+  const now=new Date(), p=dashPrevOf(now.getFullYear(), now.getMonth()+1);
+  const key=dashMonthKey(p.y,p.m), total=dashQuestIds().length, done=dashQuestCount(key);
+  return { key, label:`${p.m}月分`, done, total, left:total-done };
+}
+
+function updateQuestBadge(){
+  const el=document.getElementById('quest-badge'); if(!el) return;
+  const q=dashQuestPending();
+  const left=q.left + Math.max(0, dashMissionTotal - dashMissionDone);
+  el.textContent = String(left);
+  el.className = 'tab-badge' + (left>0 ? ' on' : '');
+}
+
+// ホームには「ボタンのみ」を置く（レベル・ミッション・記帳の要約＋タップで専用ページへ）
+function renderHomeQuestButtons(){
+  const el=document.getElementById('home-quest-btns'); if(!el) return;
+  const cy=new Date().getFullYear();
+  const yearSales=dashStats(dashSlice(cy,0)).sales;
+  const totalExp=Math.floor(Math.max(0,yearSales)/DASH_EXP_PER_YEN)+dashBonusExp(cy);
+  const level=Math.floor(totalExp/DASH_EXP_PER_LV)+1, pct=Math.round((totalExp%DASH_EXP_PER_LV)/DASH_EXP_PER_LV*100);
+  const rank = level>=20?'🌸':level>=10?'🌳':level>=5?'🌿':'🌱';
+  const q=dashQuestPending();
+  const mDone=dashMissionDone, mTotal=Math.max(1,dashMissionTotal);
+  const btn=(cls,ico,name,val,sub,bar)=>`<button class="hq-btn ${cls}" onclick="gotoQuestTab()">
+      <span class="hq-top"><span class="hq-ico">${ico}</span><span class="hq-name">${name}</span></span>
+      <span class="hq-val">${val}</span>
+      <span class="hq-bar"><i style="width:${Math.min(100,Math.max(0,bar))}%"></i></span>
+      <span class="hq-sub">${esc(sub)}</span>
+    </button>`;
+  el.innerHTML =
+    btn('', rank, 'レベル', `Lv.${level}`, `次のレベルまで ${pct}%`, pct) +
+    btn('', '🎁', 'ミッション', `${mDone}<small>/${mTotal}</small>`,
+        mDone>=mTotal ? '全部クリア！' : 'タップして挑戦', mDone/mTotal*100) +
+    btn(q.left>0?'warn':'', '📒', '弥生会計記帳', `${q.done}<small>/${q.total}</small>`,
+        q.left>0 ? `${q.label}があと${q.left}つ` : `${q.label}は完了`, q.done/q.total*100);
+}
+
+function drawQuestPage(){ dashRenderQuests(); dashRenderMissions(); dashRenderHero(); updateQuestBadge(); renderHomeQuestButtons(); }
+
+// force=true : タブ切替時など、強制的に最新データを取り直す
+async function renderQuestPage(force){
+  const page=document.getElementById('page-quest');
+  if (!page) return;
+  if (!force && !page.classList.contains('on')) return;
+  if (dashSettingsState===0){
+    dashLoadSettings().then(()=>{ dashQuestSel=null; drawQuestPage(); });
+  }
+  // 記帳は「先月分／今月分」を扱うので、年をまたぐときは前の年も要る
+  const now=new Date(), cy=now.getFullYear(), py=dashPrevOf(cy, now.getMonth()+1).y;
+  const need=[...new Set([cy,py])].filter(y=>force || !dashCache[y] || (y===cy && Date.now()-dashCache[y].at>300000));
+  if (need.length){
+    page.classList.add('dash-loading');
+    try { await Promise.all(need.map(dashLoadYear)); } finally { page.classList.remove('dash-loading'); }
+  }
+  drawQuestPage();
+}
+
 // ---------- 描画の入口 ----------
 function dashDraw(){
   const now=new Date(), cy=now.getFullYear(), cm=now.getMonth()+1, isM=dashMode==='month', isCur=dashIsCurrent();
@@ -5460,6 +5577,8 @@ function dashDraw(){
   dashRenderMissions();
   dashRenderQuests();
   dashRenderHero();
+  renderHomeQuestButtons();
+  updateQuestBadge();
 }
 
 // force=true : タブ切替時など、強制的に最新データを取り直す
@@ -5494,6 +5613,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     tab.classList.add('on');
     document.getElementById('page-'+tab.dataset.tab).classList.add('on');
     if(tab.dataset.tab==='dashboard'){renderDashboard(true);}
+    if(tab.dataset.tab==='quest'){renderQuestPage(true);}
     if(tab.dataset.tab==='history'){historyData=[];renderHistory();}
     if(tab.dataset.tab==='analytics'){anAllHistory=[];window._stepAvgCache={};window._prodAvgCache={};window._shipAvgCache=null;renderAnalytics();}
     if(tab.dataset.tab==='accounting'){initAccounting();}
