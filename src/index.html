@@ -438,15 +438,15 @@ button,input,select,textarea{font-family:inherit}
   position:sticky!important;top:0!important;z-index:100;
   min-height:112px!important;height:auto!important;
   padding:14px 18px 16px!important;
-  display:grid!important;grid-template-columns:auto 1fr auto auto!important;
-  grid-template-areas:"logo center mascot status" "logo center mascot sync";
+  display:grid!important;grid-template-columns:auto auto 1fr auto!important;
+  grid-template-areas:"mascot logo center status" "mascot logo center sync";
   gap:6px 14px!important;
   background:linear-gradient(180deg,#8edcf0 0%,#bfeaf1 52%,#8ed5a2 53%,#6fc88b 100%)!important;
   border:0!important;border-bottom:4px solid #f6d9a3!important;
   box-shadow:0 5px 18px rgba(87,123,92,.18)!important;
   overflow:hidden;
 }
-/* ヘッダー右上の白丸におまんぼさんロゴを入れる（画像は単一HTML構成を保つためdata URIで埋め込み） */
+/* ヘッダー左上の白丸におまんぼさんロゴを入れる（画像は単一HTML構成を保つためdata URIで埋め込み） */
 .hdr::before{content:"";position:absolute;inset:auto 0 0;height:30px;background:radial-gradient(ellipse at 10% 100%,#58b779 0 34px,transparent 35px),radial-gradient(ellipse at 28% 100%,#78c989 0 42px,transparent 43px),radial-gradient(ellipse at 52% 100%,#4faf74 0 38px,transparent 39px),radial-gradient(ellipse at 78% 100%,#79c98b 0 44px,transparent 45px),radial-gradient(ellipse at 96% 100%,#4ca96f 0 38px,transparent 39px);opacity:.95}
 .hdr-logo{
   grid-area:logo;align-self:center;position:relative;z-index:2;
@@ -478,7 +478,7 @@ button,input,select,textarea{font-family:inherit}
 .hdr-pills{grid-area:status;display:flex!important;gap:6px!important;justify-content:flex-end;position:relative;z-index:2}
 .pill{background:rgba(255,255,255,.86)!important;border:1px solid rgba(116,94,70,.14)!important;color:#67594d!important;border-radius:999px!important;box-shadow:0 3px 10px rgba(86,72,53,.10)!important;padding:5px 10px!important;font-weight:700!important}
 .pill b{color:var(--green)!important}
-/* ヘッダー右上のマスコット。装飾ではなくグリッドの1列として置くことで、
+/* ヘッダー左上のマスコット。装飾ではなくグリッドの1列として置くことで、
    どの画面幅でもステータスピルや同期ボタンと重ならない。画像は単一HTML構成を
    保つためdata URIで埋め込み（~10KB） */
 .hdr-mascot{
@@ -619,7 +619,7 @@ button,input,select,textarea{font-family:inherit}
 }
 @media(max-width:620px){
   /* iPhone等の狭い画面。固定部（ヘッダー＋待ち時間＋タブ）が画面を占有しすぎないよう詰める */
-  .hdr{min-height:0!important;padding:7px 9px 9px!important;grid-template-columns:1fr auto auto!important;grid-template-areas:"logo mascot sync" "center status status";gap:4px 8px!important}
+  .hdr{min-height:0!important;padding:7px 9px 9px!important;grid-template-columns:auto 1fr auto!important;grid-template-areas:"mascot logo sync" "center center status";gap:4px 8px!important}
   .hdr-mascot{width:40px;height:40px;box-shadow:0 3px 8px rgba(70,95,70,.18),inset 0 0 0 2px rgba(255,255,255,.55)}
   .wbar{padding:5px 12px!important}
   .wbar-num{font-size:21px!important}
@@ -637,6 +637,184 @@ button,input,select,textarea{font-family:inherit}
   .dash-hero{display:grid;grid-template-columns:1fr}.dash-level{min-width:0}.dash-welcome-title{font-size:20px}.dash-kpis{gap:9px}.dash-kpi{min-height:118px;padding:13px}.kpi-value{font-size:22px}.dash-bottom-grid{grid-template-columns:1fr}.sales-chart{height:220px}
 }
 
+
+/* ================= v96 ホーム：期間切替・グラフ・目標・ミッション・記帳クエスト ================= */
+#page-dashboard.dash-loading .dash-kpis,#page-dashboard.dash-loading .dchart{opacity:.55;transition:opacity .2s}
+.dash-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.dash-seg{display:flex;flex:none;width:auto!important}
+.dash-seg .seg-btn{padding:8px 18px!important;font-size:13px!important;font-weight:900!important}
+.dash-nav{display:flex;align-items:center;gap:4px;background:#fffaf2;border:1px solid var(--border);border-radius:15px;box-shadow:var(--game-shadow);padding:3px}
+.dash-arrow{width:34px;height:34px;border:0;border-radius:11px;background:transparent;font-size:22px;font-weight:900;color:#725f50;cursor:pointer;touch-action:manipulation}
+.dash-arrow:hover:not(:disabled){background:#f6eee2}
+.dash-arrow:disabled{opacity:.3;cursor:default}
+.dash-period{min-width:116px;text-align:center;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:17px;color:#4b4038}
+.dash-chips{display:flex;gap:6px}
+.dash-chip{border:1px solid var(--border);background:#fff;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:800;color:#725f50;cursor:pointer;touch-action:manipulation}
+.dash-chip.on{background:linear-gradient(135deg,#61c39a,#46aa83);color:#fff;border-color:#55ae8c}
+.dash-goal-btn{margin-left:auto;border:0;border-radius:999px;padding:9px 16px;font-size:12px;font-weight:900;color:#fff;background:linear-gradient(135deg,#f6a15c,#eb6834);box-shadow:0 4px 0 rgba(180,80,30,.18);cursor:pointer;touch-action:manipulation}
+.dash-goal-btn:active{transform:translateY(2px);box-shadow:none}
+.mini-btn{border:1px solid #e6d8c4;background:#fffaf0;border-radius:999px;padding:4px 11px;font-size:11px;font-weight:800;color:#8d681c;cursor:pointer;touch-action:manipulation}
+
+/* KPI：前期比 */
+.dash-kpi{min-height:0!important}
+.kpi-cmp{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(112,89,62,.18)}
+.kpi-delta{font-size:12px;font-weight:900;white-space:nowrap}
+.kpi-delta em{font-style:normal;font-weight:700;font-size:10px;margin-left:3px;color:#8b7c70}
+.kpi-delta.good{color:#1a8f62}.kpi-delta.bad{color:#d6453f}.kpi-delta.flat{color:#8b7c70}
+.kpi-prevval{font-size:10px;color:#8b7c70;font-weight:700}
+
+/* グラフ */
+.dash-col{display:grid;gap:14px;min-width:0}
+.game-card{min-width:0}
+.dchart{position:relative;width:100%;overflow:hidden;background:linear-gradient(180deg,#fffefa,#fffbf5);border-radius:14px;touch-action:pan-y}
+.dchart svg{display:block;max-width:100%}
+.dsvg-ax{font-size:10px;fill:#8b7c70}
+.dsvg-val{font-size:11px;font-weight:900;fill:#4b4038}
+.dsvg-ref{font-size:10px;font-weight:800;fill:#4b4038}
+.dbar{transition:opacity .12s,filter .12s}
+.dbar.hot{filter:brightness(.86)}
+.dhit{cursor:crosshair;outline:none}
+.dhit:focus-visible{outline:2px solid #2a78d6;outline-offset:-2px}
+.chart-legend .lg-bar{width:10px;height:10px;border-radius:3px;background:#8fd4bf;display:inline-block}
+.chart-legend .lg-tick{width:14px;height:0;border-top:2px solid var(--gc,#eb6834);display:inline-block;vertical-align:middle}
+.chart-legend .lg-line{width:16px;height:3px;border-radius:2px;display:inline-block}
+.chart-legend .lg-line.dash{background:repeating-linear-gradient(90deg,#eb6834 0 5px,transparent 5px 8px)!important}
+.dash-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11px;color:#725f50;font-weight:800;margin-bottom:8px}
+.dash-legend span{display:inline-flex;align-items:center;gap:5px}
+.dash-legend i{display:inline-block}
+.dash-legend .lg-bar{width:10px;height:10px;border-radius:3px}
+.dash-legend .lg-tick{width:14px;height:0;border-top:2px solid #eb6834}
+.dash-legend .lg-line{width:16px;height:3px;border-radius:2px}
+.dash-legend .lg-line.dash{background:repeating-linear-gradient(90deg,#eb6834 0 5px,transparent 5px 8px)!important}
+.dash-note{font-size:11px;color:#8b7c70;font-weight:700;margin:-6px 0 8px}
+.dash-table{margin-top:10px;font-size:11px}
+.dash-table summary{cursor:pointer;color:#8d681c;font-weight:800;padding:4px 0}
+.dash-tbl{width:100%;border-collapse:collapse;margin-top:6px;font-variant-numeric:tabular-nums}
+.dash-tbl th,.dash-tbl td{padding:4px 6px;text-align:right;border-bottom:1px solid #eee5da;font-size:11px}
+.dash-tbl th:first-child,.dash-tbl td:first-child{text-align:left}
+.dash-tbl th{color:#8b7c70;font-weight:800;position:sticky;top:0;background:#fffdf8}
+.dash-table>div{max-height:260px;overflow:auto}
+.dash-none{padding:20px 5px;text-align:center;color:#a39588;font-size:12px}
+#dash-tip{position:fixed;z-index:400;display:none;pointer-events:none;background:rgba(58,46,36,.94);color:#fff;border-radius:10px;padding:8px 11px;font-size:11px;min-width:130px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+#dash-tip .dt-head{font-weight:900;font-size:12px;margin-bottom:5px;color:#fff}
+#dash-tip .dt-row{display:flex;align-items:center;gap:6px;margin-top:3px}
+#dash-tip .dt-row i{width:12px;height:3px;border-radius:2px;flex:none}
+#dash-tip .dt-row i.dt-dash{background-image:repeating-linear-gradient(90deg,#eb6834 0 4px,transparent 4px 6px)!important;background-color:transparent!important}
+#dash-tip .dt-row b{font-size:12px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums}
+#dash-tip .dt-row span{color:#d8cdbf;font-size:10px}
+
+/* 目標カード */
+.goal-empty{text-align:center;color:#8b7c70;font-size:12px;font-weight:700;line-height:1.7;padding:6px 4px 4px}
+.goal-empty-ico{font-size:34px;margin-bottom:4px}
+.goal-big{font-size:26px;font-weight:900;margin:2px 0 8px;color:#4b4038}
+.goal-big small{font-size:14px;color:#2a78d6;margin-left:6px}
+.goal-track2{position:relative;height:12px;background:#eee8df;border-radius:99px;overflow:visible}
+.goal-fill2{height:100%;background:linear-gradient(90deg,#5aa4ea,#2a78d6);border-radius:99px}
+.goal-pace{position:absolute;top:-4px;width:3px;height:20px;margin-left:-1.5px;background:#4b4038;border-radius:2px}
+.goal-scale{display:flex;justify-content:space-between;font-size:10px;color:#8b7c70;font-weight:700;margin:6px 0 8px}
+.goal-gap{padding:10px 12px;border-radius:14px;font-size:13px;font-weight:800;margin:8px 0}
+.goal-gap b{font-size:20px;font-weight:900}
+.goal-gap.need{background:#fff1e6;color:#b4501e;border:1px solid #f6d3b8}
+.goal-gap.ok{background:#e9f8ef;color:#1a8f62;border:1px solid #c4ead5}
+.goal-line{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#725f50;font-weight:700;padding:6px 2px;border-bottom:1px solid #f0e8dc}
+.goal-line b{color:#4b4038;font-weight:900;text-align:right}
+.goal-line b.need{color:#b4501e}.goal-line b.ok{color:#1a8f62}
+.goal-memo{margin-top:10px;padding:9px 11px;border-radius:12px;background:#fffaf0;border:1px dashed #e6d3b4;font-size:11px;color:#8d681c;font-weight:700;line-height:1.6;cursor:pointer;white-space:pre-wrap;word-break:break-word}
+.goal-memo b{font-weight:900}
+#ov-goal .gm{display:block}
+#ov-goal .gm span{display:block;font-size:10px;font-weight:800;color:var(--dim);margin-bottom:2px}
+#ov-goal .gm .sh-input{margin-bottom:0;padding:7px 8px;font-size:13px}
+.goal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:6px}
+.goal-2col{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.goal-tools{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px}
+.goal-tools button{border:1px solid var(--border);background:var(--s2);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:800;color:#725f50;cursor:pointer}
+.goal-sum-note{font-size:11px;color:var(--dim);margin-bottom:12px;line-height:1.5}
+textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
+
+/* ミッション */
+.mission-row{transition:background .2s,border-color .2s}
+.mission-row.tap{cursor:pointer;touch-action:manipulation}
+.mission-row.tap:active{transform:scale(.985)}
+.mission-row.done{background:#eefaf3;border-color:#c4ead5}
+.mission-row.done .mission-text{color:#5b8a72;text-decoration:line-through;text-decoration-color:rgba(91,138,114,.5)}
+.mission-body{flex:1;min-width:0}
+.mission-body .mission-text{font-size:12px;font-weight:800;line-height:1.45}
+.mission-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;font-size:10px;color:#9a8c7e;font-weight:700}
+.mission-cat{background:#eef6ff;color:#2a78d6;border-radius:99px;padding:1px 8px;font-weight:900}
+.mission-kind{background:#f5efe6;border-radius:99px;padding:1px 8px}
+.mission-exp{font-size:14px;font-weight:900;color:#45a57d;text-align:right;line-height:1}
+.mission-exp small{display:block;font-size:8px;margin-top:2px}
+.reward small{font-weight:700;color:#a58a55}
+.dash-streak{margin-top:8px;font-size:11px;font-weight:800;color:#b4501e;text-align:center}
+
+/* 記帳クエスト */
+.quest-tabs{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.quest-tab{border:1px solid var(--border);background:#fff;border-radius:12px;padding:7px 13px;font-size:12px;font-weight:900;color:#725f50;cursor:pointer;touch-action:manipulation}
+.quest-tab em{font-style:normal;font-size:10px;margin-left:4px;color:#9a8c7e}
+.quest-tab.on{background:#fff4df;border-color:#e6c990;color:#8d681c}
+.quest-streak{margin-left:auto;font-size:11px;font-weight:900;color:#8d681c;background:#fff0bd;border-radius:99px;padding:4px 10px}
+.quest-prog{display:flex;align-items:center;gap:4px;margin-bottom:10px}
+.quest-prog i{flex:1;height:10px;border-radius:99px;background:#eee8df;max-width:64px}
+.quest-prog i.on{background:linear-gradient(90deg,#f6c24a,#eb9a34)}
+.quest-prog span{margin-left:8px;font-size:11px;font-weight:900;color:#725f50;white-space:nowrap}
+.quest-nudge{background:#fff1e6;border:1px solid #f6d3b8;color:#b4501e;border-radius:12px;padding:8px 11px;font-size:11px;font-weight:800;margin-bottom:10px;line-height:1.5}
+.quest-clear{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#fff0bd,#fff9e8);border:2px solid #f1d178;border-radius:16px;padding:12px 14px;margin-bottom:10px;font-size:12px;color:#7a5a12;animation:questPop .5s ease-out}
+.quest-clear small{color:#a58a55;font-weight:700}
+.qc-stamp{flex:none;transform:rotate(-8deg);border:3px solid #e0533f;color:#e0533f;border-radius:10px;padding:5px 9px;font-weight:900;font-size:12px;line-height:1.15;text-align:center;letter-spacing:.06em}
+@keyframes questPop{0%{transform:scale(.9);opacity:0}60%{transform:scale(1.03)}100%{transform:scale(1);opacity:1}}
+.quest-list{display:grid;gap:9px}
+.quest-row{display:grid;grid-template-columns:auto 1fr auto;gap:11px;align-items:center;background:#fffaf0;border:1px solid #eee2cf;border-radius:15px;padding:11px 12px;transition:background .2s}
+.quest-row.done{background:#eefaf3;border-color:#c4ead5}
+.quest-ico{font-size:26px;width:34px;text-align:center}
+.quest-title{font-size:14px;font-weight:900;color:#4b4038;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.quest-exp{font-size:10px;font-weight:900;color:#45a57d;background:#e4f6ec;border-radius:99px;padding:1px 8px}
+.quest-desc{font-size:12px;font-weight:800;color:#725f50;margin-top:3px}
+.quest-desc.is-empty{color:#a39588}
+.quest-hint{font-size:10px;color:#a39588;font-weight:700;margin-top:1px}
+.quest-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.quest-btn{border:1px solid #e0d2bb;background:#fff;border-radius:10px;padding:6px 10px;font-size:11px;font-weight:800;color:#725f50;cursor:pointer;touch-action:manipulation}
+.quest-btn:hover{background:#fff8ea}
+.quest-btn.primary{border:0;background:linear-gradient(135deg,#f6a15c,#eb6834);color:#fff;padding:9px 16px;margin-top:10px;font-size:12px}
+.quest-check{border:0;border-radius:13px;padding:11px 14px;font-size:12px;font-weight:900;color:#fff;background:linear-gradient(135deg,#61c39a,#46aa83);box-shadow:0 4px 0 rgba(60,140,105,.25);cursor:pointer;white-space:nowrap;touch-action:manipulation}
+.quest-check:active{transform:translateY(3px);box-shadow:none}
+.quest-check.on{background:#dff3e8;color:#3d8a68;box-shadow:none}
+.dash-confetti{position:fixed;z-index:500;font-size:20px;pointer-events:none;animation:dashPop 1s ease-out forwards}
+@keyframes dashPop{0%{transform:translate(0,0) rotate(0) scale(.6);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--rot)) scale(1.1);opacity:0}}
+@media (prefers-reduced-motion:reduce){.quest-clear{animation:none}}
+
+/* 内訳 */
+.split-bar{display:flex;gap:2px;height:22px;margin-bottom:12px}
+.split-bar i{display:block;min-width:4px;border-radius:6px}
+.split-list{display:grid;gap:7px}
+.split-list .summary-item{font-size:12px}
+.split-list em{font-style:normal;font-size:10px;color:#8b7c70;font-weight:700;margin-left:3px}
+.split-loss{margin-top:10px;padding:8px 10px;border-radius:12px;background:#fdeceb;color:#d6453f;font-size:11px;font-weight:800}
+.mix-title{font-size:11px;font-weight:900;color:#8b7c70;margin-bottom:6px}
+.mix-row{display:grid;grid-template-columns:86px 1fr 38px;gap:8px;align-items:center;font-size:11px;font-weight:800;color:#4b4038;margin-bottom:6px}
+.mix-row em{grid-column:2/4;font-style:normal;font-size:10px;color:#a39588;font-weight:700;margin-top:-4px}
+.mix-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mix-bar{height:8px;background:#eee8df;border-radius:99px;overflow:hidden}
+.mix-bar i{display:block;height:100%;background:#2a78d6;border-radius:99px}
+.mix-row b{text-align:right;font-size:11px}
+.dash-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start;margin-bottom:14px}
+
+@media(max-width:900px){
+  .dash-3col{grid-template-columns:1fr 1fr}
+  .goal-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:620px){
+  .dash-bar{gap:8px}
+  .dash-goal-btn{margin-left:0}
+  .dash-period{min-width:96px;font-size:15px}
+  .dash-3col{grid-template-columns:1fr}
+  .quest-row{grid-template-columns:auto 1fr}
+  .quest-check{grid-column:1/-1;width:100%}
+  .quest-ico{font-size:22px;width:28px}
+  .kpi-value{font-size:20px!important}
+  .kpi-cmp{flex-direction:column;align-items:flex-start;gap:2px}
+  .goal-big{font-size:22px}
+  .goal-grid{grid-template-columns:repeat(3,1fr)}
+}
 </style>
 </head>
 <body>
@@ -659,9 +837,9 @@ button,input,select,textarea{font-family:inherit}
 <div id="app" style="display:none">
 
 <header class="hdr">
+  <div class="hdr-mascot" aria-hidden="true"></div>
   <div class="hdr-logo">おまんぼさん</div>
   <div class="hdr-clock" id="clock">--:--</div>
-  <div class="hdr-mascot" aria-hidden="true"></div>
   <div class="hdr-pills">
     <div class="pill">現地 <b id="st-loc">0</b></div>
     <div class="pill">作業中 <b id="st-wip">0</b></div>
@@ -700,64 +878,87 @@ button,input,select,textarea{font-family:inherit}
     <div class="dash-welcome">
       <div class="dash-welcome-kicker">🌿 おまんぼさんのショップ島</div>
       <div class="dash-welcome-title">今日も <span>楽しくお店を育てよう！</span> ✨</div>
-      <div style="font-size:11px;color:#8f7f70;margin-top:5px;font-weight:700">売上・注文・利益をひとつの画面でチェックできます</div>
+      <div style="font-size:11px;color:#8f7f70;margin-top:5px;font-weight:700">月・年の売上、目標との差、記帳クエストをひとつの画面でチェック</div>
     </div>
     <div class="dash-level">
-      <div class="dash-level-top"><span id="dash-level-label">🌱 Lv.1 ショップ経営者</span><span id="dash-exp-label">0%</span></div>
+      <div class="dash-level-top"><span id="dash-level-label">🌱 Lv.1 見習い店主</span><span id="dash-exp-label">0%</span></div>
       <div class="exp-track"><div class="exp-fill" id="dash-exp-fill" style="width:0%"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:9px;color:#9a8c7e;margin-top:5px"><span>次のレベルまで</span><span id="dash-exp-detail">EXP 0 / 1000</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:#9a8c7e;margin-top:5px"><span>次のレベルまで</span><span id="dash-exp-detail">EXP 0 / 3,000</span></div>
+      <div style="font-size:9px;color:#b2a595;margin-top:3px" id="dash-exp-src"></div>
     </div>
   </div>
 
-  <div class="dash-kpis">
-    <div class="dash-kpi"><div class="kpi-icon">💰</div><div class="kpi-label">今日の売上</div><div class="kpi-value" id="dash-today-sales">¥0</div><div class="kpi-sub" id="dash-today-sub">昨日比 --</div></div>
-    <div class="dash-kpi"><div class="kpi-icon">🛒</div><div class="kpi-label">注文件数</div><div class="kpi-value" id="dash-order-count">0件</div><div class="kpi-sub" id="dash-order-sub">完了・受付中</div></div>
-    <div class="dash-kpi"><div class="kpi-icon">👥</div><div class="kpi-label">今月の注文</div><div class="kpi-value" id="dash-month-orders">0件</div><div class="kpi-sub">今月の実績</div></div>
-    <div class="dash-kpi"><div class="kpi-icon">⭐</div><div class="kpi-label">今月の売上</div><div class="kpi-value" id="dash-month-sales">¥0</div><div class="kpi-sub" id="dash-goal-sub">目標まであと ¥0</div></div>
+  <!-- 期間の切替：月次／年次、前後の期間、今月・先月ショートカット -->
+  <div class="dash-bar">
+    <div class="seg dash-seg" id="dash-mode">
+      <div class="seg-btn on" data-mode="month" onclick="dashSetMode('month')">月次</div>
+      <div class="seg-btn" data-mode="year" onclick="dashSetMode('year')">年次</div>
+    </div>
+    <div class="dash-nav">
+      <button class="dash-arrow" onclick="dashShift(-1)" aria-label="ひとつ前の期間">‹</button>
+      <div class="dash-period" id="dash-period">----年--月</div>
+      <button class="dash-arrow" id="dash-next" onclick="dashShift(1)" aria-label="ひとつ先の期間">›</button>
+    </div>
+    <div class="dash-chips" id="dash-chips"></div>
+    <button class="dash-goal-btn" onclick="openGoalModal()">🚩 目標を設定</button>
+  </div>
+
+  <div class="dash-kpis" id="dash-kpis"></div>
+
+  <div class="dash-main-grid">
+    <div class="dash-col">
+      <div class="game-card">
+        <div class="game-card-title"><span id="dash-trend-title">📊 日別売上</span></div>
+        <div class="dash-legend" id="dash-trend-legend"></div>
+        <div id="dash-trend"></div>
+      </div>
+      <div class="game-card">
+        <div class="game-card-title"><span id="dash-cum-title">📈 累計売上</span></div>
+        <div class="dash-legend" id="dash-cum-legend"></div>
+        <div id="dash-cum"></div>
+        <details class="dash-table"><summary>📋 グラフの数字を表で見る</summary><div id="dash-table"></div></details>
+      </div>
+    </div>
+    <div class="dash-side">
+      <div class="game-card goal-card" id="dash-goal-card"></div>
+    </div>
   </div>
 
   <div class="dash-main-grid">
+    <div class="game-card" id="dash-quests"></div>
     <div class="game-card">
-      <div class="game-card-title"><span>📈 今月の売上推移</span><small class="chart-legend"><span><i class="lg-bar"></i>日別</span><span><i class="lg-line"></i>累計</span></small></div>
-      <div class="sales-chart">
-        <div class="sales-grid"></div>
-        <div class="chart-y" id="dash-chart-y"><span>¥0</span><span>¥0</span><span>¥0</span><span>¥0</span><span>¥0</span></div>
-        <div class="chart-y2" id="dash-chart-y2"></div>
-        <div class="sales-bars" id="dash-sales-bars"></div>
-        <div class="sales-line" id="dash-sales-line"></div>
-        <div class="chart-axis" id="dash-chart-axis"></div>
-        <div class="today-bubble" id="dash-today-bubble">今日 ¥0</div>
-      </div>
-    </div>
-
-    <div class="dash-side">
-      <div class="game-card">
-        <div class="game-card-title"><span>🎁 今日のミッション</span><small>EXPを獲得</small></div>
-        <div class="mission-list" id="dash-missions"></div>
-        <div class="reward">🪙 今日の報酬　<span id="dash-reward">+0 EXP</span></div>
-      </div>
-      <div class="game-card goal-card">
-        <div class="game-card-title"><span>🚩 今月の目標</span><small>ショップ目標</small></div>
-        <div class="goal-meta"><span>目標金額</span><b id="dash-goal-total">¥500,000</b></div>
-        <div class="goal-big" id="dash-goal-current">¥0</div>
-        <div class="goal-meta"><span>現在の売上</span><span id="dash-goal-pct">0%</span></div>
-        <div class="goal-track"><div class="goal-fill" id="dash-goal-fill" style="width:0%"></div></div>
-      </div>
+      <div class="game-card-title"><span>🎁 今日のミッション</span><small>売上UP・認知度UP</small></div>
+      <div class="mission-list" id="dash-missions"></div>
+      <div class="reward" id="dash-reward">🪙 今日の報酬　+0 EXP</div>
+      <div class="dash-streak" id="dash-streak"></div>
     </div>
   </div>
 
-  <div class="dash-bottom-grid">
+  <div class="dash-3col">
     <div class="game-card">
-      <div class="game-card-title"><span>👑 商品別売上ランキング</span><small>今月</small></div>
+      <div class="game-card-title"><span id="dash-b1-title">📅 曜日別の売上</span></div>
+      <div class="dash-note" id="dash-b1-note"></div>
+      <div id="dash-b1"></div>
+    </div>
+    <div class="game-card">
+      <div class="game-card-title"><span id="dash-b2-title">🧾 日別の注文件数</span></div>
+      <div class="dash-note" id="dash-b2-note"></div>
+      <div id="dash-b2"></div>
+    </div>
+    <div class="game-card">
+      <div class="game-card-title"><span>👜 売上のゆくえ</span><small>原価・経費・利益</small></div>
+      <div id="dash-split"></div>
+    </div>
+  </div>
+
+  <div class="dash-3col">
+    <div class="game-card">
+      <div class="game-card-title"><span>👑 商品別売上ランキング</span><small>この期間</small></div>
       <div id="dash-ranking"></div>
     </div>
     <div class="game-card">
-      <div class="game-card-title"><span>👜 売上・利益サマリー</span><small>今月</small></div>
-      <div class="donut-wrap">
-        <div class="donut" id="dash-donut"></div>
-        <div class="summary-list" id="dash-summary"></div>
-      </div>
-      <div class="dash-mini-note">🌱 売上だけでなく、原価・経費・利益もここで確認できます。</div>
+      <div class="game-card-title"><span>🧭 売上の出どころ</span><small>認知度・集客のヒント</small></div>
+      <div id="dash-mix"></div>
     </div>
     <div class="game-card">
       <div class="game-card-title"><span>📦 最近の注文</span><small>最新5件</small></div>
@@ -958,6 +1159,7 @@ button,input,select,textarea{font-family:inherit}
               <option value="fuel">⛽ 燃料費</option>
               <option value="expressway">🛣 高速代</option>
               <option value="accommodation">🏨 宿泊費</option>
+              <option value="booth">🎪 出展料</option>
               <option value="other">📦 その他</option>
             </select>
           </div>
@@ -1243,6 +1445,35 @@ button,input,select,textarea{font-family:inherit}
 </div>
 </div>
 
+<!-- GOAL MODAL（年間・月間の目標設定） -->
+<div class="overlay" id="ov-goal">
+<div class="sheet">
+  <div class="sh-title">🚩 目標を設定</div>
+  <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.6">年間目標を決めると、月の目標は自動で「年間÷12」になります。マルシェの繁忙期など、月ごとに変えたい場合は下の月別欄に入力してください。</div>
+  <div class="sh-lbl" id="goal-year-lbl">年間目標</div>
+  <div class="goal-2col">
+    <div><div class="sh-lbl" style="font-weight:600">売上目標（円）</div><input type="number" inputmode="numeric" class="sh-input" id="goal-y-sales" placeholder="例：6000000" oninput="dashGoalSumNote()"></div>
+    <div><div class="sh-lbl" style="font-weight:600">利益目標（円・任意）</div><input type="number" inputmode="numeric" class="sh-input" id="goal-y-profit" placeholder="例：2000000"></div>
+  </div>
+  <div class="sh-lbl">年間の作戦メモ（足りない分をどう埋めるか）</div>
+  <textarea class="sh-input" id="goal-y-memo" placeholder="例：秋の大型イベント2回で+30万、ネット販売を月10件に"></textarea>
+  <div class="sh-lbl">月別の売上目標（空欄なら年間÷12）</div>
+  <div class="goal-grid" id="goal-months"></div>
+  <div class="goal-tools">
+    <button type="button" onclick="dashGoalSplit()">年間を12か月に均等割り</button>
+    <button type="button" onclick="dashGoalFromMonths()">月別の合計を年間目標にする</button>
+  </div>
+  <div class="goal-sum-note" id="goal-sum-note"></div>
+  <input type="hidden" id="goal-memo-month">
+  <div class="sh-lbl" id="goal-memo-lbl">今月の作戦メモ</div>
+  <textarea class="sh-input" id="goal-m-memo" placeholder="例：週末のマルシェ出展で+8万、新作を3点追加"></textarea>
+  <div style="display:flex;gap:9px;margin-top:4px">
+    <button class="sh-cancel" onclick="closeOverlay('ov-goal')">キャンセル</button>
+    <button class="sh-ok" onclick="saveGoals()">保存する</button>
+  </div>
+</div>
+</div>
+
 <!-- STOCK ADJUST MODAL -->
 <div class="overlay" id="ov-stock">
 <div class="sheet">
@@ -1404,7 +1635,7 @@ let orderPayment = 'cash';
 // ============================================================
 //  GAS API
 // ============================================================
-async function api(action, data={}, retry=1, forceShow=null) {
+async function api(action, data={}, retry=1, forceShow=null, quiet=false) {
   // 軽微な操作はローディング非表示
   const showLoad = forceShow !== null ? forceShow : !['updateStep','updateItem','ping','getAll','getHistory'].includes(action);
   if (showLoad) showLoading(true);
@@ -1446,6 +1677,7 @@ async function api(action, data={}, retry=1, forceShow=null) {
       await new Promise(res => setTimeout(res, 1500));
       return api(action, data, retry - 1);
     }
+    if (quiet) { console.warn('api(quiet) failed:', action, e.message); return null; }
     toast('❌ ' + e.message);
     return null;
   } finally {
@@ -4155,22 +4387,46 @@ document.getElementById('csv-btn').addEventListener('click',async()=>{const res=
 
 // ============================================================
 // ============================================================
-//  GAME DASHBOARD / HOME（ホーム画面）
-//  既存の注文・履歴・経費データだけを使った見える化。画像ファイルは使用しない。
+//  GAME DASHBOARD / HOME（ホーム画面）v96
+//  ・月次／年次の切替、先月・前年との比較、グラフ表示
+//  ・年間／月間の目標設定（あと◯◯足りない・必要ペース・作戦メモ）
+//  ・今日のミッション（売上UP・認知度UP）と、記帳クエスト（売上金／経費／出展料の入力）
+//  設定（目標・ミッション達成・記帳クエスト）はGASのconfigシートに保存し、
+//  GAS未更新やオフライン時でも動くようlocalStorageにも二重に持つ。
 //  ダミー値は一切表示しない（データが無い場合は0またはプレースホルダを出す）。
 // ============================================================
-let dashHistory    = [];   // 今月の完了履歴（getHistory）
-let dashExpenses   = [];   // 今月の経費（getExpenses）
-let dashLoadedKey  = '';   // 読み込み済みの「年-月」。月が変わったら再取得
-let dashLoading    = false;
-const DASH_GOAL    = 500000;   // 今月の売上目標（円）
-const DASH_EXP_PER_YEN = 50;   // ¥50 = 1EXP
-const DASH_EXP_PER_LV  = 1000; // 1レベル = 1000EXP
+const DASH_EXP_PER_YEN   = 50;    // ¥50 = 1EXP
+const DASH_EXP_PER_LV    = 3000;  // 1レベル = 3000EXP（今年の累計で計算）
+const DASH_QUEST_EXP     = 300;   // 記帳クエスト1つ
+const DASH_QUEST_ALL     = 500;   // 記帳クエスト全クリアのボーナス
+const DASH_DAY_ALL       = 200;   // 今日のミッション全クリアのボーナス
+// 系列色（dataviz検証済み：青・橙・アクア／紫・マゼンタ・アクアの組。前期はグレー＝控えめ）
+const DC = { sales:'#2a78d6', goal:'#eb6834', prev:'#a39d94', profit:'#1baf7a', cost:'#4a3aa7', expense:'#e87ba4', loss:'#e34948', ink:'#4b4038', mute:'#8b7c70', grid:'#eee7dd', surface:'#fffdf8' };
+const DASH_WD = ['日','月','火','水','木','金','土'];
 
-function dashMoney(n){ return '¥' + Number(n||0).toLocaleString(); }
-function dashDateKey(d){ const x=new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
-function dashMonthKey(d){ const x=new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`; }
+let dashMode = 'month';
+let dashY = new Date().getFullYear();
+let dashM = new Date().getMonth()+1;
+let dashCache = {};        // {年: {history, expenses, fixed, at}}
+let dashInflight = {};     // {年: Promise}
+let dashHasDataApi = null; // getDashData（1通信版）が使えるか。null=未確認／false=GAS未更新のため従来の3通信
+let dashRenderToken = 0;
+let dashQuestSel = null;   // 記帳クエストで表示中の 'YYYY-MM'
+let dashSettings = { goals:{year:{}, month:{}}, quests:{}, daily:{} };
+let dashSettingsState = 0; // 0=未読込 1=読込中 2=完了
+let dashView = null;       // 直近の描画データ（リサイズ時の再描画用）
+
+// ---------- 共通ヘルパー ----------
+function dashMoney(n){ return '¥' + Math.round(Number(n||0)).toLocaleString(); }
+function dashShort(n){ n=Math.round(n); return Math.abs(n)>=10000 ? (Math.round(n/1000)/10).toLocaleString()+'万' : n.toLocaleString(); }
+function dashPad(n){ return String(n).padStart(2,'0'); }
+function dashDateKey(d){ const x=new Date(d); return `${x.getFullYear()}-${dashPad(x.getMonth()+1)}-${dashPad(x.getDate())}`; }
+function dashMonthKey(y,m){ return `${y}-${dashPad(m)}`; }
 function dashHistorySales(h){ return (h.salesItems||[]).reduce((s,si)=>s+Number(si.price||0),0); }
+function dashInPeriod(dateStr,y,m){ const d=new Date(dateStr); if(isNaN(d)) return false; return d.getFullYear()===y && (!m || d.getMonth()+1===m); }
+function dashPct(cur,prev){ return prev>0 ? Math.round((cur-prev)/prev*100) : null; }
+function dashDaysIn(y,m){ return new Date(y,m,0).getDate(); }
+function dashSet(id,val){ const e=document.getElementById(id); if(e) e.textContent=val; }
 
 // 注文（未完了）の商品名を products から解決する
 function dashOrderLabel(o){
@@ -4183,168 +4439,829 @@ function dashOrderLabel(o){
   return items.length>1 ? `${name} 他${items.length-1}点` : name;
 }
 
-// force=true : タブ切替時など、強制的に最新データを取り直す
-async function renderDashboard(force){
-  const page = document.getElementById('page-dashboard');
-  if (!page) return;
-  // ホームが表示されていないときは通信しない（render()から毎回呼ばれるため）
-  if (!force && !page.classList.contains('on')) return;
-  if (dashLoading) return;
+// キリの良い目盛（1・2・5×10^n）を作る
+function dashScale(v, minMax){
+  v = Math.max(v, minMax||1);
+  const raw = v/4, e = Math.pow(10, Math.floor(Math.log10(raw))), f = raw/e;
+  const step = (f<=1?1:f<=2?2:f<=5?5:10)*e;
+  const max = Math.ceil(v/step)*step, ticks=[];
+  for (let t=0; t<=max+step*1e-6; t+=step) ticks.push(t);
+  return { max, ticks };
+}
 
-  const now = new Date();
-  const y=now.getFullYear(), m=now.getMonth()+1, today=now.getDate();
-  const key = `${y}-${m}`;
-  if (force || dashLoadedKey !== key) {
-    dashLoading = true;
-    try {
-      const [hRes, eRes] = await Promise.all([
-        api('getHistory',  { year:y, month:m }),
-        api('getExpenses', { year:y, month:m })
-      ]);
-      // 通信に失敗した場合は前回のデータを保持したまま描画を続ける
-      if (hRes) { dashHistory = hRes.history || []; dashLoadedKey = key; }
-      if (eRes) { dashExpenses = eRes.expenses || []; }
-    } finally {
-      dashLoading = false;
-    }
+// ---------- 設定の保存（サーバー＋localStorage） ----------
+function dashLsGet(k){ try{ const v=localStorage.getItem('mb_dash_'+k); return v?JSON.parse(v):null; }catch(e){ return null; } }
+function dashLsSet(k,v){ try{ localStorage.setItem('mb_dash_'+k, JSON.stringify(v)); }catch(e){} }
+
+function dashLoadLocalSettings(){
+  const g=dashLsGet('goals'), q=dashLsGet('quests'), d=dashLsGet('daily');
+  if (g && typeof g==='object') dashSettings.goals = { year:g.year||{}, month:g.month||{} };
+  if (q && typeof q==='object') dashSettings.quests = q;
+  if (d && typeof d==='object') dashSettings.daily = d;
+}
+// key: 'goals' | 'quests' | 'daily_YYYY-MM'
+function dashSaveSetting(key){
+  let value;
+  if (key==='goals')       { value = dashSettings.goals;  dashLsSet('goals', value); }
+  else if (key==='quests') { value = dashSettings.quests; dashLsSet('quests', value); }
+  else { const mk=key.slice(6); value = dashSettings.daily[mk]||{}; dashLsSet('daily', dashSettings.daily); }
+  // サーバー保存。GAS未更新でもエラー表示せず、localStorageだけで動き続ける
+  api('saveDashSetting', { key, value: JSON.stringify(value) }, 0, false, true);
+}
+function dashUploadAllSettings(){
+  dashSaveSetting('goals'); dashSaveSetting('quests');
+  Object.keys(dashSettings.daily).forEach(mk=>dashSaveSetting('daily_'+mk));
+}
+async function dashLoadSettings(){
+  if (dashSettingsState) return;
+  dashSettingsState = 1;
+  dashLoadLocalSettings();
+  const res = await api('getDashSettings', {}, 0, false, true);
+  if (res && res.settings) {
+    const st = res.settings, hasServer = Object.keys(st).length>0;
+    Object.keys(st).forEach(k=>{
+      let v; try{ v=JSON.parse(st[k]); }catch(e){ return; }
+      if (k==='goals' && v)  dashSettings.goals = { year:v.year||{}, month:v.month||{} };
+      else if (k==='quests') dashSettings.quests = v||{};
+      else if (k.indexOf('daily_')===0) dashSettings.daily[k.slice(6)] = v||{};
+    });
+    // サーバーに何も無く、この端末にだけ記録がある場合は初回アップロード（複数端末で共有できるように）
+    const hasLocal = Object.keys(dashSettings.goals.year).length || Object.keys(dashSettings.goals.month).length
+                  || Object.keys(dashSettings.quests).length || Object.keys(dashSettings.daily).length;
+    if (!hasServer && hasLocal) dashUploadAllSettings();
+    dashLsSet('goals', dashSettings.goals); dashLsSet('quests', dashSettings.quests); dashLsSet('daily', dashSettings.daily);
   }
+  dashSettingsState = 2;
+}
 
-  const dayKey        = dashDateKey(now);
-  const yesterday     = new Date(now); yesterday.setDate(today-1);
-  const yesterdayKey  = dashDateKey(yesterday);
-  const todayHist     = dashHistory.filter(h=>dashDateKey(h.completedAt)===dayKey);
-  const todaySales    = todayHist.reduce((s,h)=>s+dashHistorySales(h),0);
-  const yesterdaySales= dashHistory.filter(h=>dashDateKey(h.completedAt)===yesterdayKey).reduce((s,h)=>s+dashHistorySales(h),0);
-  const monthSales    = dashHistory.reduce((s,h)=>s+dashHistorySales(h),0);
-  const monthOrders   = dashHistory.length;
-  const activeOrders  = S.orders.filter(o=>o.status!=='done');
-  const allOrders     = monthOrders + activeOrders.length;
-  const pct           = yesterdaySales ? Math.round((todaySales-yesterdaySales)/yesterdaySales*100) : 0;
+// ---------- 目標 ----------
+function dashGoalRec(scope,key){ return (dashSettings.goals[scope]||{})[key] || {}; }
+function dashGoalMonth(y,m){
+  const v = Number(dashGoalRec('month',dashMonthKey(y,m)).sales)||0;
+  if (v>0) return v;
+  const yv = Number(dashGoalRec('year',y).sales)||0;
+  return yv>0 ? Math.round(yv/12) : 0;
+}
+function dashGoalYear(y){
+  const v = Number(dashGoalRec('year',y).sales)||0;
+  if (v>0) return v;
+  let s=0; for(let m=1;m<=12;m++) s += Number(dashGoalRec('month',dashMonthKey(y,m)).sales)||0;
+  return s;
+}
+function dashProfitGoal(y,m){
+  const yv = Number(dashGoalRec('year',y).profit)||0;
+  return m ? Math.round(yv/12) : yv;
+}
 
-  const set=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
-  set('dash-today-sales',  dashMoney(todaySales));
-  set('dash-order-count',  `${allOrders}件`);
-  set('dash-order-sub',    `完了 ${monthOrders}件 / 受付中 ${activeOrders.length}件`);
-  set('dash-month-orders', `${monthOrders}件`);
-  set('dash-month-sales',  dashMoney(monthSales));
-  set('dash-today-sub',    yesterdaySales?`昨日比 ${pct>=0?'+':''}${pct}%`:'昨日比 --');
-  set('dash-goal-sub',     `目標まであと ${dashMoney(Math.max(0,DASH_GOAL-monthSales))}`);
-  set('dash-goal-total',   dashMoney(DASH_GOAL));
-  set('dash-goal-current', dashMoney(monthSales));
-  const goalPct=Math.min(100,Math.round(monthSales/DASH_GOAL*100));
-  set('dash-goal-pct',`${goalPct}%`);
-  const gf=document.getElementById('dash-goal-fill'); if(gf) gf.style.width=goalPct+'%';
-  const todayBubble=document.getElementById('dash-today-bubble'); if(todayBubble) todayBubble.textContent=`今日 ${dashMoney(todaySales)}／累計 ${dashMoney(monthSales)}`;
+// ---------- データ取得（年単位でキャッシュ） ----------
+function dashLoadYear(y){
+  if (dashInflight[y]) return dashInflight[y];
+  dashInflight[y] = (async()=>{
+    try{
+      // forceShow=false：全画面ローディングを出さず、描画は前回の内容のまま静かに更新する
+      // GASは1通信ごとに最低約1秒かかるため、履歴・経費・固定費は getDashData で1通信にまとめる。
+      // GAS側が未更新（Unknown action）の場合は、従来の3通信にフォールバックする（lite=履歴の軽量版）
+      let d = null;
+      if (dashHasDataApi !== false) {
+        d = await api('getDashData', { year:y }, 0, false, true);
+        if (d) dashHasDataApi = true; else if (dashHasDataApi === null) dashHasDataApi = false;
+      }
+      if (d) {
+        dashCache[y] = { history:d.history||[], expenses:d.expenses||[], fixed:d.costs||[], at:Date.now() };
+      } else {
+        const [h,e,f] = await Promise.all([
+          api('getHistory',    { year:y, lite:true }, 1, false),
+          api('getExpenses',   { year:y }, 1, false),
+          api('getFixedCosts', { year:y }, 1, false)
+        ]);
+        // 通信に失敗した場合は前回のデータを保持する
+        if (h) dashCache[y] = { history:h.history||[], expenses:(e&&e.expenses)||(dashCache[y]?dashCache[y].expenses:[]), fixed:(f&&f.costs)||(dashCache[y]?dashCache[y].fixed:[]), at:Date.now() };
+      }
+    } finally { delete dashInflight[y]; }
+  })();
+  return dashInflight[y];
+}
+function dashPrevOf(y,m){ return m ? (m===1 ? {y:y-1,m:12} : {y,m:m-1}) : {y:y-1,m:0}; }
+function dashNeededYears(){
+  const now=new Date(), cy=now.getFullYear(), set=new Set([dashY, cy]);
+  set.add(dashPrevOf(dashY, dashMode==='month'?dashM:0).y);
+  const qp = dashPrevOf(cy, now.getMonth()+1); set.add(qp.y);
+  return [...set];
+}
+// 期間 (y, m) のデータ。m=0なら年間
+function dashSlice(y,m){
+  const c = dashCache[y] || { history:[], expenses:[], fixed:[] };
+  return {
+    history:  c.history.filter(h=>dashInPeriod(h.completedAt,y,m)),
+    expenses: c.expenses.filter(e=>dashInPeriod(e.date,y,m)),
+    fixed:    c.fixed.filter(x=>dashInPeriod(x.date,y,m))
+  };
+}
+function dashStats(sl){
+  let sales=0, cost=0;
+  sl.history.forEach(h=>{ sales+=dashHistorySales(h); cost+=calcOrderPL(h).cost; });
+  const expense = sl.expenses.reduce((s,e)=>s+Number(e.amount||0),0);
+  const orders = sl.history.length;
+  return { sales, cost, expense, profit:sales-cost-expense, orders, aov: orders?Math.round(sales/orders):0 };
+}
+// 日別(月)／月別(年)の売上配列
+function dashSeries(y,m){
+  const sl = dashSlice(y,m);
+  const n = m ? dashDaysIn(y,m) : 12;
+  const sales=Array(n).fill(0), orders=Array(n).fill(0), profit=Array(n).fill(0);
+  sl.history.forEach(h=>{
+    const d=new Date(h.completedAt), i = m ? d.getDate()-1 : d.getMonth();
+    const pl=calcOrderPL(h); sales[i]+=dashHistorySales(h); orders[i]++; profit[i]+=dashHistorySales(h)-pl.cost;
+  });
+  sl.expenses.forEach(e=>{ const d=new Date(e.date), i = m ? d.getDate()-1 : d.getMonth(); if(i>=0&&i<n) profit[i]-=Number(e.amount||0); });
+  return { sales, orders, profit };
+}
 
-  // レベル・EXP：今月の売上から算出（¥50=1EXP／1000EXPで1レベル）
-  const totalExp = Math.floor(monthSales / DASH_EXP_PER_YEN);
-  const level    = Math.floor(totalExp / DASH_EXP_PER_LV) + 1;
-  const expInLv  = totalExp % DASH_EXP_PER_LV;
-  const expPct   = Math.round(expInLv / DASH_EXP_PER_LV * 100);
-  set('dash-level-label', `🌱 Lv.${level} ショップ経営者`);
-  set('dash-exp-label',   `${expPct}%`);
-  set('dash-exp-detail',  `EXP ${expInLv} / ${DASH_EXP_PER_LV}`);
-  const ef=document.getElementById('dash-exp-fill'); if(ef) ef.style.width=expPct+'%';
+// ---------- ツールチップ（1つを使い回す） ----------
+function dashTip(html, x, y){
+  let t=document.getElementById('dash-tip');
+  if (!t){ t=document.createElement('div'); t.id='dash-tip'; document.body.appendChild(t); }
+  // 内容はDOMで組み立て（textContent）。ラベル等はデータ由来なのでinnerHTMLに入れない
+  t.textContent='';
+  html.forEach(row=>{
+    const d=document.createElement('div'); d.className = row.head ? 'dt-head' : 'dt-row';
+    if (row.color){ const k=document.createElement('i'); k.style.background=row.color; if(row.dash) k.className='dt-dash'; d.appendChild(k); }
+    const v=document.createElement('b'); v.textContent=row.value||'';
+    const l=document.createElement('span'); l.textContent=row.label||'';
+    if (row.head){ d.textContent=row.label; } else { d.appendChild(v); d.appendChild(l); }
+    t.appendChild(d);
+  });
+  t.style.display='block';
+  const w=t.offsetWidth, h=t.offsetHeight, vw=window.innerWidth;
+  let left = x+14; if (left+w > vw-8) left = x-w-14; if (left<8) left=8;
+  let top = y-h-12; if (top<8) top=y+16;
+  t.style.left=left+'px'; t.style.top=top+'px';
+}
+function dashTipHide(){ const t=document.getElementById('dash-tip'); if(t) t.style.display='none'; }
+document.addEventListener('pointerdown', e=>{ if(!e.target.closest || !e.target.closest('.dchart')) dashTipHide(); });
 
-  // 日別売上グラフ
-  const days=new Date(y,m,0).getDate();
-  const daily=Array(days).fill(0);
-  dashHistory.forEach(h=>{const d=new Date(h.completedAt);if(d.getFullYear()===y&&d.getMonth()+1===m){daily[d.getDate()-1]+=dashHistorySales(h);}});
-  const rawMax=Math.max(0,...daily);
-  const max=Math.max(10000,Math.ceil(rawMax/5000)*5000); // 実データに合わせて目盛を自動調整
-  const bars=document.getElementById('dash-sales-bars');
-  if(bars)bars.innerHTML=daily.map((v,i)=>`<div class="sales-bar" title="${i+1}日 ${dashMoney(v)}" style="height:${Math.max(3,Math.round(v/max*180))}px"></div>`).join('');
-  const chartY=document.getElementById('dash-chart-y');
-  if(chartY)chartY.innerHTML=[1,0.75,0.5,0.25,0].map(r=>`<span>${dashMoney(Math.round(max*r))}</span>`).join('');
-  const axis=document.getElementById('dash-chart-axis');
-  if(axis){const marks=[...new Set([1,Math.ceil(days/4),Math.ceil(days/2),Math.ceil(days*3/4),days])];axis.innerHTML=marks.map(d=>`<span>${d}日</span>`).join('');}
-  // 折れ線は「累計売上」。棒（日別）と同じ値を重ねても情報が重複するだけなので、
-  // 右軸を別に持たせて今日までの積み上げを描く
-  const cum=[]; let acc=0;
-  for(let i=0;i<today;i++){ acc+=daily[i]; cum.push(acc); }
-  const cumMax=Math.max(10000,Math.ceil((cum[cum.length-1]||0)/10000)*10000);
-  const chartY2=document.getElementById('dash-chart-y2');
-  if(chartY2)chartY2.innerHTML=[1,0.75,0.5,0.25,0].map(r=>`<span>${dashMoney(Math.round(cumMax*r))}</span>`).join('');
-  const line=document.getElementById('dash-sales-line');
-  if(line){
-    const w=100,h=190;
-    const pts=cum.map((v,i)=>`${(i/(Math.max(1,days-1)))*w},${h-(v/cumMax*h)}`).join(' ');
-    const lastXp=((today-1)/Math.max(1,days-1))*100;
-    const lastYp=100-((cum[today-1]||0)/cumMax*100);
-    line.innerHTML=`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">`+
-      `<polyline points="${pts}" fill="none" stroke="#f28eae" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`+
-      `<div class="line-dot" style="left:${lastXp}%;top:${lastYp}%"></div>`;
+// ---------- SVGチャート共通 ----------
+function dashXLabels(mode,n,slotW){
+  const out=[];
+  if (mode==='year'){ for(let i=0;i<n;i++) out.push([i, slotW>=30 ? `${i+1}月` : `${i+1}`]); }
+  else { for(let i=0;i<n;i++){ const d=i+1; if(d===1 || d%5===0) if(n-d>=2 || d===n) out.push([i,String(d)]); } if(n%5>=3) out.push([n-1,String(n)]); }
+  return out;
+}
+function dashAxisSVG(W,H,ml,mr,mt,mb,sc,fmt){
+  let s='';
+  sc.ticks.forEach(t=>{
+    const y = mt + (H-mt-mb)*(1 - t/sc.max);
+    s += `<line x1="${ml}" x2="${W-mr}" y1="${y}" y2="${y}" stroke="${DC.grid}" stroke-width="1"/>`;
+    s += `<text x="${ml-6}" y="${y+3.5}" text-anchor="end" class="dsvg-ax">${fmt(t)}</text>`;
+  });
+  return s;
+}
+function dashBarPath(x,y,w,h,r){
+  r = Math.min(r, w/2, h);
+  return `M${x},${y+h}L${x},${y+r}Q${x},${y} ${x+r},${y}L${x+w-r},${y}Q${x+w},${y} ${x+w},${y+r}L${x+w},${y+h}Z`;
+}
+// 縦棒グラフ（1系列）。上限24px・上端4px丸・下は直角、2px隙間、スロット全体をホバー領域に
+// opts: {labels, values, fmt, ref:[..]|null, refLabel, color(i,v), tip(i)->rows, xLabels, minMax, negative, refLine}
+function dashColumnChart(el, opts){
+  if (!el) return;
+  const W = Math.max(240, el.clientWidth||320), H = opts.h||200;
+  const ml = opts.ml||44, mr=8, mt=14, mb=22;
+  const vals=opts.values, n=vals.length;
+  const maxV = Math.max(0, ...vals, ...(opts.ref||[]).map(v=>v||0), opts.refLine||0), minV = opts.negative ? Math.min(0, ...vals) : 0;
+  const sc = dashScale(Math.max(maxV, opts.minMax||1), opts.minMax||1);
+  const scN = minV<0 ? dashScale(-minV, 1) : null;
+  const plotH = H-mt-mb, negH = scN ? plotH*(scN.max/(sc.max+scN.max)) : 0, posH = plotH-negH;
+  const yPos = v => mt + posH*(1 - v/sc.max);        // v>=0
+  const zeroY = mt + posH;
+  const slotW=(W-ml-mr)/n, bw=Math.max(3, Math.min(24, slotW-2));
+  let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.aria||'')}">`;
+  // 目盛（正側）
+  sc.ticks.forEach(t=>{
+    const y=yPos(t);
+    s += `<line x1="${ml}" x2="${W-mr}" y1="${y}" y2="${y}" stroke="${DC.grid}" stroke-width="1"/><text x="${ml-6}" y="${y+3.5}" text-anchor="end" class="dsvg-ax">${opts.axisFmt?opts.axisFmt(t):dashShort(t)}</text>`;
+  });
+  if (scN){
+    scN.ticks.slice(1).forEach(t=>{
+      const y=zeroY+negH*(t/scN.max);
+      s += `<line x1="${ml}" x2="${W-mr}" y1="${y}" y2="${y}" stroke="${DC.grid}" stroke-width="1"/><text x="${ml-6}" y="${y+3.5}" text-anchor="end" class="dsvg-ax">-${opts.axisFmt?opts.axisFmt(t):dashShort(t)}</text>`;
+    });
   }
+  // 棒
+  let peakI=-1, peakV=0;
+  vals.forEach((v,i)=>{
+    const cx = ml + slotW*(i+0.5), x=cx-bw/2;
+    const col = opts.color ? opts.color(i,v) : DC.sales;
+    if (v>0){ const h=Math.max(2, zeroY-yPos(v)); s += `<path class="dbar" data-i="${i}" d="${dashBarPath(x,zeroY-h,bw,h,4)}" fill="${col}"/>`; if(v>peakV){peakV=v;peakI=i;} }
+    else if (v<0 && scN){ const h=Math.max(2, negH*(-v/scN.max)); s += `<path class="dbar" data-i="${i}" d="M${x},${zeroY}L${x},${zeroY+h-4}Q${x},${zeroY+h} ${x+4},${zeroY+h}L${x+bw-4},${zeroY+h}Q${x+bw},${zeroY+h} ${x+bw},${zeroY+h-4}L${x+bw},${zeroY}Z" fill="${col}"/>`; }
+  });
+  // 目標などの基準（スロットごとの短い線／一定値なら破線）
+  if (opts.ref){
+    opts.ref.forEach((r,i)=>{ if(!r) return; const cx=ml+slotW*(i+0.5), y=yPos(r);
+      s += `<line x1="${cx-slotW/2+1}" x2="${cx+slotW/2-1}" y1="${y}" y2="${y}" stroke="${DC.goal}" stroke-width="2" stroke-linecap="round"/>`; });
+  }
+  if (opts.refLine!=null){
+    const y=yPos(opts.refLine);
+    s += `<line x1="${ml}" x2="${W-mr}" y1="${y}" y2="${y}" stroke="${DC.goal}" stroke-width="2" stroke-dasharray="5 4"/>`;
+    if (opts.refLineLabel) s += `<text x="${W-mr}" y="${y-5}" text-anchor="end" class="dsvg-ref">${esc(opts.refLineLabel)}</text>`;
+  }
+  s += `<line x1="${ml}" x2="${W-mr}" y1="${zeroY}" y2="${zeroY}" stroke="#d9cfc2" stroke-width="1"/>`;
+  // 最高値の直接ラベル（全点には付けない）
+  if (peakI>=0 && opts.peakLabel!==false){
+    const cx=ml+slotW*(peakI+0.5); const txt=(opts.fmt||dashMoney)(peakV);
+    const anchor = cx>W-60?'end':(cx<ml+50?'start':'middle');
+    s += `<text x="${cx}" y="${Math.max(10,yPos(peakV)-6)}" text-anchor="${anchor}" class="dsvg-val">${esc(txt)}</text>`;
+  }
+  // X軸ラベル
+  (opts.xLabels||dashXLabels(opts.mode,n,slotW)).forEach(([i,t])=>{
+    s += `<text x="${ml+slotW*(i+0.5)}" y="${H-6}" text-anchor="middle" class="dsvg-ax">${esc(t)}</text>`;
+  });
+  // ホバー領域（棒より大きい）
+  for(let i=0;i<n;i++) s += `<rect class="dhit" data-i="${i}" x="${ml+slotW*i}" y="${mt-6}" width="${slotW}" height="${H-mt-mb+12}" fill="transparent" tabindex="0"/>`;
+  s += '</svg>';
+  el.innerHTML = s;
+  el.classList.add('dchart');
+  const bars = el.querySelectorAll('.dbar');
+  const show = (i,ev)=>{
+    bars.forEach(b=>b.classList.toggle('hot', Number(b.dataset.i)===i));
+    const r=el.getBoundingClientRect(), x=ev&&ev.clientX!=null?ev.clientX:r.left+ml+slotW*(i+0.5), y=ev&&ev.clientY!=null?ev.clientY:r.top+40;
+    dashTip(opts.tip(i), x, y);
+  };
+  el.querySelectorAll('.dhit').forEach(h=>{
+    const i=Number(h.dataset.i);
+    h.addEventListener('pointermove', ev=>show(i,ev));
+    h.addEventListener('pointerdown', ev=>show(i,ev));
+    h.addEventListener('focus', ()=>show(i,null));
+    h.addEventListener('pointerleave', ()=>{ bars.forEach(b=>b.classList.remove('hot')); dashTipHide(); });
+    h.addEventListener('blur', ()=>{ bars.forEach(b=>b.classList.remove('hot')); dashTipHide(); });
+  });
+}
 
-  // 今日のミッション（すべて実データで判定できる条件のみ）
-  const lowStock = S.products.filter(p=>{
-    if ((p.types||[]).length) return (p.types||[]).some(t=>Number(t.stockLoc||0)+Number(t.stockShip||0) <= 0);
-    return Number(p.stockLoc||0)+Number(p.stockShip||0) <= 0;
-  }).length;
-  const missions=[
-    {ok:todayHist.length>=3,    text:'今日 3件以上完了する',        exp:30},
-    {ok:todaySales>=30000,      text:'今日 ¥30,000以上売る',        exp:50},
-    {ok:lowStock===0,           text:'在庫切れの商品をゼロにする',  exp:40}
+// 累計の折れ線（単一軸）。今期・前期・目標ペース。ホバーで縦線＋全系列の値
+function dashCumChart(el, o){
+  if (!el) return;
+  const W=Math.max(240, el.clientWidth||320), H=210, ml=44, mr=12, mt=16, mb=22;
+  const n=o.n, slotW=(W-ml-mr)/n;
+  const maxV=Math.max(1, ...(o.cur||[]), ...(o.prev||[]), ...(o.goal||[]));
+  const sc=dashScale(maxV, 10000);
+  const X=i=>ml+slotW*(i+0.5), Y=v=>mt+(H-mt-mb)*(1-v/sc.max);
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria||'')}">`;
+  sc.ticks.forEach(t=>{ const y=Y(t); s+=`<line x1="${ml}" x2="${W-mr}" y1="${y}" y2="${y}" stroke="${DC.grid}" stroke-width="1"/><text x="${ml-6}" y="${y+3.5}" text-anchor="end" class="dsvg-ax">${dashShort(t)}</text>`; });
+  const line=(arr,col,dash,w)=>{ if(!arr||!arr.length) return ''; return `<polyline points="${arr.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${col}" stroke-width="${w||2}" stroke-linejoin="round" stroke-linecap="round" ${dash?`stroke-dasharray="${dash}"`:''}/>`; };
+  s += line(o.prev, DC.prev);
+  s += line(o.goal, DC.goal, '5 4');
+  s += line(o.cur, DC.sales);
+  if (o.cur && o.cur.length){
+    const li=o.cur.length-1, cx=X(li), cy=Y(o.cur[li]);
+    s += `<circle cx="${cx}" cy="${cy}" r="4" fill="${DC.sales}" stroke="${DC.surface}" stroke-width="2"/>`;
+    const anchor = cx>W-70?'end':'middle';
+    s += `<text x="${anchor==='end'?cx+4:cx}" y="${Math.max(11,cy-11)}" text-anchor="${anchor}" class="dsvg-val">${esc(dashMoney(o.cur[li]))}</text>`;
+  }
+  (o.xLabels||dashXLabels(o.mode,n,slotW)).forEach(([i,t])=>{ s+=`<text x="${X(i)}" y="${H-6}" text-anchor="middle" class="dsvg-ax">${esc(t)}</text>`; });
+  s += `<line id="dcum-cross" x1="0" x2="0" y1="${mt}" y2="${H-mb}" stroke="#cfc4b6" stroke-width="1" style="display:none"/>`;
+  for(let i=0;i<n;i++) s+=`<rect class="dhit" data-i="${i}" x="${ml+slotW*i}" y="${mt-8}" width="${slotW}" height="${H-mt-mb+16}" fill="transparent" tabindex="0"/>`;
+  s+='</svg>';
+  el.innerHTML=s; el.classList.add('dchart');
+  const cross=el.querySelector('#dcum-cross');
+  const show=(i,ev)=>{
+    cross.setAttribute('x1',X(i)); cross.setAttribute('x2',X(i)); cross.style.display='';
+    const r=el.getBoundingClientRect(), x=ev&&ev.clientX!=null?ev.clientX:r.left+X(i), y=ev&&ev.clientY!=null?ev.clientY:r.top+40;
+    const rows=[{head:true,label:o.tipTitle(i)}];
+    if (o.cur && i<o.cur.length) rows.push({color:DC.sales,label:o.curLabel,value:dashMoney(o.cur[i])});
+    if (o.prev) rows.push({color:DC.prev,label:o.prevLabel,value:dashMoney(o.prev[i])});
+    if (o.goal) rows.push({color:DC.goal,dash:true,label:'目標ペース',value:dashMoney(o.goal[i])});
+    if (o.goal && o.cur && i<o.cur.length){ const d=o.cur[i]-o.goal[i]; rows.push({label:d>=0?'目標より先行':'目標まで遅れ',value:(d>=0?'+':'-')+dashMoney(Math.abs(d))}); }
+    dashTip(rows,x,y);
+  };
+  el.querySelectorAll('.dhit').forEach(h=>{
+    const i=Number(h.dataset.i);
+    h.addEventListener('pointermove',ev=>show(i,ev)); h.addEventListener('pointerdown',ev=>show(i,ev));
+    h.addEventListener('focus',()=>show(i,null));
+    h.addEventListener('pointerleave',()=>{cross.style.display='none';dashTipHide();});
+    h.addEventListener('blur',()=>{cross.style.display='none';dashTipHide();});
+  });
+}
+
+// ---------- 演出（コイン・星の紙吹雪） ----------
+function dashBurst(x,y,count){
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const icons=['🪙','⭐','✨','🌟','💰'];
+  for(let i=0;i<(count||14);i++){
+    const p=document.createElement('span'); p.className='dash-confetti'; p.textContent=icons[i%icons.length];
+    const a=Math.random()*Math.PI*2, d=70+Math.random()*120;
+    p.style.left=x+'px'; p.style.top=y+'px';
+    p.style.setProperty('--dx',Math.cos(a)*d+'px'); p.style.setProperty('--dy',(Math.sin(a)*d-60)+'px');
+    p.style.setProperty('--rot',(Math.random()*360-180)+'deg');
+    document.body.appendChild(p); setTimeout(()=>p.remove(),1100);
+  }
+}
+function dashBurstAt(el,count){ const r=el.getBoundingClientRect(); dashBurst(r.left+r.width/2, r.top+r.height/2, count); }
+
+// ---------- 期間バー ----------
+function dashSetMode(mode){ if(dashMode===mode) return; dashMode=mode; renderDashboard(); }
+function dashShift(delta){
+  if (dashMode==='month'){ dashM+=delta; if(dashM<1){dashM=12;dashY--;} if(dashM>12){dashM=1;dashY++;} }
+  else dashY+=delta;
+  renderDashboard();
+}
+function dashJumpTo(which){
+  const now=new Date(), cy=now.getFullYear(), cm=now.getMonth()+1;
+  if (dashMode==='month'){ const t = which==='prev' ? dashPrevOf(cy,cm) : {y:cy,m:cm}; dashY=t.y; dashM=t.m; }
+  else dashY = which==='prev' ? cy-1 : cy;
+  renderDashboard();
+}
+function dashIsCurrent(){ const now=new Date(); return dashMode==='month' ? (dashY===now.getFullYear()&&dashM===now.getMonth()+1) : dashY===now.getFullYear(); }
+function dashIsPrevPeriod(){
+  const now=new Date(), cy=now.getFullYear(), cm=now.getMonth()+1;
+  if (dashMode==='month'){ const p=dashPrevOf(cy,cm); return dashY===p.y&&dashM===p.m; }
+  return dashY===cy-1;
+}
+function dashIsFuture(){ const now=new Date(); return dashMode==='month' ? (dashY>now.getFullYear()||(dashY===now.getFullYear()&&dashM>now.getMonth()+1)) : dashY>now.getFullYear(); }
+
+function dashRenderBar(){
+  document.querySelectorAll('#dash-mode .seg-btn').forEach(b=>b.classList.toggle('on', b.dataset.mode===dashMode));
+  dashSet('dash-period', dashMode==='month' ? `${dashY}年${dashM}月` : `${dashY}年`);
+  const nx=document.getElementById('dash-next'); if(nx){ const now=new Date(); const atNow = dashMode==='month' ? (dashY===now.getFullYear()&&dashM===now.getMonth()+1) : dashY===now.getFullYear(); nx.disabled=atNow; }
+  const chips=document.getElementById('dash-chips');
+  if (chips){
+    const a = dashMode==='month'?['今月','先月']:['今年','昨年'];
+    chips.innerHTML = `<button class="dash-chip ${dashIsCurrent()?'on':''}" onclick="dashJumpTo('cur')">${a[0]}</button><button class="dash-chip ${dashIsPrevPeriod()?'on':''}" onclick="dashJumpTo('prev')">${a[1]}</button>`;
+  }
+}
+
+// ---------- KPI ----------
+function dashDeltaHTML(cur,prev,label,goodUp){
+  const p=dashPct(cur,prev);
+  if (p===null) return `<span class="kpi-delta flat">${label}データなし</span>`;
+  const up=p>=0, good=(up===(goodUp!==false));
+  return `<span class="kpi-delta ${p===0?'flat':good?'good':'bad'}">${p===0?'■':up?'▲':'▼'} ${Math.abs(p)}%<em>${label}比</em></span>`;
+}
+function dashRenderKpis(cur,prev,ctx){
+  const pl=ctx.prevLabel;
+  const margin = cur.sales>0 ? Math.round(cur.profit/cur.sales*1000)/10 : 0;
+  const todayLine = ctx.todaySales!==null ? `<div class="kpi-sub">今日 ${dashMoney(ctx.todaySales)}${ctx.yesterdayPct!==null?`（昨日比 ${ctx.yesterdayPct>=0?'+':''}${ctx.yesterdayPct}%）`:''}</div>` : `<div class="kpi-sub">${dashMode==='year'?'月平均 '+dashMoney(cur.sales/12):`${dashDaysIn(dashY,dashM)}日間の合計`}</div>`;
+  const cards=[
+    ['💰', dashMode==='year'?'年間の売上':'今月の売上'.replace('今月', ctx.isCur?'今月':`${dashM}月`), dashMoney(cur.sales), todayLine, dashDeltaHTML(cur.sales,prev.sales,pl), `${pl} ${dashMoney(prev.sales)}`],
+    ['🛒', '注文件数', `${cur.orders}件`, `<div class="kpi-sub">受付中 ${S.orders.filter(o=>o.status!=='done').length}件</div>`, dashDeltaHTML(cur.orders,prev.orders,pl), `${pl} ${prev.orders}件`],
+    ['🎫', '客単価', dashMoney(cur.aov), `<div class="kpi-sub">売上 ÷ 注文件数</div>`, dashDeltaHTML(cur.aov,prev.aov,pl), `${pl} ${dashMoney(prev.aov)}`],
+    ['📈', '利益', dashMoney(cur.profit), `<div class="kpi-sub">利益率 ${margin}%（原価・経費差引後）</div>`, dashDeltaHTML(cur.profit,prev.profit,pl), `${pl} ${dashMoney(prev.profit)}`]
   ];
-  const missionEl=document.getElementById('dash-missions');
-  if(missionEl)missionEl.innerHTML=missions.map(x=>`<div class="mission-row"><div class="mission-check ${x.ok?'':'off'}">✓</div><div class="mission-text">${x.text}</div><div class="mission-exp">+${x.exp} EXP</div></div>`).join('');
-  const bonusExp=missions.filter(x=>x.ok).reduce((s,x)=>s+x.exp,0);
-  set('dash-reward',`+${bonusExp} EXP`);
+  const el=document.getElementById('dash-kpis');
+  if (el) el.innerHTML = cards.map(c=>`<div class="dash-kpi"><div class="kpi-icon">${c[0]}</div><div class="kpi-label">${c[1]}</div><div class="kpi-value">${c[2]}</div>${c[3]}<div class="kpi-cmp">${c[4]}<span class="kpi-prevval">${c[5]}</span></div></div>`).join('');
+}
 
-  // 商品別売上ランキング（今月）
+// ---------- 売上推移・累計グラフ ----------
+function dashDrawTrend(){
+  const v=dashView; if(!v) return;
+  const isM = dashMode==='month', n=v.series.sales.length;
+  const now=new Date();
+  const lastIdx = v.isCur ? (isM ? now.getDate() : now.getMonth()+1) : n;   // 実績のある最終スロット（個数）
+  const goalPer = Array.from({length:n},(_,i)=> isM ? (dashGoalMonth(dashY,dashM)/n) : dashGoalMonth(dashY,i+1));
+  const hasGoal = goalPer.some(x=>x>0);
+  const wd=i=>DASH_WD[new Date(dashY,dashM-1,i+1).getDay()];
+  const lbl=i=> isM ? `${dashM}/${i+1}（${wd(i)}）` : `${dashY}年${i+1}月`;
+  const prevLbl = v.prevLabel;
+  // 棒
+  dashSet('dash-trend-title', isM ? `📊 ${dashY}年${dashM}月の日別売上` : `📊 ${dashY}年の月別売上`);
+  document.getElementById('dash-trend-legend').innerHTML =
+    `<span><i class="lg-bar" style="background:${DC.sales}"></i>売上</span>` + (hasGoal?`<span><i class="lg-tick"></i>${isM?'日割り目標':'月間目標'}</span>`:'');
+  dashColumnChart(document.getElementById('dash-trend'), {
+    values:v.series.sales, mode:dashMode, ref:hasGoal?goalPer.map(x=>Math.round(x)):null, minMax:10000, aria:'売上の推移',
+    color:(i)=> (v.isCur && i===lastIdx-1) ? '#1a5fb4' : DC.sales,
+    tip:i=>{ const rows=[{head:true,label:lbl(i)},{color:DC.sales,label:'売上',value:dashMoney(v.series.sales[i])},{label:'注文',value:v.series.orders[i]+'件'}];
+      if (v.prevSeries[i]!==undefined) rows.push({color:DC.prev,label:isM?`${prevLbl}の同日`:`${prevLbl}の同月`,value:dashMoney(v.prevSeries[i])});
+      if (goalPer[i]>0) rows.push({color:DC.goal,label:isM?'日割り目標':'月間目標',value:dashMoney(goalPer[i])});
+      return rows; }
+  });
+  // 累計
+  const cum=[]; let acc=0; for(let i=0;i<Math.min(lastIdx,n);i++){ acc+=v.series.sales[i]; cum.push(acc); }
+  const pcum=[]; acc=0; for(let i=0;i<n;i++){ acc+=(v.prevSeries[i]||0); pcum.push(acc); }
+  const gcum=[]; acc=0; for(let i=0;i<n;i++){ acc+=goalPer[i]; gcum.push(Math.round(acc)); }
+  dashSet('dash-cum-title', isM ? '📈 今月の累計売上（先月・目標との比較）'.replace('今月', v.isCur?'今月':`${dashM}月`) : '📈 年間の累計売上（昨年・目標との比較）');
+  document.getElementById('dash-cum-legend').innerHTML =
+    `<span><i class="lg-line" style="background:${DC.sales}"></i>${v.isCur?'今期':'この期間'}</span><span><i class="lg-line" style="background:${DC.prev}"></i>${prevLbl}</span>` + (hasGoal?`<span><i class="lg-line dash" style="background:${DC.goal}"></i>目標ペース</span>`:'');
+  dashCumChart(document.getElementById('dash-cum'), {
+    n, cur:cum, prev:pcum, goal:hasGoal?gcum:null, mode:dashMode, aria:'累計売上の推移',
+    curLabel:v.isCur?'今期':'この期間', prevLabel:prevLbl, tipTitle:lbl
+  });
+  // 表で見る（グラフの値をすべて表でも確認できる）
+  const rows=[`<tr><th>${isM?'日':'月'}</th><th>売上</th><th>累計</th><th>${prevLbl}累計</th>${hasGoal?'<th>目標累計</th>':''}</tr>`];
+  for(let i=0;i<n;i++) rows.push(`<tr><td>${isM?i+1:(i+1)+'月'}</td><td>${dashMoney(v.series.sales[i])}</td><td>${i<cum.length?dashMoney(cum[i]):'-'}</td><td>${dashMoney(pcum[i])}</td>${hasGoal?`<td>${dashMoney(gcum[i])}</td>`:''}</tr>`);
+  document.getElementById('dash-table').innerHTML = `<table class="dash-tbl">${rows.join('')}</table>`;
+}
+
+// ---------- 2段目のグラフ ----------
+function dashDrawSecond(){
+  const v=dashView; if(!v) return;
+  const isM=dashMode==='month';
+  if (isM){
+    // 曜日別売上・日別注文件数
+    const wdSales=Array(7).fill(0), wdCnt=Array(7).fill(0);
+    v.slice.history.forEach(h=>{ const d=new Date(h.completedAt).getDay(); wdSales[d]+=dashHistorySales(h); wdCnt[d]++; });
+    const order=[1,2,3,4,5,6,0]; // 月曜はじまり
+    const vals=order.map(d=>wdSales[d]), best=Math.max(...vals);
+    dashSet('dash-b1-title','📅 曜日別の売上');
+    dashSet('dash-b1-note', best>0 ? `いちばん売れるのは ${DASH_WD[order[vals.indexOf(best)]]}曜日` : '');
+    dashColumnChart(document.getElementById('dash-b1'), { values:vals, mode:'week', xLabels:order.map((d,i)=>[i,DASH_WD[d]]), h:170, ml:44, minMax:10000, aria:'曜日別の売上',
+      color:(i,val)=> (val===best&&best>0)?'#1a5fb4':DC.sales,
+      tip:i=>[{head:true,label:DASH_WD[order[i]]+'曜日'},{color:DC.sales,label:'売上',value:dashMoney(vals[i])},{label:'注文',value:wdCnt[order[i]]+'件'}] });
+    dashSet('dash-b2-title','🧾 日別の注文件数'); dashSet('dash-b2-note','');
+    dashColumnChart(document.getElementById('dash-b2'), { values:v.series.orders, mode:'month', h:170, ml:34, minMax:4, axisFmt:t=>t, fmt:x=>x+'件', aria:'日別の注文件数',
+      tip:i=>[{head:true,label:`${dashM}/${i+1}（${DASH_WD[new Date(dashY,dashM-1,i+1).getDay()]}）`},{color:DC.sales,label:'注文',value:v.series.orders[i]+'件'},{label:'売上',value:dashMoney(v.series.sales[i])}] });
+  } else {
+    // 月別の目標達成率・月別の利益
+    const goals=Array.from({length:12},(_,i)=>dashGoalMonth(dashY,i+1));
+    const att=v.series.sales.map((s,i)=> goals[i]>0 ? Math.round(s/goals[i]*100) : 0);
+    const anyGoal=goals.some(g=>g>0);
+    dashSet('dash-b1-title','🎯 月別の目標達成率');
+    dashSet('dash-b1-note', anyGoal ? '100%＝目標達成' : '目標を設定すると表示されます');
+    dashColumnChart(document.getElementById('dash-b1'), { values:att, mode:'year', h:170, ml:44, minMax:100, axisFmt:t=>t+'%', fmt:x=>x+'%', refLine:anyGoal?100:null, refLineLabel:'', aria:'月別の目標達成率',
+      color:(i,val)=> val>=100?DC.profit:DC.sales,
+      tip:i=>[{head:true,label:`${dashY}年${i+1}月`},{color:DC.sales,label:'達成率',value:goals[i]>0?att[i]+'%':'目標なし'},{label:'売上',value:dashMoney(v.series.sales[i])},{label:'目標',value:goals[i]>0?dashMoney(goals[i]):'-'}] });
+    dashSet('dash-b2-title','💹 月別の利益'); dashSet('dash-b2-note','原価・経費を引いた後');
+    dashColumnChart(document.getElementById('dash-b2'), { values:v.series.profit, mode:'year', h:170, ml:44, minMax:10000, negative:true, aria:'月別の利益',
+      color:(i,val)=> val<0?DC.loss:DC.profit,
+      tip:i=>[{head:true,label:`${dashY}年${i+1}月`},{color:v.series.profit[i]<0?DC.loss:DC.profit,label:v.series.profit[i]<0?'赤字':'利益',value:dashMoney(v.series.profit[i])},{label:'売上',value:dashMoney(v.series.sales[i])}] });
+  }
+}
+function dashDrawCharts(){ if(!dashView) return; dashDrawTrend(); dashDrawSecond(); }
+let _dashResizeT=null;
+window.addEventListener('resize',()=>{ clearTimeout(_dashResizeT); _dashResizeT=setTimeout(()=>{ const p=document.getElementById('page-dashboard'); if(p&&p.classList.contains('on')) dashDrawCharts(); },150); });
+
+// ---------- 目標カード ----------
+function dashRenderGoal(cur,ctx){
+  const el=document.getElementById('dash-goal-card'); if(!el) return;
+  const isM=dashMode==='month';
+  const goal = isM ? dashGoalMonth(dashY,dashM) : dashGoalYear(dashY);
+  const title = isM ? `🚩 ${dashY}年${dashM}月の目標` : `🚩 ${dashY}年の年間目標`;
+  const memoKey = isM ? dashMonthKey(dashY,dashM) : String(dashY);
+  const memo = (dashGoalRec(isM?'month':'year', memoKey).memo||'').trim();
+  const head = `<div class="game-card-title"><span>${title}</span><button class="mini-btn" onclick="openGoalModal()">✏ 設定</button></div>`;
+  if (!(goal>0)){
+    el.innerHTML = head + `<div class="goal-empty"><div class="goal-empty-ico">🚩</div><div>${isM?'この月':'この年'}の売上目標がまだありません。<br>目標を決めると「あと◯◯円」「1日あたりの必要額」が見えるようになります。</div><button class="quest-btn primary" onclick="openGoalModal()">🚩 目標をつくる</button></div>` + (memo?`<div class="goal-memo">📝 ${esc(memo)}</div>`:'');
+    return;
+  }
+  const pct = Math.round(cur.sales/goal*100);
+  const gap = goal-cur.sales;
+  // 期間の経過割合（現在の期間のみ）
+  let elapsed=null, remainLbl='', needLbl='', forecast=null;
+  const now=new Date();
+  if (ctx.isCur){
+    if (isM){ const days=dashDaysIn(dashY,dashM), t=now.getDate(); elapsed=t/days; const left=days-t+1; remainLbl=`残り ${left}日`; if(gap>0) needLbl=`1日あたり ${dashMoney(Math.ceil(gap/left))}`; forecast=cur.sales/t*days; }
+    else { const em=now.getMonth()+now.getDate()/dashDaysIn(dashY,now.getMonth()+1); elapsed=em/12; const left=12-now.getMonth(); remainLbl=`残り ${left}か月（今月含む）`; if(gap>0) needLbl=`1か月あたり ${dashMoney(Math.ceil(gap/left))}`; forecast=em>0?cur.sales/em*12:null; }
+  }
+  const pg = dashProfitGoal(dashY, isM?dashM:0);
+  let profitHTML='';
+  if (pg>0){ const pgap=pg-cur.profit; profitHTML=`<div class="goal-line"><span>💹 利益目標 ${dashMoney(pg)}</span><b class="${pgap>0?'need':'ok'}">${pgap>0?`あと ${dashMoney(pgap)}`:`達成 +${dashMoney(-pgap)}`}</b></div>`; }
+  const aovNeed = (gap>0 && cur.aov>0) ? `<div class="goal-line"><span>🎫 客単価 ${dashMoney(cur.aov)} なら</span><b>あと ${Math.ceil(gap/cur.aov)}件</b></div>` : '';
+  el.innerHTML = head + `
+    <div class="goal-meta"><span>目標</span><b>${dashMoney(goal)}</b></div>
+    <div class="goal-big">${dashMoney(cur.sales)} <small>${pct}%</small></div>
+    <div class="goal-track2"><div class="goal-fill2" style="width:${Math.min(100,Math.max(0,pct))}%"></div>${elapsed!==null?`<div class="goal-pace" style="left:${Math.min(100,elapsed*100)}%" title="期間の経過"></div>`:''}</div>
+    ${elapsed!==null?`<div class="goal-scale"><span>0</span><span>▲ ${isM?'今日':'今月末'}の時点（期間の${Math.round(elapsed*100)}%が経過）</span></div>`:''}
+    <div class="goal-gap ${gap>0?'need':'ok'}">${gap>0?`あと <b>${dashMoney(gap)}</b> 足りません`:`🎉 目標達成！ <b>+${dashMoney(-gap)}</b> 超過`}</div>
+    ${remainLbl&&gap>0?`<div class="goal-line"><span>⏳ ${remainLbl}</span><b>${needLbl}</b></div>`:''}
+    ${forecast!==null&&gap>0?`<div class="goal-line"><span>🔮 このペースの着地予想</span><b>${dashMoney(forecast)}（${Math.round(forecast/goal*100)}%）</b></div>`:''}
+    ${aovNeed}${profitHTML}
+    <div class="goal-memo" onclick="openGoalModal()">${memo?`📝 <b>作戦メモ</b>　${esc(memo)}`:'📝 作戦メモを書く（足りない分をどう埋めるか）'}</div>`;
+}
+
+// ---------- ミッション ----------
+// auto: 実データで自動判定 / それ以外はタップして自己申告。達成は日付ごとに保存（EXPが増減しないように）
+const DASH_MISSIONS = [
+  { id:'bundle', ico:'🛍', cat:'客単価UP', auto:true,  exp:150, text:()=>'2点以上まとめ買い（セット販売）を1件決める' },
+  { id:'sns',    ico:'📸', cat:'認知度UP', auto:false, exp:100, text:()=>'今日の作品・商品をSNSに投稿する' },
+  { id:'tag',    ico:'💬', cat:'認知度UP', auto:false, exp:100, text:()=>'お客様に「SNSでタグ付け・口コミ」をお願いする' },
+  { id:'talk',   ico:'🗣', cat:'新規獲得', auto:false, exp:100, text:()=>'まだ話していない方3人に、声をかけて商品を見てもらう' }
+];
+function dashDayList(dayKey){ const mk=dayKey.slice(0,7); return ((dashSettings.daily[mk]||{})[dayKey])||[]; }
+function dashDayAdd(dayKey,id){ const mk=dayKey.slice(0,7); dashSettings.daily[mk]=dashSettings.daily[mk]||{}; const l=dashSettings.daily[mk][dayKey]=dashSettings.daily[mk][dayKey]||[]; if(l.indexOf(id)<0){ l.push(id); dashSaveSetting('daily_'+mk); return true; } return false; }
+function dashDayRemove(dayKey,id){ const mk=dayKey.slice(0,7); const l=(dashSettings.daily[mk]||{})[dayKey]; if(!l) return; const i=l.indexOf(id); if(i>=0){ l.splice(i,1); if(!l.length) delete dashSettings.daily[mk][dayKey]; dashSaveSetting('daily_'+mk); } }
+const DASH_EXP_TABLE = { setgoal:200, pace:200, bundle:150, sns:100, tag:100, talk:100 };
+function dashDayComplete(list){ return (list.indexOf('pace')>=0||list.indexOf('setgoal')>=0) && ['bundle','sns','tag','talk'].every(x=>list.indexOf(x)>=0); }
+function dashDayExp(list){ return list.reduce((s,id)=>s+(DASH_EXP_TABLE[id]||0),0) + (dashDayComplete(list)?DASH_DAY_ALL:0); }
+function dashQuestIds(){ return ['sales','expense','booth','fixed']; }
+function dashQuestExp(q){ const n=dashQuestIds().filter(id=>q&&q[id]).length; return n*DASH_QUEST_EXP + (n===dashQuestIds().length?DASH_QUEST_ALL:0); }
+function dashBonusExp(y){
+  let e=0;
+  Object.keys(dashSettings.daily).forEach(mk=>{ if(mk.indexOf(y+'-')===0) Object.values(dashSettings.daily[mk]).forEach(l=>{ e+=dashDayExp(l); }); });
+  Object.keys(dashSettings.quests).forEach(mk=>{ if(mk.indexOf(y+'-')===0) e+=dashQuestExp(dashSettings.quests[mk]); });
+  return e;
+}
+function dashStreakDays(){
+  let n=0; const d=new Date();
+  if (!dashDayList(dashDateKey(d)).length) d.setDate(d.getDate()-1);   // 今日まだなら昨日から数える
+  while(dashDayList(dashDateKey(d)).length){ n++; d.setDate(d.getDate()-1); if(n>400) break; }
+  return n;
+}
+function dashMissionCtx(){
+  const now=new Date(), cy=now.getFullYear(), cm=now.getMonth()+1, t=now.getDate(), dayKey=dashDateKey(now);
+  const sl=dashSlice(cy,cm);
+  const today=sl.history.filter(h=>dashDateKey(h.completedAt)===dayKey);
+  const todaySales=today.reduce((s,h)=>s+dashHistorySales(h),0);
+  const before=sl.history.reduce((s,h)=>s+dashHistorySales(h),0)-todaySales;
+  const goal=dashGoalMonth(cy,cm), days=dashDaysIn(cy,cm);
+  let target=0;
+  if (goal>0){ const rem=Math.max(0,goal-before), left=days-t+1; target=Math.max(3000, Math.ceil((rem>0?rem/left:goal/days)/1000)*1000); }
+  const bundle=today.some(h=>(h.salesItems||[]).filter(si=>si.pid && Number(si.price||0)>0).length>=2);
+  return { dayKey, today, todaySales, goal, target, bundle, cy, cm };
+}
+function dashRenderMissions(){
+  const el=document.getElementById('dash-missions'); if(!el) return;
+  const c=dashMissionCtx();
+  // 目標が無い間は「目標を設定」、ある日は「今日の売上目標」
+  const hasSetGoal = dashDayList(c.dayKey).indexOf('setgoal')>=0;
+  const firstIsSet = !(c.goal>0) || hasSetGoal;
+  // 自動判定：達成したら記録（一度達成した分は戻さない）
+  let changed=false;
+  if (!firstIsSet && c.todaySales>=c.target && c.target>0) changed = dashDayAdd(c.dayKey,'pace') || changed;
+  if (c.bundle) changed = dashDayAdd(c.dayKey,'bundle') || changed;
+  const list=dashDayList(c.dayKey);
+  const rows=[ firstIsSet
+    ? { id:'setgoal', ico:'🚩', cat:'売上UP', auto:true, exp:200, text:'今月の売上目標を設定する', done:list.indexOf('setgoal')>=0, click:'openGoalModal()' }
+    : { id:'pace', ico:'🎯', cat:'売上UP', auto:true, exp:200, text:`今日の売上 ${dashMoney(c.target)} を達成する`, done:list.indexOf('pace')>=0, sub:`いま ${dashMoney(c.todaySales)}（月間目標から自動計算）` }
+  ].concat(DASH_MISSIONS.map(m=>({ id:m.id, ico:m.ico, cat:m.cat, auto:m.auto, exp:m.exp, text:m.text(), done:list.indexOf(m.id)>=0 })));
+  el.innerHTML = rows.map(r=>`
+    <div class="mission-row ${r.done?'done':''} ${r.auto?'':'tap'}" ${r.auto?(r.click&&!r.done?`onclick="${r.click}"`:''):`onclick="dashToggleMission('${r.id}',this)"`}>
+      <div class="mission-check ${r.done?'':'off'}">✓</div>
+      <div class="mission-body"><div class="mission-text">${r.ico} ${esc(r.text)}</div>
+        <div class="mission-meta"><span class="mission-cat">${r.cat}</span><span class="mission-kind">${r.auto?'自動判定':'タップで完了'}</span>${r.sub?`<span>${esc(r.sub)}</span>`:''}</div></div>
+      <div class="mission-exp">+${r.exp}<small>EXP</small></div>
+    </div>`).join('');
+  const done=rows.filter(r=>r.done).length;
+  const all = rows.length===done;
+  const gained = dashDayExp(list);
+  document.getElementById('dash-reward').innerHTML = all
+    ? `🏅 コンプリート！ <b>+${gained} EXP</b>（ボーナス +${DASH_DAY_ALL}）`
+    : `🪙 今日の報酬　<b>+${gained} EXP</b>　<small>（${done}/${rows.length} 達成）</small>`;
+  const st=dashStreakDays();
+  dashSet('dash-streak', st>0 ? `🔥 ${st}日連続でミッションに挑戦中！` : '今日1つクリアして連続記録をスタート！');
+  if (changed) { dashRenderHero(); }
+}
+function dashToggleMission(id,el){
+  const c=dashMissionCtx(), list=dashDayList(c.dayKey);
+  if (list.indexOf(id)>=0){ dashDayRemove(c.dayKey,id); }
+  else {
+    const wasComplete=dashDayComplete(list);
+    dashDayAdd(c.dayKey,id);
+    const exp=DASH_EXP_TABLE[id]||0;
+    dashBurstAt(el, 10);
+    const nowComplete=dashDayComplete(dashDayList(c.dayKey));
+    toast(nowComplete&&!wasComplete ? `🏅 今日のミッション全クリア！ +${exp+DASH_DAY_ALL} EXP` : `⭐ +${exp} EXP ゲット！`);
+    if (nowComplete&&!wasComplete) setTimeout(()=>dashBurstAt(document.getElementById('dash-reward'),22),200);
+  }
+  dashRenderMissions(); dashRenderHero();
+}
+
+// ---------- 記帳クエスト ----------
+function dashQuestData(y,m){
+  const sl=dashSlice(y,m), st=dashStats(sl);
+  const booth=sl.expenses.filter(e=>e.category==='booth'), other=sl.expenses.filter(e=>e.category!=='booth');
+  const sum=a=>a.reduce((s,x)=>s+Number(x.amount||0),0);
+  return { sales:{n:sl.history.length, amt:st.sales}, expense:{n:other.length, amt:sum(other)}, booth:{n:booth.length, amt:sum(booth)}, fixed:{n:sl.fixed.length, amt:sum(sl.fixed)} };
+}
+function dashQuestCount(key){ const q=dashSettings.quests[key]||{}; return dashQuestIds().filter(id=>q[id]).length; }
+function dashRecordStreak(){
+  const now=new Date(); let p=dashPrevOf(now.getFullYear(), now.getMonth()+1), n=0;
+  while(dashQuestCount(dashMonthKey(p.y,p.m))===dashQuestIds().length && n<36){ n++; p=dashPrevOf(p.y,p.m); }
+  return n;
+}
+function dashRenderQuests(){
+  const el=document.getElementById('dash-quests'); if(!el) return;
+  const now=new Date(), cy=now.getFullYear(), cm=now.getMonth()+1;
+  const prev=dashPrevOf(cy,cm), curKey=dashMonthKey(cy,cm), prevKey=dashMonthKey(prev.y,prev.m);
+  if (!dashQuestSel) dashQuestSel = dashQuestCount(prevKey)<dashQuestIds().length ? prevKey : curKey;   // 先月分が終わっていなければ先月を先に見せる
+  const sel=dashQuestSel, sy=Number(sel.slice(0,4)), sm=Number(sel.slice(5,7));
+  const d=dashQuestData(sy,sm), q=dashSettings.quests[sel]||{}, doneN=dashQuestCount(sel), total=dashQuestIds().length;
+  const defs=[
+    { id:'sales',   ico:'💰', title:'売上金入力', desc:d.sales.n?`売上 ${dashMoney(d.sales.amt)}（${d.sales.n}件）`:'この月の売上はありません', empty:!d.sales.n,
+      acts:[{l:'📥 売上仕訳CSV', f:`dashDownloadYayoi(${sy},${sm},'sales')`}], hint:'弥生に取り込んで売上を入力' },
+    { id:'expense', ico:'🧾', title:'経費入力',   desc:d.expense.n?`経費 ${dashMoney(d.expense.amt)}（${d.expense.n}件）`:'経費の登録がありません', empty:!d.expense.n,
+      acts:[{l:'＋ 経費を登録', f:`dashOpenAccounting(${sy},${sm},'expenses','fuel')`},{l:'📥 経費CSV', f:`dashDownloadYayoi(${sy},${sm},'costs')`}], hint:'ガソリン・高速代・宿泊費・領収書など' },
+    { id:'booth',   ico:'🎪', title:'出展料入力', desc:d.booth.n?`出展料 ${dashMoney(d.booth.amt)}（${d.booth.n}件）`:'出展料の登録がありません', empty:!d.booth.n,
+      acts:[{l:'＋ 出展料を登録', f:`dashOpenAccounting(${sy},${sm},'expenses','booth')`}], hint:'マルシェ・イベントの出店代' },
+    { id:'fixed',   ico:'🛒', title:'仕入れ・固定費入力', desc:d.fixed.n?`仕入れ・固定費 ${dashMoney(d.fixed.amt)}（${d.fixed.n}件）`:'仕入れ・固定費の登録がありません', empty:!d.fixed.n,
+      acts:[{l:'＋ 仕入れ・固定費を登録', f:`dashOpenAccounting(${sy},${sm},'biz')`}], hint:'材料のまとめ買い・通信費・サブスクなど' }
+  ];
+  const ph = `${sy}年${sm}月分`;
+  const streak=dashRecordStreak();
+  const nudge = (sel===prevKey && doneN<total) ? `<div class="quest-nudge">⚠ 先月分の記帳があと <b>${total-doneN}つ</b> 残っています。会計ソフトに入れるのは、思い出せる今のうちに！</div>` : '';
+  const clear = doneN===total ? `<div class="quest-clear"><span class="qc-stamp">MISSION<br>CLEAR!</span><div><b>${ph}の記帳、ぜんぶ完了！</b><br><small>+${DASH_QUEST_EXP*total+DASH_QUEST_ALL} EXP（全クリアボーナス +${DASH_QUEST_ALL} 込み）</small></div></div>` : '';
+  el.innerHTML = `
+    <div class="game-card-title"><span>📒 記帳クエスト</span><small>入力して EXP ゲット</small></div>
+    <div class="quest-tabs">
+      <button class="quest-tab ${sel===prevKey?'on':''}" onclick="dashQuestPick('${prevKey}')">先月分 <em>${dashQuestCount(prevKey)}/${total}</em></button>
+      <button class="quest-tab ${sel===curKey?'on':''}" onclick="dashQuestPick('${curKey}')">今月分 <em>${dashQuestCount(curKey)}/${total}</em></button>
+      ${streak>0?`<span class="quest-streak">🏆 記帳マスター ${streak}か月連続</span>`:''}
+    </div>
+    <div class="quest-prog" aria-label="${ph} ${doneN}/${total} クリア">${dashQuestIds().map(id=>`<i class="${q[id]?'on':''}"></i>`).join('')}<span>${ph}　${doneN}/${total} クリア</span></div>
+    ${nudge}${clear}
+    <div class="quest-list">${defs.map(x=>{
+      const done=!!q[x.id];
+      return `<div class="quest-row ${done?'done':''}">
+        <div class="quest-ico">${done?'✅':x.ico}</div>
+        <div class="quest-body"><div class="quest-title">${x.title}<span class="quest-exp">+${DASH_QUEST_EXP} EXP</span></div>
+          <div class="quest-desc ${x.empty?'is-empty':''}">${x.desc}</div><div class="quest-hint">${x.hint}</div>
+          <div class="quest-acts">${x.acts.map(a=>`<button class="quest-btn" onclick="${a.f}">${a.l}</button>`).join('')}</div></div>
+        <button class="quest-check ${done?'on':''}" onclick="dashToggleQuest('${sel}','${x.id}',this)">${done?'✔ クリア済み':(x.empty?'該当なしでクリア':'入力した！')}</button>
+      </div>`;}).join('')}</div>`;
+}
+function dashQuestPick(key){ dashQuestSel=key; dashRenderQuests(); }
+function dashToggleQuest(key,id,btn){
+  const q=dashSettings.quests[key]=dashSettings.quests[key]||{};
+  const before=dashQuestCount(key), total=dashQuestIds().length;
+  if (q[id]) { delete q[id]; }
+  else {
+    q[id]=Date.now(); dashBurstAt(btn,14);
+    const after=dashQuestCount(key);
+    if (after===total){ toast(`🎉 MISSION CLEAR！ ${key.slice(0,4)}年${Number(key.slice(5,7))}月の記帳が完了！ +${DASH_QUEST_EXP+DASH_QUEST_ALL} EXP`); setTimeout(()=>{ const c=document.querySelector('.quest-clear'); if(c) dashBurstAt(c,28); },150); }
+    else toast(`⭐ クエストクリア！ +${DASH_QUEST_EXP} EXP（あと ${total-after}つ）`);
+  }
+  if (!Object.keys(q).length) delete dashSettings.quests[key];
+  // 古い月は溜めない（36か月分まで）
+  const keys=Object.keys(dashSettings.quests).sort(); while(keys.length>36) delete dashSettings.quests[keys.shift()];
+  dashSaveSetting('quests');
+  dashRenderQuests(); dashRenderHero();
+}
+// 管理会計タブを開いて、入力フォームまで案内する
+function dashOpenAccounting(y,m,view,cat){
+  accYear=y; accMonth=m;
+  const tab=document.querySelector('.tab[data-tab="accounting"]'); if(tab) tab.click();
+  setTimeout(()=>{
+    const b=document.querySelector(`#seg-acc .seg-btn[data-val="${view}"]`); if(b) b.click();
+    const last=`${y}-${dashPad(m)}-${dashPad(new Date().getFullYear()===y&&new Date().getMonth()+1===m ? new Date().getDate() : dashDaysIn(y,m))}`;
+    if (view==='expenses'){ const dt=document.getElementById('inp-exp-date'); if(dt) dt.value=last; const c=document.getElementById('inp-exp-cat'); if(c&&cat) c.value=cat; const a=document.getElementById('inp-exp-amount'); if(a) a.focus(); }
+    if (view==='biz'){ const dt=document.getElementById('inp-biz-date'); if(dt) dt.value=last; }
+    window.scrollTo({top:0,behavior:'smooth'});
+  },120);
+}
+// 弥生CSV（管理会計タブの出力と同じ処理）。対象月のデータをセットして出力する
+async function dashDownloadYayoi(y,m,mode){
+  await dashLoadYear(y);
+  const sl=dashSlice(y,m);
+  accYear=y; accMonth=m; accHistory=sl.history; accExpenses=sl.expenses; accFixedCosts=sl.fixed;
+  exportYayoiCSV(mode);
+}
+
+// ---------- ヒーロー（レベル・EXP） ----------
+function dashRenderHero(){
+  const cy=new Date().getFullYear();
+  const yearSales = dashStats(dashSlice(cy,0)).sales;
+  const salesExp = Math.floor(Math.max(0,yearSales)/DASH_EXP_PER_YEN), bonus=dashBonusExp(cy);
+  const total=salesExp+bonus, level=Math.floor(total/DASH_EXP_PER_LV)+1, inLv=total%DASH_EXP_PER_LV, pct=Math.round(inLv/DASH_EXP_PER_LV*100);
+  const rank = level>=20?['🌸','名店マスター']:level>=10?['🌳','人気店主']:level>=5?['🌿','店長']:['🌱','見習い店主'];
+  dashSet('dash-level-label', `${rank[0]} Lv.${level} ${rank[1]}`);
+  dashSet('dash-exp-label', `${pct}%`);
+  dashSet('dash-exp-detail', `EXP ${inLv.toLocaleString()} / ${DASH_EXP_PER_LV.toLocaleString()}`);
+  dashSet('dash-exp-src', `${cy}年の累計：売上 ${salesExp.toLocaleString()} ＋ ミッション・記帳 ${bonus.toLocaleString()}`);
+  const ef=document.getElementById('dash-exp-fill'); if(ef) ef.style.width=pct+'%';
+}
+
+// ---------- 内訳（原価・経費・利益／ランキング／出どころ／最近の注文） ----------
+function dashRenderMix(cur,sl){
+  // 売上の内訳：積み上げ横棒（隙間2px）。赤字のときは原価＋経費を100%として表示
+  const el=document.getElementById('dash-split');
+  if (el){
+    const base=Math.max(1,cur.sales), loss=cur.profit<0;
+    const segs=[['原価',cur.cost,DC.cost],['経費',cur.expense,DC.expense],['利益',Math.max(0,cur.profit),DC.profit]];
+    const denom = loss ? Math.max(1,cur.cost+cur.expense) : base;
+    el.innerHTML = `<div class="split-bar">${segs.filter(s=>s[1]>0).map(s=>`<i style="flex:${s[1]/denom};background:${s[2]}" title="${s[0]} ${dashMoney(s[1])}"></i>`).join('') || '<i style="flex:1;background:#eee8df"></i>'}</div>`+
+      `<div class="split-list">${[['売上',cur.sales,DC.sales,''],...segs.map(s=>[s[0],s[1],s[2],cur.sales>0?Math.round(s[1]/cur.sales*100)+'%':''])].map(r=>`<div class="summary-item"><span><i class="summary-dot" style="background:${r[2]}"></i>${r[0]}</span><b>${dashMoney(r[1])}${r[3]?` <em>${r[3]}</em>`:''}</b></div>`).join('')}</div>`+
+      (loss?`<div class="split-loss">⚠ 赤字 ${dashMoney(-cur.profit)}（売上より原価＋経費が多い状態）</div>`:'');
+  }
+  // 商品別ランキング
   const pMap={};
-  dashHistory.forEach(h=>(h.salesItems||[]).forEach(si=>{
-    if(!si.pid) return; // 送料行は除外
-    const name=si.productName||'商品';
-    if(!pMap[name])pMap[name]={total:0,cnt:0};
-    pMap[name].total+=Number(si.price||0); pMap[name].cnt++;
-  }));
-  const ranked=Object.entries(pMap).sort((a,b)=>b[1].total-a[1].total).slice(0,5);
-  const rmax=ranked[0]?.[1]?.total||1;
+  sl.history.forEach(h=>(h.salesItems||[]).forEach(si=>{ if(!si.pid) return; const name=si.productName||'商品'; if(!pMap[name])pMap[name]={total:0,cnt:0}; pMap[name].total+=Number(si.price||0); pMap[name].cnt++; }));
+  const ranked=Object.entries(pMap).sort((a,b)=>b[1].total-a[1].total).slice(0,5), rmax=ranked[0]?.[1]?.total||1;
   const rankEl=document.getElementById('dash-ranking');
   if(rankEl)rankEl.innerHTML=ranked.length
     ? ranked.map(([name,v],i)=>`<div class="rank-row-game"><div class="medal ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i+1}</div><div class="rank-info"><div class="rank-name">${esc(name)} <span style="color:#a39588;font-weight:700">${v.cnt}個</span></div><div class="rank-bar"><span style="width:${Math.round(v.total/rmax*100)}%"></span></div></div><div class="rank-money">${dashMoney(v.total)}</div></div>`).join('')
-    : `<div style="padding:20px 5px;text-align:center;color:#a39588;font-size:12px">まだ売上データがありません</div>`;
-
-  // 売上・原価・経費・利益（管理会計と同じ calcOrderPL / 経費シートを使用）
-  let cost=0;
-  dashHistory.forEach(h=>{ cost += calcOrderPL(h).cost; });
-  const expense=dashExpenses.reduce((s,e)=>s+Number(e.amount||0),0);
-  const profit=monthSales-cost-expense;
-  const summary=[['#53c0b5','売上',monthSales],['#f28eae','原価',cost],['#f2a85b','経費',expense],['#52b98b','利益',profit]];
-  const summaryEl=document.getElementById('dash-summary');
-  if(summaryEl)summaryEl.innerHTML=summary.map(([c,l,v])=>`<div class="summary-item"><span><i class="summary-dot" style="background:${c}"></i>${l}</span><b>${dashMoney(v)}</b></div>`).join('');
-  const donut=document.getElementById('dash-donut');
-  if(donut){
-    const base=Math.max(1,monthSales);
-    const costPct   = Math.max(0,Math.min(100,Math.round(cost/base*100)));
-    const expPctD   = Math.max(0,Math.min(100-costPct,Math.round(expense/base*100)));
-    const profitPct = Math.max(0,100-costPct-expPctD);
-    donut.style.background=`conic-gradient(#52b98b 0 ${profitPct}%,#f28eae ${profitPct}% ${profitPct+costPct}%,#f2a85b ${profitPct+costPct}% 100%)`;
-  }
-
-  // 最近の注文（完了履歴＋受付中の注文／商品画像は使わない）
+    : `<div class="dash-none">まだ売上データがありません</div>`;
+  // 売上の出どころ（販売チャネル＝認知度の手がかり／支払方法）
+  const ch={}, pay={};
+  sl.history.forEach(h=>{ const c=h.channel||'marche'; ch[c]=(ch[c]||0)+dashHistorySales(h); (h.salesItems||[]).forEach(si=>{ if(!si.pid) return; const p=si.paymentMethod||'cash'; pay[p]=(pay[p]||0)+Number(si.price||0); }); });
+  const bars=(obj,labels,icons)=>{ const arr=Object.entries(obj).sort((a,b)=>b[1]-a[1]), tot=arr.reduce((s,x)=>s+x[1],0)||1;
+    return arr.length ? arr.map(([k,v])=>`<div class="mix-row"><span class="mix-name">${(icons&&icons[k])||''} ${esc(labels[k]||k)}</span><span class="mix-bar"><i style="width:${Math.round(v/tot*100)}%"></i></span><b>${Math.round(v/tot*100)}%</b><em>${dashMoney(v)}</em></div>`).join('') : `<div class="dash-none">データなし</div>`; };
+  const mix=document.getElementById('dash-mix');
+  if (mix) mix.innerHTML = `<div class="mix-title">どこで売れた？（販売チャネル）</div>${bars(ch,CH_LABELS,CH_ICONS)}<div class="mix-title" style="margin-top:12px">支払方法</div>${bars(pay,PAY_LABELS,null)}`;
+  // 最近の注文
   const recent=[];
-  dashHistory.slice().sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt)).slice(0,5).forEach(h=>{
-    const first=(h.salesItems||[])[0];
-    const more=Math.max(0,(h.salesItems||[]).filter(si=>si.pid).length-1);
-    recent.push({
-      name:(first?.productName||'注文')+(more?` 他${more}点`:''),
-      date:h.completedAt, price:dashHistorySales(h),
-      status:h.deliveryType==='shipping'?'発送済み':'お渡し済み'
-    });
+  sl.history.slice().sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt)).slice(0,5).forEach(h=>{
+    const first=(h.salesItems||[])[0], more=Math.max(0,(h.salesItems||[]).filter(si=>si.pid).length-1);
+    recent.push({ name:(first?.productName||'注文')+(more?` 他${more}点`:''), date:h.completedAt, price:dashHistorySales(h), status:h.deliveryType==='shipping'?'発送済み':'お渡し済み' });
   });
-  S.orders.slice().sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).forEach(o=>{
-    if(o.status==='done') return;
-    recent.unshift({
-      name:dashOrderLabel(o), date:o.createdAt,
-      price:(o.items||[]).reduce((s,it)=>s+Number(it.price||0),0)+Number(o.shippingFee||0)-Number(o.discount||0),
-      status:o.deliveryType==='shipping'?'発送準備中':'制作中'
+  if (dashIsCurrent()){
+    S.orders.slice().sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).forEach(o=>{
+      if(o.status==='done') return;
+      recent.unshift({ name:dashOrderLabel(o), date:o.createdAt, price:(o.items||[]).reduce((s,it)=>s+Number(it.price||0),0)+Number(o.shippingFee||0)-Number(o.discount||0), status:o.deliveryType==='shipping'?'発送準備中':'制作中' });
     });
-  });
+  }
   const recentEl=document.getElementById('dash-recent');
   if(recentEl)recentEl.innerHTML=recent.slice(0,5).map(r=>`<div class="recent-row"><div class="recent-ico">📦</div><div><div class="recent-name">${esc(r.name)}</div><div class="recent-meta">${r.date?new Date(r.date).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}):'--'}　${dashMoney(r.price)}</div></div><div class="status-chip ${r.status.includes('準備')||r.status.includes('制作')?'wait':''}">${r.status}</div></div>`).join('')
-    || `<div style="padding:20px 5px;text-align:center;color:#a39588;font-size:12px">最近の注文はありません</div>`;
+    || `<div class="dash-none">最近の注文はありません</div>`;
+}
+
+// ---------- 目標設定モーダル ----------
+function openGoalModal(){
+  const y=dashY, yr=dashGoalRec('year',y);
+  dashSet('goal-year-lbl', `${y}年の年間目標`);
+  document.getElementById('goal-y-sales').value  = yr.sales||'';
+  document.getElementById('goal-y-profit').value = yr.profit||'';
+  document.getElementById('goal-y-memo').value   = yr.memo||'';
+  document.getElementById('goal-months').innerHTML = Array.from({length:12},(_,i)=>{
+    const r=dashGoalRec('month',dashMonthKey(y,i+1));
+    return `<label class="gm"><span>${i+1}月</span><input type="number" inputmode="numeric" class="sh-input" id="goal-m-${i+1}" value="${r.sales||''}" oninput="dashGoalSumNote()"></label>`;
+  }).join('');
+  const mk=dashMonthKey(y, dashMode==='month'?dashM:(y===new Date().getFullYear()?new Date().getMonth()+1:12));
+  const mm=Number(mk.slice(5,7)); document.getElementById('goal-memo-month').dataset.m=mm;
+  dashSet('goal-memo-lbl', `${mm}月の作戦メモ（足りない分をどう埋めるか）`);
+  document.getElementById('goal-m-memo').value = dashGoalRec('month',mk).memo||'';
+  dashGoalSumNote();
+  openOverlay('ov-goal');
+}
+function dashGoalSumNote(){
+  const ys=parseInt(document.getElementById('goal-y-sales').value)||0;
+  let sum=0, filled=0; for(let i=1;i<=12;i++){ const v=parseInt(document.getElementById('goal-m-'+i).value)||0; if(v>0){sum+=v;filled++;} }
+  const auto = ys>0 ? Math.round(ys/12) : 0;
+  for(let i=1;i<=12;i++){ document.getElementById('goal-m-'+i).placeholder = auto?dashShort(auto):'0'; }
+  let msg = `月別を入力した ${filled}か月の合計：${dashMoney(sum)}`;
+  if (ys>0 && filled) { const rest=ys-sum; msg += `　／　年間目標との差：${rest>=0?`あと ${dashMoney(rest)}`:`${dashMoney(-rest)} 超過`}`; }
+  dashSet('goal-sum-note', msg);
+}
+function dashGoalSplit(){
+  const ys=parseInt(document.getElementById('goal-y-sales').value)||0;
+  if(!ys){ toast('先に年間の売上目標を入力してください'); return; }
+  const each=Math.floor(ys/12); for(let i=1;i<=12;i++) document.getElementById('goal-m-'+i).value=each;
+  dashGoalSumNote();
+}
+function dashGoalFromMonths(){
+  let sum=0; for(let i=1;i<=12;i++) sum+=parseInt(document.getElementById('goal-m-'+i).value)||0;
+  if(!sum){ toast('月別の目標が入力されていません'); return; }
+  document.getElementById('goal-y-sales').value=sum; dashGoalSumNote();
+}
+function saveGoals(){
+  const y=dashY, g=dashSettings.goals; g.year=g.year||{}; g.month=g.month||{};
+  const now0=new Date(), hadGoal = dashGoalMonth(now0.getFullYear(), now0.getMonth()+1)>0;   // 目標設定ミッションの二重取り防止
+  const ys=parseInt(document.getElementById('goal-y-sales').value)||0, yp=parseInt(document.getElementById('goal-y-profit').value)||0;
+  const ym=document.getElementById('goal-y-memo').value.trim();
+  if (ys||yp||ym) g.year[y]={ sales:ys, profit:yp, memo:ym }; else delete g.year[y];
+  const memoM=Number(document.getElementById('goal-memo-month').dataset.m||0), memoTxt=document.getElementById('goal-m-memo').value.trim();
+  for(let i=1;i<=12;i++){
+    const k=dashMonthKey(y,i), v=parseInt(document.getElementById('goal-m-'+i).value)||0, memo = (i===memoM) ? memoTxt : (dashGoalRec('month',k).memo||'');
+    if (v||memo) g.month[k]={ sales:v, memo }; else delete g.month[k];
+  }
+  dashSaveSetting('goals');
+  const now=new Date();
+  if (!hadGoal && dashGoalMonth(now.getFullYear(), now.getMonth()+1)>0 && dashDayAdd(dashDateKey(now),'setgoal')) toast('🚩 目標をセット！ ミッション +200 EXP');
+  else toast('🚩 目標を保存しました');
+  closeOverlay('ov-goal');
+  dashDraw();
+}
+
+// ---------- 描画の入口 ----------
+function dashDraw(){
+  const now=new Date(), cy=now.getFullYear(), cm=now.getMonth()+1, isM=dashMode==='month', isCur=dashIsCurrent();
+  const m=isM?dashM:0, sl=dashSlice(dashY,m), cur=dashStats(sl);
+  const pp=dashPrevOf(dashY,m), prevSl=dashSlice(pp.y,pp.m), prev=dashStats(prevSl);
+  const prevLabel = isM ? (isCur?'先月':'前月') : (isCur?'昨年':'前年');
+  const series=dashSeries(dashY,m), prevSeries=dashSeries(pp.y,pp.m).sales;
+  let todaySales=null, yesterdayPct=null;
+  if (isM && isCur){
+    const tk=dashDateKey(now), y=new Date(now); y.setDate(y.getDate()-1);
+    todaySales=sl.history.filter(h=>dashDateKey(h.completedAt)===tk).reduce((s,h)=>s+dashHistorySales(h),0);
+    const ys=dashSlice(y.getFullYear(),y.getMonth()+1).history.filter(h=>dashDateKey(h.completedAt)===dashDateKey(y)).reduce((s,h)=>s+dashHistorySales(h),0);
+    yesterdayPct=dashPct(todaySales,ys);
+  }
+  dashView={ slice:sl, cur, prev, series, prevSeries, prevLabel, isCur };
+  dashRenderBar();
+  dashRenderKpis(cur, prev, { prevLabel, isCur, todaySales, yesterdayPct });
+  dashRenderGoal(cur, { isCur });
+  dashDrawCharts();
+  dashRenderMix(cur, sl);
+  dashRenderMissions();
+  dashRenderQuests();
+  dashRenderHero();
+}
+
+// force=true : タブ切替時など、強制的に最新データを取り直す
+async function renderDashboard(force){
+  const page=document.getElementById('page-dashboard');
+  if (!page) return;
+  // ホームが表示されていないときは通信しない（render()から毎回呼ばれるため）
+  if (!force && !page.classList.contains('on')) return;
+  const token=++dashRenderToken;
+  if (dashSettingsState===0){
+    // 保存済みの設定（目標・ミッション・記帳）をサーバーから取得。取得できたら描き直す
+    dashLoadSettings().then(()=>{ dashQuestSel=null; if(page.classList.contains('on')) dashDraw(); });
+  }
+  const cy=new Date().getFullYear();
+  const need=dashNeededYears().filter(y=>force || !dashCache[y] || (y===cy && Date.now()-dashCache[y].at>300000));
+  const firstLoad=need.some(y=>!dashCache[y]);
+  if (need.length){
+    if (firstLoad) page.classList.add('dash-loading');
+    try { await Promise.all(need.map(dashLoadYear)); } finally { page.classList.remove('dash-loading'); }
+  }
+  if (token!==dashRenderToken) return;   // 新しい描画要求が入ったらそちらに任せる
+  dashDraw();
 }
 
 // ============================================================
@@ -4626,7 +5543,7 @@ let accExpenses = [];
 let accFixedCosts = [];
 let accView = 'orders'; // 'orders' | 'products' | 'expenses' | 'biz'
 
-const EXP_LABELS = { fuel:'⛽ 燃料費', expressway:'🛣 高速代', accommodation:'🏨 宿泊費', other:'📦 その他' };
+const EXP_LABELS = { fuel:'⛽ 燃料費', expressway:'🛣 高速代', accommodation:'🏨 宿泊費', booth:'🎪 出展料', other:'📦 その他' };
 const FIXED_LABELS = {
   purchase:'🛒 仕入れ', communication:'📡 通信費', rent:'🏠 家賃・地代',
   subscription:'💿 サブスク', utility:'💡 水道光熱費', other_fixed:'📋 その他固定費'
@@ -4652,6 +5569,7 @@ let yayoiMap = {
   fuel_debit:    '旅費交通費',
   expressway_debit:'旅費交通費',
   accommodation_debit:'旅費交通費',
+  booth_debit:   '支払手数料',   // 出展料（弥生の科目名は下のマッピング欄で変更可）
   other_debit:   '雑費',
   // 経費 貸方（支払い元）
   expense_credit:'現金',
@@ -5226,7 +6144,7 @@ const YAYOI_MAP_LABELS = {
   furikomi_debit:'振込 借方', base_debit:'BASE 借方', sales_credit:'売上 貸方',
   purchase_debit:'仕入高 借方', communication_debit:'通信費 借方', rent_debit:'家賃 借方',
   subscription_debit:'諸会費 借方', utility_debit:'水道光熱費 借方', other_fixed_debit:'その他固定費 借方',
-  fuel_debit:'燃料費 借方', expressway_debit:'高速代 借方', accommodation_debit:'宿泊費 借方',
+  fuel_debit:'燃料費 借方', expressway_debit:'高速代 借方', accommodation_debit:'宿泊費 借方', booth_debit:'出展料 借方',
   other_debit:'その他経費 借方', expense_credit:'経費 貸方',
 };
 

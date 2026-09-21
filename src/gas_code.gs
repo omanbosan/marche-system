@@ -101,7 +101,7 @@ function doGet(e) {
       case 'auth':           return handleAuth(e.parameter.password || '');
       case 'ping':           return ok({ pong: true });
       case 'getAll':         return handleGetAll();
-      case 'getHistory':     return handleGetHistory(data.year||'', data.month||'');
+      case 'getHistory':     return handleGetHistory(data.year||'', data.month||'', !!data.lite);
       case 'saveOrderFast':  return handleSaveOrderFast(data);
       case 'saveOrder':      return handleSaveOrderFast(data.order||data);
       case 'saveOrderHeader':return handleSaveOrderHeader(data);
@@ -132,6 +132,9 @@ function doGet(e) {
       case 'getFixedCosts':     return handleGetFixedCosts(data.year||'', data.month||'');
       case 'saveFixedCost':     return handleSaveFixedCost(data.cost||data);
       case 'deleteFixedCost':   return handleDeleteFixedCost(data.costId||'');
+      case 'getDashData':       return handleGetDashData(data.year||'');
+      case 'getDashSettings':   return handleGetDashSettings();
+      case 'saveDashSetting':   return handleSaveDashSetting(data);
       default:               return err('Unknown action: ' + action);
     }
   } catch(ex) {
@@ -192,7 +195,7 @@ function routeAction(action, data) {
     case 'auth':           return handleAuth(data.password || '');
     case 'ping':           return ok({ pong: true });
     case 'getAll':         return handleGetAll();
-    case 'getHistory':     return handleGetHistory(data.year||'', data.month||'');
+    case 'getHistory':     return handleGetHistory(data.year||'', data.month||'', !!data.lite);
     case 'saveOrderFast':  return handleSaveOrderFast(data);
     case 'saveOrder':      return handleSaveOrderFast(data.order||data);
     case 'saveOrderHeader':return handleSaveOrderHeader(data);
@@ -223,6 +226,9 @@ function routeAction(action, data) {
     case 'getFixedCosts':     return handleGetFixedCosts(data.year||'', data.month||'');
     case 'saveFixedCost':     return handleSaveFixedCost(data.cost||data);
     case 'deleteFixedCost':   return handleDeleteFixedCost(data.costId||'');
+    case 'getDashData':       return handleGetDashData(data.year||'');
+    case 'getDashSettings':   return handleGetDashSettings();
+    case 'saveDashSetting':   return handleSaveDashSetting(data);
     default:                  return err('Unknown action: ' + action);
   }
 }
@@ -437,7 +443,10 @@ function handleGetAll() {
   return ok(result);
 }
 
-function handleGetHistory(year, month) {
+// lite=true : 売上集計用の軽量版。工程(steps)・アイテム(items)の全件読み込みと、
+//             工程別平均などの重い集計を省く（ホームのダッシュボード用）。
+//             返す履歴の中身（salesItems・channel・numGroupなど）は通常版と同じ。
+function handleGetHistory(year, month, lite) {
   const ss     = SpreadsheetApp.openById(SPREADSHEET_ID);
   var hist     = sheetToObjects(ss.getSheetByName(SH.HISTORY));
   if (year) {
@@ -448,12 +457,36 @@ function handleGetHistory(year, month) {
   }
   const sales    = sheetToObjects(ss.getSheetByName(SH.SALES));
   const orders   = sheetToObjects(ss.getSheetByName(SH.ORDERS));
-  const allItems = sheetToObjects(ss.getSheetByName(SH.ITEMS));
-  const steps    = sheetToObjects(ss.getSheetByName(SH.STEPS));
 
   // orderをマップ化
   var orderMap = {};
   orders.forEach(function(o){ orderMap[o.id] = o; });
+
+  // salesをhistoryIdでグループ化（履歴1件ごとにsales全件をfilterするとO(履歴×売上)で、データが増えるほど急に遅くなるため）
+  var salesByHist = {};
+  sales.forEach(function(s){
+    (salesByHist[s.historyId] || (salesByHist[s.historyId] = [])).push(s);
+  });
+
+  if (lite) {
+    hist.forEach(function(h){
+      h.salesItems = salesByHist[h.id] || [];
+      var ord = orderMap[h.orderId];
+      h.channel   = ord ? (ord.channel   || 'marche')  : 'marche';
+      h.createdAt = ord ? (ord.createdAt || '')        : '';
+      h.numGroup  = ord ? (ord.numGroup  || 'engrave') : 'engrave';
+    });
+    return ok({ history: hist });
+  }
+
+  const allItems = sheetToObjects(ss.getSheetByName(SH.ITEMS));
+  const steps    = sheetToObjects(ss.getSheetByName(SH.STEPS));
+
+  // orderIdごとのアイテム（履歴1件ごとにitems全件をfilterしないため）
+  var itemsByOrder = {};
+  allItems.forEach(function(it){
+    (itemsByOrder[it.orderId] || (itemsByOrder[it.orderId] = [])).push(it);
+  });
 
   // itemをマップ化
   var itemMap = {};
@@ -549,7 +582,7 @@ function handleGetHistory(year, month) {
 
   // histに詳細情報を付加
   hist.forEach(function(h){
-    h.salesItems = sales.filter(function(s){ return s.historyId === h.id; });
+    h.salesItems = salesByHist[h.id] || [];
     var ord = orderMap[h.orderId];
     if (ord) {
       h.channel    = ord.channel    || 'marche';
@@ -559,7 +592,7 @@ function handleGetHistory(year, month) {
       h.numGroup = 'engrave';
     }
     // 工程別実績（現地・郵送とも）
-    var ordItems = allItems.filter(function(it){ return it.orderId === h.orderId; });
+    var ordItems = itemsByOrder[h.orderId] || [];
     var stepDetailArr = [];
     ordItems.forEach(function(it){
       (stepsByItem[it.id] || []).forEach(function(s){
@@ -1795,4 +1828,44 @@ function handleDeleteFixedCost(costId) {
     }
   }
   return ok({ deleted: false });
+}
+
+// ============================================================
+//  ホーム画面の設定（年間・月間の目標／今日のミッション達成／記帳クエスト）
+//  configシートに「dash_」を付けたキーでJSON文字列として保存する。
+//  許可するキーは goals / quests / daily_YYYY-MM のみ（任意のconfigキーを書き換えられないようにする）
+// ============================================================
+function isDashSettingKey(k) {
+  return /^(goals|quests|daily_\d{4}-\d{2})$/.test(String(k || ''));
+}
+
+function handleGetDashSettings() {
+  var cfg = getConfig(), out = {};
+  Object.keys(cfg).forEach(function(k) {
+    if (k.indexOf('dash_') !== 0) return;
+    var name = k.substring(5);
+    if (isDashSettingKey(name)) out[name] = String(cfg[k]);
+  });
+  return ok({ settings: out });
+}
+
+function handleSaveDashSetting(data) {
+  var key = data && data.key, value = data && data.value;
+  if (!isDashSettingKey(key)) return err('invalid setting key');
+  value = String(value == null ? '' : value);
+  if (value.length > 45000) return err('setting too large');   // セル上限(50,000文字)未満に制限
+  try { JSON.parse(value); } catch (e) { return err('setting is not valid JSON'); }
+  setConfig('dash_' + key, value);
+  return ok({ saved: true });
+}
+
+// ホーム画面用：指定した年の「履歴(軽量)・経費・固定費」を1回の通信でまとめて返す。
+// 以前は年ごとに getHistory / getExpenses / getFixedCosts の3通信で、GASは1通信ごとに最低約1秒かかるため
+function handleGetDashData(year) {
+  if (!year) return err('year missing');
+  var unwrap = function(out) { return JSON.parse(out.getContent()).data || {}; };
+  var h = unwrap(handleGetHistory(year, '', true));
+  var e = unwrap(handleGetExpenses(year, ''));
+  var f = unwrap(handleGetFixedCosts(year, ''));
+  return ok({ history: h.history || [], expenses: e.expenses || [], costs: f.costs || [] });
 }
