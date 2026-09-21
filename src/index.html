@@ -631,7 +631,9 @@ button,input,select,textarea{font-family:inherit}
 }
 @media(max-width:620px){
   /* iPhone等の狭い画面。固定部（ヘッダー＋待ち時間＋タブ）が画面を占有しすぎないよう詰める */
-  .hdr{min-height:0!important;padding:7px 9px 9px!important;grid-template-columns:auto 1fr auto!important;grid-template-areas:"mascot logo sync" "center center status";gap:4px 8px!important}
+  /* 時計は1段目の右端に置く（現場から「右上に出してほしい」との要望）。
+     2段目はステータスのピルだけになるので、ヘッダー全体の高さはむしろ縮む */
+  .hdr{min-height:0!important;padding:7px 9px 9px!important;grid-template-columns:auto auto 1fr auto!important;grid-template-areas:"mascot logo center sync" "status status status status";gap:4px 8px!important}
   .hdr-mascot{width:40px;height:40px;box-shadow:0 3px 8px rgba(70,95,70,.18),inset 0 0 0 2px rgba(255,255,255,.55)}
   .wbar{padding:5px 12px!important}
   .wbar-num{font-size:21px!important}
@@ -639,7 +641,7 @@ button,input,select,textarea{font-family:inherit}
   .wd{width:7px;height:7px}
   .hdr-logo{min-width:0;width:max-content;max-width:calc(100vw - 110px);font-size:15px!important;padding:7px 11px 6px!important;border-width:2px!important;box-shadow:inset 0 1px rgba(255,255,255,.25),0 3px 0 #76502f!important}
   .hdr-logo::after{font-size:8px}
-  .hdr-clock{justify-self:start;gap:1px;padding:4px 9px 5px!important;border-width:2px!important;border-radius:13px!important;box-shadow:inset 0 2px rgba(255,255,255,.95),0 3px 0 #c08c53!important}
+  .hdr-clock{justify-self:end;gap:1px;padding:4px 9px 5px!important;border-width:2px!important;border-radius:13px!important;box-shadow:inset 0 2px rgba(255,255,255,.95),0 3px 0 #c08c53!important}
   .clk-date{font-size:8px;letter-spacing:.04em}
   .clk-time b{font-size:22px;padding:1px 6px 2px;border-radius:8px;border-width:1.5px}
   .clk-time i{font-size:17px}
