@@ -602,3 +602,11 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - ユーザー指示で「おまんぼさん」の文字を外した。`.hdr-logo`は`<span>受注管理</span><span>システム</span>`で、`::after`のサブタイトルは`content:none`で廃止
 - `.hdr-logo`は`align-self:stretch`で時計と同じ高さ（PC 80px／スマホ45px）。620px以下は`flex-direction:column`で2行
 - ヘッダー以外の「おまんぼさん」（`<title>`、ログイン画面の`.login-logo`）は指示の対象外として**変更していない**
+
+### 2026-09-23: 現在時刻と完成目安の色分け（v107・フロントのみ）
+- 「現在時刻と、現在時刻に目安時間を足した時刻を色分けで」との要望。待ち目安カード（`.hdr-wait`）を**完成目安**（緑）に変更
+- 待ち分数は`updateWait()`で`waitMins`（グローバル、時計初期化より前に参照されうるので`var`）に控え、`renderWaitEta()`で描画。時計の`tick`（分が変わったとき）からも`renderWaitEta()`を呼ぶので、完成時刻は放っておいても進む
+- `#wbar-num`＝完成時刻（`<b>HH</b><i>:</i><b>MM</b>`）、`#wait-min`＝「+N分」（`warn`/`alert`クラス）。**時刻の色は意味（いま＝茶／完成＝緑）で固定し、混み具合の色は`#wait-min`だけ**で表す
+- 時計の見出しは`<em class="hdr-tag now">いま</em><span class="clk-md">日付</span>`。440px以下は`.clk-md`を隠す
+- **レイアウト上の注意（実測でわかったこと）**：621〜760pxでは右のステータスピル列が幅を取り、`center`列が狭くなって時計がタイトルに最大119px重なっていた（v104〜v106でも同様だった可能性が高い）。`@media(max-width:760px)`でステータスを2段目に回して解消。768px以上は従来の1段目配置で重ならない（10px以上空く）
+- **計測の注意**：ヘッドレスの`--dump-dom`で`document.title`に書き出す方式は、iframe複数を同時に読むと描画前の値が混じることがあった。1幅ずつiframe1枚で`getBoundingClientRect()`を測るのが確実
