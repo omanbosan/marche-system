@@ -697,7 +697,11 @@ button,input,select,textarea{font-family:inherit}
 }
 .hdr-wait .wbar-num i{font-style:normal;font-weight:900;color:#5fb488;font-size:calc(var(--hn) * .8)}
 .hdr-wait .eta-none{font-size:calc(var(--hn) * .62);font-weight:900;color:#3f9f6f;padding:.25em .2em}
-.wait-min{font-weight:900;color:#2f7a52}
+/* 「◯分待ち」は完成時刻の右隣に大きく（v108〜）。数字は時刻と同じ大きさ、「分待ち」は一回り小さく */
+.eta-row{display:flex;align-items:center;gap:.45em}
+.wait-min{display:flex;align-items:baseline;gap:1px;font-weight:900;color:#2f7a52;white-space:nowrap;line-height:1;font-size:calc(var(--hn) * .5)}
+.wait-min:empty{display:none}
+.wait-min b{font-size:calc(var(--hn) * 1.05);font-weight:900;letter-spacing:-.01em}
 .wait-min.warn{color:var(--orange)}
 .wait-min.alert{color:var(--red)}
 .hdr-wait .wdots{display:flex;flex:none;gap:2px}
@@ -723,13 +727,19 @@ button,input,select,textarea{font-family:inherit}
   .hdr-logo{letter-spacing:.02em!important}
   .clk-md{display:none}   /* 幅が足りないので日付は省き「いま」だけにする */
 }
+@media(max-width:820px){
+  /* 「◯分待ち」を大きく出す幅を確保するため、iPad縦以下では飾りのマスコットを外す（v108〜） */
+  .hdr-mascot{display:none!important}
+  .hdr{grid-template-columns:0 auto 1fr auto!important;column-gap:6px!important}
+  .hdr-logo{margin-left:-6px}
+}
 @media(max-width:760px){
   /* iPad mini縦など：右のステータス列が幅を取り時計がタイトルに重なるので、スマホと同じくステータスを2段目へ */
   .hdr{grid-template-columns:auto auto 1fr auto!important;grid-template-areas:"mascot logo center sync" "status status status status"!important}
   .hdr-center{justify-self:end}
   .hdr-pills{justify-content:flex-end}
 }
-@media(max-width:370px){.hdr{--hn:16px;--hpad:3px 4px 4px}.hdr-center{gap:3px}}   /* 小型Android：数字を一回り小さく */
+@media(max-width:400px){.hdr{--hn:16px;--hpad:3px 4px 4px}.hdr-center{gap:3px}.eta-row{gap:.3em}}   /* iPhone・小型Android：数字を一回り小さく */
 
 /* ================= v96 ホーム：期間切替・グラフ・目標・ミッション・記帳クエスト ================= */
 #page-dashboard.dash-loading .dash-kpis,#page-dashboard.dash-loading .dchart{opacity:.55;transition:opacity .2s}
@@ -989,8 +999,11 @@ textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
   <div class="hdr-center">
     <div class="hdr-clock" id="clock">--:--</div>
     <div class="hdr-wait" title="現地の完成目安（いまの時刻＋待ち目安）">
-      <div class="wbar-lbl"><em class="hdr-tag eta">完成目安</em><span class="wait-min" id="wait-min"></span><span class="wdots" id="wdots"></span></div>
-      <div class="wbar-num none" id="wbar-num"><span class="eta-none">待ちなし</span></div>
+      <div class="wbar-lbl"><em class="hdr-tag eta">完成目安</em><span class="wdots" id="wdots"></span></div>
+      <div class="eta-row">
+        <div class="wbar-num none" id="wbar-num"><span class="eta-none">待ちなし</span></div>
+        <span class="wait-min" id="wait-min"></span>
+      </div>
     </div>
   </div>
   <div class="hdr-pills">
@@ -2295,7 +2308,7 @@ function renderWaitEta() {
   if (!w) {
     wn.innerHTML = '<span class="eta-none">待ちなし</span>';
     wn.className = 'wbar-num none';
-    wm.textContent = '';
+    wm.innerHTML = '';
     wm.className = 'wait-min';
     return;
   }
@@ -2304,7 +2317,7 @@ function renderWaitEta() {
   const mm = String(t.getMinutes()).padStart(2,'0');
   wn.innerHTML = `<b>${hh}</b><i>:</i><b>${mm}</b>`;
   wn.className = 'wbar-num';
-  wm.textContent = `+${w}分`;
+  wm.innerHTML = `<b>${w}</b>分待ち`;
   wm.className = 'wait-min' + (w>60?' alert':w>30?' warn':'');
 }
 
