@@ -470,8 +470,23 @@ button,input,select,textarea{font-family:inherit}
   box-shadow:inset 0 2px rgba(255,255,255,.25),0 5px 0 #76502f,0 9px 16px rgba(82,55,33,.18)!important;
 }
 .hdr-logo::after{content:"売上管理システム";display:block;font-size:11px;letter-spacing:.14em;margin-top:2px;color:#fff5e8}
+/* 時計と待ち目安（2026-09-23〜 待ち時間バーを廃止してヘッダー内の時計の横へ移動） */
+.hdr-center{grid-area:center;align-self:center;justify-self:center;display:flex;align-items:stretch;gap:8px;position:relative;z-index:2;min-width:0}
+.hdr-wait{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  padding:6px 12px 7px;border-radius:15px;min-width:74px;max-width:120px;
+  background:rgba(255,253,247,.92);border:2px solid #e2b378;
+  box-shadow:inset 0 2px rgba(255,255,255,.95),0 4px 0 #c08c53;
+  font-family:'Zen Kaku Gothic New',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;
+}
+.hdr-wait .wbar-lbl{font-size:10px;font-weight:800;color:#a3805a;letter-spacing:.06em;line-height:1;white-space:nowrap}
+.hdr-wait .wbar-num{font-size:20px!important;line-height:1;white-space:nowrap}
+.hdr-wait .wdots{flex:none;justify-content:center;gap:3px}
+.hdr-wait .wdots:empty{display:none}
+.hdr-wait .wd{width:7px;height:7px}
+.hdr-wait .wdots .wd{border-width:1px!important;box-shadow:none}
 .hdr-clock{
-  grid-area:center;align-self:center;justify-self:center;position:relative;z-index:2;
+  align-self:center;position:relative;z-index:2;
   display:flex!important;flex-direction:column;align-items:center;gap:3px;
   padding:7px 16px 9px!important;border-radius:18px!important;
   background:linear-gradient(#fffdf7,#fff3e0)!important;border:3px solid #e2b378!important;
@@ -618,6 +633,8 @@ button,input,select,textarea{font-family:inherit}
   .hdr-logo::after{font-size:9px;letter-spacing:.10em}
   .hdr-clock{padding:6px 12px 7px!important;border-width:2px!important;border-radius:15px!important}
   .clk-date{font-size:10px}
+  .hdr-wait{padding:5px 10px 6px;border-radius:13px}
+  .hdr-wait .wbar-num{font-size:18px!important}
   .clk-time b{font-size:27px;padding:2px 7px 4px;border-radius:9px}
   .clk-time i{font-size:22px}
   .hdr-mascot{width:54px;height:54px}
@@ -635,13 +652,14 @@ button,input,select,textarea{font-family:inherit}
      2段目はステータスのピルだけになるので、ヘッダー全体の高さはむしろ縮む */
   .hdr{min-height:0!important;padding:7px 9px 9px!important;grid-template-columns:auto auto 1fr auto!important;grid-template-areas:"mascot logo center sync" "status status status status";gap:4px 8px!important}
   .hdr-mascot{width:40px;height:40px;box-shadow:0 3px 8px rgba(70,95,70,.18),inset 0 0 0 2px rgba(255,255,255,.55)}
-  .wbar{padding:5px 12px!important}
-  .wbar-num{font-size:21px!important}
-  .wbar-lbl{font-size:9px}
-  .wd{width:7px;height:7px}
   .hdr-logo{min-width:0;width:max-content;max-width:calc(100vw - 110px);font-size:15px!important;padding:7px 11px 6px!important;border-width:2px!important;box-shadow:inset 0 1px rgba(255,255,255,.25),0 3px 0 #76502f!important}
   .hdr-logo::after{font-size:8px}
-  .hdr-clock{justify-self:end;gap:1px;padding:4px 9px 5px!important;border-width:2px!important;border-radius:13px!important;box-shadow:inset 0 2px rgba(255,255,255,.95),0 3px 0 #c08c53!important}
+  .hdr-center{justify-self:end;gap:5px}
+  .hdr-wait{min-width:0;padding:3px 7px 4px;border-radius:12px;border-width:1.5px;box-shadow:inset 0 2px rgba(255,255,255,.95),0 3px 0 #c08c53;gap:2px}
+  .hdr-wait .wbar-lbl{font-size:8px;letter-spacing:0}
+  .hdr-wait .wbar-num{font-size:15px!important}
+  .hdr-wait .wd{width:5px;height:5px}
+  .hdr-clock{gap:1px;padding:4px 9px 5px!important;border-width:2px!important;border-radius:13px!important;box-shadow:inset 0 2px rgba(255,255,255,.95),0 3px 0 #c08c53!important}
   .clk-date{font-size:8px;letter-spacing:.04em}
   .clk-time b{font-size:22px;padding:1px 6px 2px;border-radius:8px;border-width:1.5px}
   .clk-time i{font-size:17px}
@@ -651,6 +669,22 @@ button,input,select,textarea{font-family:inherit}
   .dash-hero{display:grid;grid-template-columns:1fr}.dash-level{min-width:0}.dash-welcome-title{font-size:20px}.dash-kpis{gap:9px}.dash-kpi{min-height:118px;padding:13px}.kpi-value{font-size:22px}.dash-bottom-grid{grid-template-columns:1fr}.sales-chart{height:220px}
 }
 
+
+@media(max-width:440px){
+  /* 1段目に「マスコット・ロゴ・時計・待ち目安・同期」が並ぶため、ロゴを詰めて重なりを防ぐ */
+  .hdr{gap:4px 6px!important}
+  .hdr-logo{font-size:13px!important;letter-spacing:.02em!important;padding:6px 8px 5px!important;max-width:none}
+  .hdr-logo::after{font-size:7px;letter-spacing:0}
+  .hdr-center{gap:4px}
+  .clk-time b{font-size:20px;padding:1px 5px 2px}
+  .clk-time i{font-size:15px}
+  .hdr-wait{padding:3px 5px 4px}
+}
+@media(max-width:370px){
+  /* 小型Android等。これ以上詰めると文字が読めないので、マスコットを外して幅を空ける */
+  .hdr-mascot{display:none}
+  .hdr{grid-template-columns:0 auto 1fr auto!important}
+}
 
 /* ================= v96 ホーム：期間切替・グラフ・目標・ミッション・記帳クエスト ================= */
 #page-dashboard.dash-loading .dash-kpis,#page-dashboard.dash-loading .dchart{opacity:.55;transition:opacity .2s}
@@ -907,7 +941,14 @@ textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
 <header class="hdr">
   <div class="hdr-mascot" aria-hidden="true"></div>
   <div class="hdr-logo">おまんぼさん</div>
-  <div class="hdr-clock" id="clock">--:--</div>
+  <div class="hdr-center">
+    <div class="hdr-clock" id="clock">--:--</div>
+    <div class="hdr-wait" title="現地の待ち目安">
+      <div class="wbar-lbl">待ち目安</div>
+      <div class="wbar-num" id="wbar-num">なし</div>
+      <div class="wdots" id="wdots"></div>
+    </div>
+  </div>
   <div class="hdr-pills">
     <div class="pill ob-pill" id="ob-pill" style="display:none" onclick="obRetryNow()" title="未送信の操作。タップで再送します"></div>
     <div class="pill">現地 <b id="st-loc">0</b></div>
@@ -921,13 +962,6 @@ textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
   " title="データを更新">↺</button>
 </header>
 
-<div class="wbar">
-  <div>
-    <div class="wbar-lbl">現地<br>待ち目安</div>
-    <div class="wbar-num" id="wbar-num">なし</div>
-  </div>
-  <div class="wdots" id="wdots"></div>
-</div>
 
 
 <nav class="tabs">
@@ -2021,18 +2055,18 @@ function showLoginScreen() {
 // sticky offset を実際の高さから動的計算（デバイスごとのヘッダー高さ差異に対応）
 function updateStickyOffsets() {
   const hdr  = document.querySelector('.hdr');
-  const wbar = document.querySelector('.wbar');
+  const wbar = document.querySelector('.wbar');   // 待ち目安はヘッダー内へ移動済み（無ければ高さ0）
   const tabs = document.querySelector('.tabs');
-  if (!hdr || !wbar || !tabs) return;
+  if (!hdr || !tabs) return;
   // offsetHeightは小数を切り捨てるためバー間に1px前後のすき間ができる。
   // rectの実寸を切り上げ、さらに1pxずつ重ねてすり抜けを防ぐ。
   const hH = Math.ceil(hdr.getBoundingClientRect().height);
-  const wH = Math.ceil(wbar.getBoundingClientRect().height);
+  const wH = wbar ? Math.ceil(wbar.getBoundingClientRect().height) : 0;
   const tH = Math.ceil(tabs.getBoundingClientRect().height);
   const r = document.documentElement.style;
   r.setProperty('--wbar-top', (hH - 1) + 'px');
-  r.setProperty('--tabs-top', (hH + wH - 2) + 'px');
-  r.setProperty('--btn-top',  (hH + wH + tH - 3) + 'px');
+  r.setProperty('--tabs-top', (hH + wH - (wbar ? 2 : 1)) + 'px');
+  r.setProperty('--btn-top',  (hH + wH + tH - (wbar ? 3 : 2)) + 'px');
   // 価格設定ツールバーの高さを計算してテーブル高さに反映
   const ptToolbar = document.getElementById('pt-toolbar');
   if (ptToolbar) {
