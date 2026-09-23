@@ -597,3 +597,8 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - 待ち目安は`wn.innerHTML`で`<small>約</small><b>N</b><small>分</small>`を出す（数字は`updateWait()`内で計算した整数なのでエスケープ不要）。状態クラスは`none`/`warn`/`alert`
 - 待ちドットは`DOT_MAX=6`個まで＋`.wd-more`で残り件数。620px以下は非表示
 - 実測：PC/1024pxで時計・待ち目安とも高さ80px、768pxで68/70px、スマホで45/45px。360〜1400pxで重なり・横はみ出しなし
+
+### 2026-09-23: ヘッダーのタイトルを「受注管理システム」に（v106・フロントのみ）
+- ユーザー指示で「おまんぼさん」の文字を外した。`.hdr-logo`は`<span>受注管理</span><span>システム</span>`で、`::after`のサブタイトルは`content:none`で廃止
+- `.hdr-logo`は`align-self:stretch`で時計と同じ高さ（PC 80px／スマホ45px）。620px以下は`flex-direction:column`で2行
+- ヘッダー以外の「おまんぼさん」（`<title>`、ログイン画面の`.login-logo`）は指示の対象外として**変更していない**
