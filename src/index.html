@@ -680,24 +680,36 @@ button,input,select,textarea{font-family:inherit}
 .clk-date,.hdr-wait .wbar-lbl{font-size:var(--hs)!important;font-weight:800;color:#a3805a;letter-spacing:.08em;line-height:1;white-space:nowrap;display:flex;align-items:center;gap:4px}
 .clk-time b,.hdr-wait .wbar-num b{font-size:var(--hn)!important;padding:.1em .28em .15em!important;border-radius:.33em!important}
 .clk-time i{font-size:calc(var(--hn) * .8)!important}
-.hdr-wait .wbar-num{display:flex;align-items:center;gap:3px;line-height:1;white-space:nowrap;font-size:var(--hn)!important;color:#6d4a2c!important}
+/* ---- 色分け（v107）：いま＝茶色の時計／完成目安＝緑のカード ----
+   完成目安の時刻は「いま＋待ち目安」。混同しないよう、枠・数字の箱・見出しタグの色を変え、
+   コロンも点滅させない（点滅は現在時刻だけ）。待ち分数（+◯分）は長さに応じて橙・赤 */
+.hdr-tag{font-style:normal;font-weight:900;color:#fff;border-radius:999px;padding:.2em .6em .25em;letter-spacing:.04em;line-height:1}
+.hdr-tag.now{background:#9b6b3f}
+.hdr-tag.eta{background:#3f9f6f}
+.hdr-wait{background:linear-gradient(#f6fff9,#e2f5e9)!important;border-color:#86cfa4!important;
+  box-shadow:inset 0 2px rgba(255,255,255,.95),0 5px 0 #4f9d72,0 9px 16px rgba(40,90,60,.16)!important}
+.hdr-wait .wbar-lbl{color:#3f7f5c}
+.hdr-wait .wbar-num{display:flex;align-items:center;gap:3px;line-height:1;white-space:nowrap}
 .hdr-wait .wbar-num b{
-  font-weight:900;color:#6d4a2c;letter-spacing:.02em;
-  background:linear-gradient(#fffaf0,#ffe9c9);border:2px solid #edcda0;
-  box-shadow:inset 0 -3px rgba(150,110,70,.10),inset 0 2px rgba(255,255,255,.9);
+  font-weight:900;color:#2f7a52;letter-spacing:.02em;
+  background:linear-gradient(#f4fff8,#d3f0de);border:2px solid #a6dbbb;
+  box-shadow:inset 0 -3px rgba(60,130,90,.10),inset 0 2px rgba(255,255,255,.9);
 }
-.hdr-wait .wbar-num small{font-size:calc(var(--hn) * .45);font-weight:900;color:#a3805a}
-.hdr-wait .wbar-num.none b{color:#a3805a}
-.hdr-wait .wbar-num.warn b{color:var(--orange)}
-.hdr-wait .wbar-num.alert b{color:var(--red)}
+.hdr-wait .wbar-num i{font-style:normal;font-weight:900;color:#5fb488;font-size:calc(var(--hn) * .8)}
+.hdr-wait .eta-none{font-size:calc(var(--hn) * .62);font-weight:900;color:#3f9f6f;padding:.25em .2em}
+.wait-min{font-weight:900;color:#2f7a52}
+.wait-min.warn{color:var(--orange)}
+.wait-min.alert{color:var(--red)}
 .hdr-wait .wdots{display:flex;flex:none;gap:2px}
 .hdr-wait .wdots:empty{display:none}
 .hdr-wait .wd{width:6px;height:6px;border-width:1px!important;box-shadow:none!important}
 .hdr-wait .wd-more{font-size:calc(var(--hs) * .9);color:#a3805a;line-height:1}
-@media(max-width:1000px){.hdr{--hs:10px;--hn:26px;--hl:19px;--hpad:6px 11px 7px;--hr:14px}}
+@media(max-width:1000px){.hdr{--hs:10px;--hn:26px;--hl:19px;--hpad:6px 11px 7px;--hr:14px}.hdr-logo{letter-spacing:.02em!important;padding-left:10px!important;padding-right:10px!important}}
 @media(max-width:620px){
   .hdr{--hs:8px;--hn:20px;--hl:15px;--hpad:4px 7px 5px;--hr:12px}
   .hdr-clock,.hdr-wait{border-width:2px!important;gap:3px!important;box-shadow:inset 0 2px rgba(255,255,255,.95),0 3px 0 #c08c53!important}
+  .hdr-wait{box-shadow:inset 0 2px rgba(255,255,255,.95),0 3px 0 #4f9d72!important}
+  .hdr-tag{padding:.2em .45em .25em;letter-spacing:0}
   .clk-date,.hdr-wait .wbar-lbl{letter-spacing:.02em}
   .hdr-wait .wbar-num b,.clk-time b{border-width:1.5px}
   .hdr-wait .wdots{display:none}
@@ -709,7 +721,15 @@ button,input,select,textarea{font-family:inherit}
 @media(max-width:440px){
   .hdr{--hs:7px;--hn:18px;--hl:13px;--hpad:3px 5px 4px}
   .hdr-logo{letter-spacing:.02em!important}
+  .clk-md{display:none}   /* 幅が足りないので日付は省き「いま」だけにする */
 }
+@media(max-width:760px){
+  /* iPad mini縦など：右のステータス列が幅を取り時計がタイトルに重なるので、スマホと同じくステータスを2段目へ */
+  .hdr{grid-template-columns:auto auto 1fr auto!important;grid-template-areas:"mascot logo center sync" "status status status status"!important}
+  .hdr-center{justify-self:end}
+  .hdr-pills{justify-content:flex-end}
+}
+@media(max-width:370px){.hdr{--hn:16px;--hpad:3px 4px 4px}.hdr-center{gap:3px}}   /* 小型Android：数字を一回り小さく */
 
 /* ================= v96 ホーム：期間切替・グラフ・目標・ミッション・記帳クエスト ================= */
 #page-dashboard.dash-loading .dash-kpis,#page-dashboard.dash-loading .dchart{opacity:.55;transition:opacity .2s}
@@ -968,9 +988,9 @@ textarea.sh-input{min-height:64px;resize:vertical;line-height:1.5}
   <div class="hdr-logo"><span>受注管理</span><span>システム</span></div>
   <div class="hdr-center">
     <div class="hdr-clock" id="clock">--:--</div>
-    <div class="hdr-wait" title="現地の待ち目安">
-      <div class="wbar-lbl">待ち目安<span class="wdots" id="wdots"></span></div>
-      <div class="wbar-num none" id="wbar-num"><b>なし</b></div>
+    <div class="hdr-wait" title="現地の完成目安（いまの時刻＋待ち目安）">
+      <div class="wbar-lbl"><em class="hdr-tag eta">完成目安</em><span class="wait-min" id="wait-min"></span><span class="wdots" id="wdots"></span></div>
+      <div class="wbar-num none" id="wbar-num"><span class="eta-none">待ちなし</span></div>
     </div>
   </div>
   <div class="hdr-pills">
@@ -2223,8 +2243,9 @@ function startClock() {
     if (key === lastKey) return;   // 分が変わったときだけ描き替える（コロンの点滅アニメを途切れさせない）
     lastKey = key;
     document.getElementById('clock').innerHTML =
-      `<span class="clk-date">${n.getMonth()+1}月${n.getDate()}日 (${WD[n.getDay()]})</span>` +
+      `<span class="clk-date"><em class="hdr-tag now">いま</em><span class="clk-md">${n.getMonth()+1}/${n.getDate()} (${WD[n.getDay()]})</span></span>` +
       `<span class="clk-time"><b>${hh}</b><i>:</i><b>${mm}</b></span>`;
+    renderWaitEta();   // 完成目安は「いま＋待ち時間」なので時計と一緒に進める
   };
   tick(); setInterval(tick, 1000);
   // 自動同期のタイマーはここには置かない。
@@ -2263,6 +2284,30 @@ function calcItemRemainingMins(item, deliveryType) {
   return mins;
 }
 
+// ---- 完成目安（いまの時刻＋待ち目安）----
+// updateWait()で待ち分数を控え、時計の分が変わるたびにも描き直す
+var waitMins = 0;   // 時計の初期化がこの行より先に走っても参照できるようvar
+function renderWaitEta() {
+  const wn = document.getElementById('wbar-num');
+  const wm = document.getElementById('wait-min');
+  if (!wn || !wm) return;
+  const w = waitMins;
+  if (!w) {
+    wn.innerHTML = '<span class="eta-none">待ちなし</span>';
+    wn.className = 'wbar-num none';
+    wm.textContent = '';
+    wm.className = 'wait-min';
+    return;
+  }
+  const t  = new Date(Date.now() + w * 60000);
+  const hh = String(t.getHours()).padStart(2,'0');
+  const mm = String(t.getMinutes()).padStart(2,'0');
+  wn.innerHTML = `<b>${hh}</b><i>:</i><b>${mm}</b>`;
+  wn.className = 'wbar-num';
+  wm.textContent = `+${w}分`;
+  wm.className = 'wait-min' + (w>60?' alert':w>30?' warn':'');
+}
+
 function calcWait() {
   let total = 0;
   S.orders.filter(o => o.deliveryType==='same-day' && o.status!=='done').forEach(o => {
@@ -2281,10 +2326,8 @@ function updateWait() {
   document.getElementById('st-wip').textContent  = wip.length;
   document.getElementById('st-ship').textContent = ship.length;
 
-  const w  = calcWait();
-  const wn = document.getElementById('wbar-num');
-  wn.innerHTML   = w ? `<small>約</small><b>${w}</b><small>分</small>` : '<b>なし</b>';
-  wn.className   = 'wbar-num' + (!w?' none':w>60?' alert':w>30?' warn':'');
+  waitMins = calcWait();
+  renderWaitEta();
 
   const dots = document.getElementById('wdots');
   dots.innerHTML = '';
