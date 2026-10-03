@@ -1892,19 +1892,24 @@ function obEnqueue(action, data, extra) {
 }
 
 // GASへの1回の送信（api()と同じ分割送信つき）。ネットワーク障害のときだけ throw する
+// 打ち切りは120秒（画面を待たせない裏の送信なので api() の60秒より長くてよい）。
+// 打ち切ってもGAS側の処理は止まらないため、短いと同じ送信がGASに何本もたまる。
+// 受付（saveOrderFast）はサーバー側でロック付きの重複確認をしているので二重登録はしないが、
+// 無駄な再送で他の操作まで遅くなるのを避ける
+const OB_TIMEOUT = 120000;
 async function obSend(action, data) {
   const dataStr = JSON.stringify(data);
   const MAX = 4000;
   let r;
   if (dataStr.length <= MAX) {
-    r = await gasFetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&d=${encodeURIComponent(dataStr)}`);
+    r = await gasFetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&d=${encodeURIComponent(dataStr)}`, OB_TIMEOUT);
   } else {
     const sid = uid(), chunks = [];
     for (let i = 0; i < dataStr.length; i += MAX) chunks.push(dataStr.slice(i, i+MAX));
     for (let i = 0; i < chunks.length-1; i++) {
-      await gasFetch(`${GAS_URL}?action=storeChunk&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${i}&d=${encodeURIComponent(chunks[i])}`);
+      await gasFetch(`${GAS_URL}?action=storeChunk&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${i}&d=${encodeURIComponent(chunks[i])}`, OB_TIMEOUT);
     }
-    r = await gasFetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`);
+    r = await gasFetch(`${GAS_URL}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&sid=${encodeURIComponent(sid)}&ci=${chunks.length-1}&total=${chunks.length}&d=${encodeURIComponent(chunks[chunks.length-1])}`, OB_TIMEOUT);
   }
   return await r.json();
 }
