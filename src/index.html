@@ -2640,7 +2640,7 @@ document.getElementById('btn-new-shipping').addEventListener('click', ()=>openNe
 function openNewOrder(deliveryType) {
   T.editOrderId=null; T.selProds={}; T.selTypeQty={}; T.options={}; T.setPriceOn={}; T.delivery=deliveryType;
   T.numManuallyEdited = false; // 受付番号欄の手入力フラグをリセット（商品選択に応じて自動提案する）
-  T.channel = deliveryType==='shipping' ? 'net' : 'marche';
+  T.channel = 'marche'; // 郵送でも現地（マルシェ）で受け付けることが多いので常にマルシェを既定にする。ネット注文は手でネットを選ぶ
   document.getElementById('order-modal-title').textContent = deliveryType==='shipping' ? '郵送注文受付' : '現地注文受付';
   document.getElementById('inp-note').value = '';
   setSegVal('seg-channel', T.channel);
