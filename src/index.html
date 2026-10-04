@@ -2640,7 +2640,8 @@ document.getElementById('btn-new-shipping').addEventListener('click', ()=>openNe
 function openNewOrder(deliveryType) {
   T.editOrderId=null; T.selProds={}; T.selTypeQty={}; T.options={}; T.setPriceOn={}; T.delivery=deliveryType;
   T.numManuallyEdited = false; // 受付番号欄の手入力フラグをリセット（商品選択に応じて自動提案する）
-  T.channel = 'marche'; // 郵送でも現地（マルシェ）で受け付けることが多いので常にマルシェを既定にする。ネット注文は手でネットを選ぶ
+  // 郵送ページはマルシェで受けた郵送とネット販売の両方に使うので、取り違え防止のため未選択にして毎回選んでもらう
+  T.channel = deliveryType==='shipping' ? '' : 'marche';
   document.getElementById('order-modal-title').textContent = deliveryType==='shipping' ? '郵送注文受付' : '現地注文受付';
   document.getElementById('inp-note').value = '';
   setSegVal('seg-channel', T.channel);
@@ -3270,6 +3271,7 @@ async function saveOrder() {
   const numRaw=document.getElementById('inp-num').value.trim();
   if (!numRaw) { toast('受付番号を入力してください'); return; }
   const num=parseInt(numRaw);
+  if (!T.channel) { toast('販売チャネル（マルシェ／ネット）を選んでください'); return; }
   const note=document.getElementById('inp-note').value.trim();
   // タイプなし商品 + タイプあり商品を統合
   const sel=Object.entries(T.selProds).filter(([,q])=>q>0);
