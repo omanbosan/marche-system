@@ -627,3 +627,12 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - 集計：売上ページのマルシェ欄に現地お渡し／郵送の内訳、ホームの「どこで売れた？」はマルシェ（現地）／（郵送）に分割（v111）。判定は履歴の `deliveryType`
 - 履歴・売上の `channel` は読み出し時に orders シートI列から引くので、既存データの修正は orders のI列を書き換えれば履歴側も直る（`updateOrder` は `channel` だけ渡しても他の列を壊さない）。完了済み注文は画面の「注文を編集」から開けないので、シートを直接直す
 - **未対応**：v110以前の郵送×`net`の注文には本物のネット販売も混ざっており、自動判別できない。10/3分の郵送はすべてマルシェとのこと（書き換えは未実施・方法はユーザー判断待ち）
+
+### 2026-10-11: 郵送の売上を入金日で集計・未入金発送の確認（v113 / gas_v99・GASバージョン100）
+- 2026-07-10に「完了タイミング計上のままでよい」とされていた件を、ユーザー指示で変更した
+- `history.completedAt`は発送完了時（`handleCompleteOrder`）に上書きされるため、入金日はsalesシートの`completedAt`にしか残っていない。`handleGetHistory`が郵送履歴に`salesAt`＝そのhistoryに紐づくsales行の最も早い日時を付け、`year`/`month`の絞り込みも`salesAt`で行う。現地は`salesAt=completedAt`
+- フロントは`saleDate(h)`（`h.salesAt||h.completedAt`）で集計する。履歴カードの完了時刻・「登録〜完了」日数・最近の注文は完了日のまま。**売上を日付で分ける処理を新しく書くときは`h.completedAt`ではなく`saleDate(h)`を使うこと**
+- 履歴タブも`getHistory`の月絞り込みを使うので、「9月入金・10月発送」の郵送は9月の履歴に出る
+- `tapStep`：郵送の最終工程（発送）を押すとき、その商品の`paid`が偽なら`showConfirm`で確認（第3引数`unpaidOk`で再実行）。`showConfirm`に第4引数`okLabel`を追加（省略時は従来どおり「削除」）
+- 本番確認：実URLの`getHistory`で全155件に`salesAt`が付き、郵送5件で入金日と完了日が異なる（例：#211 入金6/19・完了6/27）ことを確認
+
