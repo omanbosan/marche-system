@@ -449,12 +449,6 @@ function handleGetAll() {
 function handleGetHistory(year, month, lite) {
   const ss     = SpreadsheetApp.openById(SPREADSHEET_ID);
   var hist     = sheetToObjects(ss.getSheetByName(SH.HISTORY));
-  if (year) {
-    hist = hist.filter(function(h){
-      const d = new Date(h.completedAt);
-      return d.getFullYear() == year && (month ? (d.getMonth()+1) == month : true);
-    });
-  }
   const sales    = sheetToObjects(ss.getSheetByName(SH.SALES));
   const orders   = sheetToObjects(ss.getSheetByName(SH.ORDERS));
 
@@ -467,6 +461,26 @@ function handleGetHistory(year, month, lite) {
   sales.forEach(function(s){
     (salesByHist[s.historyId] || (salesByHist[s.historyId] = [])).push(s);
   });
+
+  // 売上計上日（salesAt）：郵送は入金確認時にsalesへ記録した日時（＝salesの最も早い日時）。
+  // historyのcompletedAtは発送完了時に上書きされるため、郵送の集計に使うと入金日とずれる。
+  // 入金確認せずに完了した郵送は完了時に記録されるので、結果的に完了日になる。現地は従来どおり完了日
+  hist.forEach(function(h){
+    h.salesAt = h.completedAt;
+    if (h.deliveryType !== 'shipping') return;
+    var earliest = null;
+    (salesByHist[h.id] || []).forEach(function(s){
+      var t = new Date(s.completedAt);
+      if (!isNaN(t) && (!earliest || t < earliest)) earliest = t;
+    });
+    if (earliest) h.salesAt = earliest.toISOString();
+  });
+  if (year) {
+    hist = hist.filter(function(h){
+      const d = new Date(h.salesAt);
+      return d.getFullYear() == year && (month ? (d.getMonth()+1) == month : true);
+    });
+  }
 
   if (lite) {
     hist.forEach(function(h){
