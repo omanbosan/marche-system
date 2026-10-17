@@ -111,6 +111,7 @@ function doGet(e) {
       case 'updateItem':     return handleUpdateItem(data);
       case 'updateOrder':    return handleUpdateOrder(data);
       case 'completeOrder':  return handleCompleteOrder(data);
+      case 'reopenOrder':    return handleReopenOrder(data);
       case 'deleteOrder':    return handleDeleteOrder(data.orderId||'');
       case 'deleteItem':     return handleDeleteItem(data);
       case 'addItemToOrder': return handleAddItemToOrder(data);
@@ -205,6 +206,7 @@ function routeAction(action, data) {
     case 'updateItem':     return handleUpdateItem(data);
     case 'updateOrder':    return handleUpdateOrder(data);
     case 'completeOrder':  return handleCompleteOrder(data);
+    case 'reopenOrder':    return handleReopenOrder(data);
     case 'deleteOrder':    return handleDeleteOrder(data.orderId||'');
     case 'deleteItem':     return handleDeleteItem(data);
     case 'addItemToOrder': return handleAddItemToOrder(data);
@@ -489,6 +491,7 @@ function handleGetHistory(year, month, lite) {
       h.channel   = ord ? (ord.channel   || 'marche')  : 'marche';
       h.createdAt = ord ? (ord.createdAt || '')        : '';
       h.numGroup  = ord ? (ord.numGroup  || 'engrave') : 'engrave';
+      h.canReopen = canReopenOrder(ord);
     });
     return ok({ history: hist });
   }
@@ -602,6 +605,7 @@ function handleGetHistory(year, month, lite) {
       h.channel    = ord.channel    || 'marche';
       h.createdAt  = ord.createdAt  || '';
       h.numGroup   = ord.numGroup   || 'engrave';
+      h.canReopen  = canReopenOrder(ord);
     } else {
       h.numGroup = 'engrave';
     }
@@ -1118,6 +1122,69 @@ function handleCompleteOrder(data) {
   }
 
   return ok({ hId: resultHId });
+}
+
+// ============================================================
+//  完了の取り消し（間違って完了を押したとき、履歴から進捗タブへ戻す）
+// ============================================================
+// 完了済みで工程管理のある注文だけ戻せる。物販のみ（受付と同時に完了＝completedAtがcreatedAtと同じ）は対象外
+function canReopenOrder(ord) {
+  if (!ord || ord.status !== 'done') return false;
+  if (ord.numGroup === 'goods') return false;
+  return String(ord.completedAt) !== String(ord.createdAt);
+}
+
+function handleReopenOrder(data) {
+  if (!data.orderId) return err('orderId missing');
+  invalidateCache();
+  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const oSh   = ss.getSheetByName(SH.ORDERS);
+  const oRows = oSh.getDataRange().getValues();
+  var oRow = -1, isShip = false;
+  for (var i = 1; i < oRows.length; i++) {
+    if (oRows[i][0] === data.orderId) {
+      // 既に未完了（通信リトライで2回届いた等）なら何もしない
+      if (oRows[i][6] !== 'done') return ok({ reopened: true, already: true });
+      oRow = i; isShip = (oRows[i][3] === 'shipping');
+      break;
+    }
+  }
+  if (oRow < 0) return err('注文が見つかりません');
+
+  // 最後に押された最終工程（完成連絡／発送）だけを未完了に戻す。
+  // 物販アイテム（作成時から全工程完了）まで戻さないよう、完了時刻が一番新しい1件に絞る
+  const lastIdx = isShip ? 6 : 5;
+  const iRows = ss.getSheetByName(SH.ITEMS).getDataRange().getValues();
+  var itemIds = {}, anyPaid = false;
+  for (var ii = 1; ii < iRows.length; ii++) {
+    if (iRows[ii][1] !== data.orderId) continue;
+    itemIds[iRows[ii][0]] = true;
+    if (iRows[ii][10] == 1 || iRows[ii][10] === true) anyPaid = true;
+  }
+  const sSh   = ss.getSheetByName(SH.STEPS);
+  const sRows = sSh.getDataRange().getValues();
+  var target = -1, targetAt = 0;
+  for (var si = 1; si < sRows.length; si++) {
+    var r = sRows[si];
+    if (!itemIds[r[1]] || Number(r[2]) !== lastIdx) continue;
+    if (!(r[3] == 1 || r[3] === true)) continue;
+    var at = new Date(r[5]).getTime() || 0;
+    if (target < 0 || at > targetAt) { target = si; targetAt = at; }
+  }
+  // 列4〜7（done, startedAt, completedAt, durationMins）。startedAtは残す
+  if (target >= 0) sSh.getRange(target+1, 4, 1, 4).setValues([[0, sRows[target][4], '', '']]);
+
+  oSh.getRange(oRow+1, 6, 1, 2).setValues([['', 'active']]);
+
+  // 郵送で入金確認が1つも無い注文は、売上が完了時に記録されたもの（handleCompleteOrderの未記録フォールバック）なので一緒に取り消す。
+  // 現地（受付時に記録）・入金確認済みの郵送は、売上自体は発生しているので残す
+  var salesRemoved = false;
+  if (isShip && !anyPaid) {
+    deleteRowsWhere(ss.getSheetByName(SH.HISTORY), 1, data.orderId);
+    deleteRowsWhere(ss.getSheetByName(SH.SALES),   2, data.orderId);
+    salesRemoved = true;
+  }
+  return ok({ reopened: true, salesRemoved: salesRemoved });
 }
 
 // ============================================================
