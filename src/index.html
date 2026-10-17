@@ -3920,6 +3920,20 @@ function confirmDeleteHistory(hid,oid) {
   });
 }
 
+// 間違って完了を押した注文を進捗タブに戻す（最後に押した完成連絡／発送だけが未完了になる）
+function confirmReopenOrder(hid,oid) {
+  const h=historyData.find(x=>x.id===hid);
+  const isShip=h?.deliveryType==='shipping';
+  showConfirm(`${fmtOrderNum(h?.num,false)} を未完了に戻しますか？`,
+    `${isShip?'郵送':'現地'}タブに戻り、最後の「${isShip?'発送':'完成連絡'}」が未完了になります`,async()=>{
+    const res=await api('reopenOrder',{orderId:oid});
+    if(!res) return;
+    toast(res.salesRemoved?'↩ 未完了に戻しました（入金確認前のため売上も取り消しました）':'↩ 未完了に戻しました');
+    historyData=[]; renderHistory();
+    loadAll();
+  },'未完了に戻す');
+}
+
 // ============================================================
 //  PRODUCT MASTER
 // ============================================================
@@ -4488,6 +4502,7 @@ async function renderHistory() {
     <div style="display:flex;gap:6px;margin-top:7px;width:100%">
       <button class="act-btn" style="flex:1;font-size:12px" onclick="toggleHistDetail('${h.id}')">📋 内訳</button>
       <button class="act-btn" style="flex:1;font-size:12px" onclick="openEditHistory('${h.id}')">✏️ 編集</button>
+      ${h.canReopen?`<button class="act-btn" style="flex:1;font-size:12px" onclick="confirmReopenOrder('${h.id}','${h.orderId}')">↩ 未完了に戻す</button>`:''}
     </div>
     <div id="hdet-${h.id}" style="display:none;width:100%;margin-top:7px"></div>
     `;
