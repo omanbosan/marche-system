@@ -1031,6 +1031,23 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
 .steps .sbtn.s-next .sbtn-lbl,.steps .sbtn.s-next .sbtn-who{color:var(--isle-coral-d)!important}
 .steps .sbtn.sbtn-skip{opacity:.4}
 @keyframes fm-pulse{0%,100%{box-shadow:0 0 0 0 rgba(241,139,124,.45)}50%{box-shadow:0 0 0 7px rgba(241,139,124,0)}}
+/* v117 受注カードの見やすさ：はんこ・文字・残り時間を大きく */
+.steps.loc-steps,.steps.ship-steps{gap:8px!important}
+.steps .sbtn{max-width:92px!important}
+.steps .sbtn .sbtn-lbl{font-size:clamp(10px,2.45vw,17px)!important}
+.steps .sbtn .sbtn-who{font-size:clamp(9px,1.6vw,12px)!important}
+.steps .sbtn.s-done::after{font-size:clamp(8px,1.5vw,12px)!important}
+.och-num{font-size:clamp(21px,3.4vw,26px)!important;padding:5px 12px!important}
+.och-note{font-size:clamp(12px,2.1vw,15px)!important}
+.och-times{font-size:15px!important;line-height:1.55!important}
+.och-eta{font-size:19px!important}
+.och-eta-time{font-size:17px!important}
+.badge{font-size:11px!important;padding:3px 8px!important}
+.iname{font-size:clamp(15px,2.4vw,18px)!important}
+.iprice{font-size:15px!important}
+.imins{font-size:14px!important}
+.ibadge{font-size:12px!important}
+.irow{padding-top:11px!important;padding-bottom:11px!important}
 .ocard.farm-flash{animation:fm-flash 1.6s ease-out}
 @keyframes fm-flash{0%,40%{box-shadow:0 0 0 5px var(--isle-coral),0 6px 0 rgba(95,70,48,.13)}100%{box-shadow:0 6px 0 rgba(95,70,48,.13)}}
 
@@ -1378,11 +1395,11 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
 
 <nav class="tabs">
   <div class="tab on" data-tab="farm"><span class="tab-ic" style="--c:#7fcf8a">🧺</span><span class="tab-lb">農園</span></div>
+  <div class="tab" data-tab="dashboard"><span class="tab-ic" style="--c:#6f7f9f">📈</span><span class="tab-lb">ダッシュボード</span></div>
   <div class="tab" data-tab="quest"><span class="tab-ic" style="--c:#f6c95a">📒<span class="tab-badge" id="quest-badge"></span></span><span class="tab-lb">記帳</span></div>
   <div class="tab" data-tab="local"><span class="tab-ic" style="--c:#56bfb8">🏪</span><span class="tab-lb">現地</span></div>
   <div class="tab" data-tab="shipping"><span class="tab-ic" style="--c:#f2a26b">📦</span><span class="tab-lb">郵送</span></div>
   <div class="tab" data-tab="history"><span class="tab-ic" style="--c:#a7b8f2">📅</span><span class="tab-lb">履歴</span></div>
-  <div class="tab" data-tab="dashboard"><span class="tab-ic" style="--c:#6f7f9f">📈</span><span class="tab-lb">管理者</span></div>
   <div class="tab" data-tab="analytics"><span class="tab-ic" style="--c:#f18b9b">📊</span><span class="tab-lb">売上・分析</span></div>
   <div class="tab" data-tab="accounting"><span class="tab-ic" style="--c:#8fd1e8">💹</span><span class="tab-lb">管理会計</span></div>
   <div class="tab" data-tab="master"><span class="tab-ic" style="--c:#c9a37a">⚙️</span><span class="tab-lb">商品管理</span></div>
@@ -1403,7 +1420,7 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
     </defs></svg>
     <div class="farm-scene">
       <div class="panel">
-        <div class="tree-lbl">🍎 お客さんのこと</div>
+        <div class="tree-lbl">🍎 お客さまのこと</div>
         <div class="stage"><svg class="art" viewBox="0 0 300 330" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
           <ellipse cx="150" cy="318" rx="122" ry="12" fill="#3f7a2a" opacity=".22"/>
           <path d="M131 320 C136 296 140 262 138 222 C137 207 131 197 121 188 L136 184 C145 193 149 201 151 207 C153 199 159 191 170 183 L180 190 C169 199 163 211 162 225 C160 262 165 296 171 320 C179 321 186 323 192 326 L108 326 C114 323 122 321 131 320Z" fill="url(#gTrunk)"/>
@@ -1447,7 +1464,7 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
       </div>
     </div>
     <div class="fruit-list" id="farm-list" hidden>
-      <div class="fl-head"><b>🍎 お客さんのこと</b></div>
+      <div class="fl-head"><b>🍎 お客さまのこと</b></div>
       <div id="farm-list-rows"></div>
     </div>
     <div class="seeds">
@@ -7425,7 +7442,7 @@ async function saveAllPricingRows() {
 
 // ============================================================
 //  農園（ホーム）：やること＝実。タップで収穫 → カゴ → 出荷
-//  - りんご＝お客さんのこと（未完了の注文・郵送の入金確認）。作業は今までどおり現地・郵送の画面で行う
+//  - りんご＝お客さまのこと（未完了の注文・郵送の入金確認）。作業は今までどおり現地・郵送の画面で行う
 //  - 畑の野菜＝今日のミッション（DASH_MISSIONS と同じ記録。収穫＝dashToggleMission）
 //  - さくらんぼ＝記帳（先月分。収穫＝dashToggleQuest）
 //  - アイデアの種＝dashSettings.goals.ideas（目標と同じ保存先＝GASの変更なしで端末間共有）
@@ -7546,7 +7563,7 @@ function farmDrawApples(){
       + (!farmApplesAll.length ? '<div class="loading-note" style="position:absolute;left:0;right:0;top:40%">いま実っている注文はありません 🍃</div>' : '');
   }
   const head = document.querySelector('#farm-list .fl-head b');
-  if (head) head.textContent = `🍎 お客さんのこと（${farmApplesAll.length}件・急ぎの順）`;
+  if (head) head.textContent = `🍎 お客さまのこと（${farmApplesAll.length}件・急ぎの順）`;
   const rows = document.getElementById('farm-list-rows');
   if (rows) rows.innerHTML = farmApplesAll.map((f, i) => `<div class="fl-row" onclick="farmGoOrder(${i})"><span class="dot ${f.st}">${esc(f.num.replace('#', ''))}</span><span class="t"><b>${esc(f.b)}</b><small>${esc(f.s)}</small></span>
       <span class="st ${f.st}">${f.st === 'rot' ? '1週間たった' : f.st === 'ripe' ? '今やる' : 'まだ大丈夫'}</span><button class="pick">${f.tab === 'local' ? '現地へ' : '郵送へ'}</button></div>`).join('');
