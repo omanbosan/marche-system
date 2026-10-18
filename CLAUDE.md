@@ -636,3 +636,10 @@ Googleアカウント判定は`appsscript.json`の`webapp.access: "ANYONE"`（�
 - `tapStep`：郵送の最終工程（発送）を押すとき、その商品の`paid`が偽なら`showConfirm`で確認（第3引数`unpaidOk`で再実行）。`showConfirm`に第4引数`okLabel`を追加（省略時は従来どおり「削除」）
 - 本番確認：実URLの`getHistory`で全155件に`salesAt`が付き、郵送5件で入金日と完了日が異なる（例：#211 入金6/19・完了6/27）ことを確認
 
+
+### 2026-10-18: 島・農園デザイン（v115・フロントのみ）
+- 最初のタブ＝🧺農園（`#page-farm`、`renderFarm(force)`/`drawFarm()`。`render()` とタブ切替から呼ぶ）。旧ホームは📈管理者タブ（`page-dashboard` のまま）。
+- 実の元データ：りんご＝`S.orders`（未完了・郵送の未入金）、野菜＝`dashMissionCtx`/`DASH_MISSIONS`（収穫＝`dashToggleMission`）、さくらんぼ＝`dashQuestPending`（収穫＝`dashToggleQuest`、翌月10日すぎで腐る）。アイデアの種＝`dashSettings.goals.ideas`（`dash_goals` に入るので GAS 変更なし。`dashLoadSettings`/`dashLoadLocalSettings` で ideas を保持するよう修正）。カゴ・今週の出荷＝端末の localStorage `mb_farm`（端末間で共有しない）。
+- 現地・郵送の機能は変更なし。`renderCard` に `card.dataset.oid`、`tapStep` の完了送信の直後に `farmOnOrderDone(order)`（表示のみ）を足しただけ。自動同期（15秒）は農園タブを開いている時も動く。
+- CSS は `/* 島・農園デザイン（2026-10-18）*/` 以降にまとめ、農園の部品は `#page-farm` の中だけに効く。工程ボタンは `.steps .sbtn` の見た目だけをはんこ風に（クラス・onclick は無変更）。
+- 検証：仮の GAS（fetch 差し替え）で 1280/1024/768/390/375px・全10タブ エラー0件、工程ボタンの動きが v114 と同一。注意：現地の `deliveryType` は `same-day`。
