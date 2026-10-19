@@ -1454,7 +1454,8 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
   <div class="tab" data-tab="history"><span class="tab-ic" style="--c:#a7b8f2">📅</span><span class="tab-lb">履歴</span></div>
   <div class="tab" data-tab="analytics"><span class="tab-ic" style="--c:#f18b9b">📊</span><span class="tab-lb">売上・分析</span></div>
   <div class="tab" data-tab="accounting"><span class="tab-ic" style="--c:#8fd1e8">💹</span><span class="tab-lb">管理会計</span></div>
-  <div class="tab" data-tab="master"><span class="tab-ic" style="--c:#c9a37a">⚙️<span class="tab-badge" id="stock-badge"></span></span><span class="tab-lb">商品管理</span></div>
+  <div class="tab" data-tab="stock"><span class="tab-ic" style="--c:#d9a05b">🛠<span class="tab-badge" id="stock-badge"></span></span><span class="tab-lb">在庫</span></div>
+  <div class="tab" data-tab="master"><span class="tab-ic" style="--c:#c9a37a">⚙️</span><span class="tab-lb">商品管理</span></div>
   <div class="tab" data-tab="pricing"><span class="tab-ic" style="--c:#e9c46a">💴</span><span class="tab-lb">価格設定</span></div>
 </nav>
 
@@ -1868,10 +1869,11 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
 </div>
 
 <!-- MASTER PAGE -->
-<div class="page" id="page-master">
+<!-- ============ 在庫ボード（単独ページ）：何がどれだけあるか／少ないものは赤くお知らせ ============ -->
+<div class="page" id="page-stock">
   <div class="master-hdr">
-    <div class="master-ttl">商品マスター</div>
-    <button class="btn-add" id="btn-add-product">＋ 追加</button>
+    <div class="master-ttl">🛠 在庫ボード</div>
+    <button class="btn-add" id="btn-goto-master">⚙️ 商品の追加・編集</button>
   </div>
   <section class="wshelf" id="wshelf">
     <div class="ws-scene"><div class="ws-lights"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -1883,6 +1885,13 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
       <div class="ws-lg"><span>🟢 たっぷり</span><span>🟠 そろそろ</span><span>🚨 要補充</span></div></div>
     <div id="ws-rows"></div>
   </section>
+</div>
+
+<div class="page" id="page-master">
+  <div class="master-hdr">
+    <div class="master-ttl">商品マスター</div>
+    <button class="btn-add" id="btn-add-product">＋ 追加</button>
+  </div>
   <div class="pgrid" id="pgrid"></div>
   <div style="margin-top:14px;padding:10px 12px;background:var(--s2);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--dim)">
     <div style="font-weight:700;color:var(--text);margin-bottom:6px">🔧 データ修復</div>
@@ -4601,7 +4610,8 @@ function renderShelf() {
   const bd = document.getElementById('stock-badge'); if (bd) { bd.textContent = lowList.length; bd.className = 'tab-badge' + (lowList.length ? ' on' : ''); }
   document.querySelectorAll('#ws-seg button').forEach(b => b.classList.toggle('on', b.dataset.m === wsMode));
 }
-document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('#ws-seg button'); if (b) { wsMode = b.dataset.m; renderShelf(); } });
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#btn-goto-master')) { const t = document.querySelector('.tab[data-tab="master"]'); if (t) t.click(); return; }
+  const b = e.target.closest && e.target.closest('#ws-seg button'); if (b) { wsMode = b.dataset.m; renderShelf(); } });
 
 function renderMaster() {
   renderShelf();
@@ -6383,6 +6393,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     if(tab.dataset.tab==='quest'){renderQuestPage(true);}
     if(tab.dataset.tab==='history'){historyData=[];renderHistory();}
     if(tab.dataset.tab==='analytics'){anAllHistory=[];window._stepAvgCache={};window._prodAvgCache={};window._shipAvgCache=null;renderAnalytics();}
+    if(tab.dataset.tab==='stock'){renderShelf();}
     if(tab.dataset.tab==='accounting'){initAccounting();}
     if(tab.dataset.tab==='pricing'){initPricingView(); requestAnimationFrame(updateStickyOffsets);}
   });
