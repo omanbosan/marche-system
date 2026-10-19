@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>おまんぼさん｜ショップ経営ダッシュボード</title>
+<title>おまんぼさんのまるっとノート</title>
 <!-- 日本語のWebフォントはCSSだけで約570KB・フォント本体は最大7.8MBあり、
      rel="stylesheet" のままだと読み込み終わるまで画面が出ない（スマホで待たされる主因）。
      media="print" で読み込み、完了時に media="all" へ切り替えることで描画を止めない。
@@ -1299,6 +1299,58 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
 @media (max-width:400px){ #page-farm .seed{width:118px;font-size:11.5px} }
 @media (prefers-reduced-motion:reduce){ #page-farm *,.hdr-bg *,.steps .sbtn{animation:none!important;transition:none!important} }
 
+
+/* ===== 在庫の棚（おまんぼ工房）v119 ===== */
+.wshelf{margin:0 0 16px;padding:12px;border-radius:20px;background:#d8b27a;border:6px solid #8a5a30;box-shadow:0 5px 0 #6b4220;
+ background-image:radial-gradient(circle at 50% 50%,#6b4a26 0 2.4px,#0000 3px),linear-gradient(#e2bf8a,#d3a96c);background-size:22px 22px,100% 100%}
+.wshelf .ws-scene{position:relative;height:172px;border-radius:14px;overflow:hidden;border:4px solid #6b4220;background:linear-gradient(#fff3d6 0 68%,#c98f4e 68%);margin-bottom:10px}
+.wshelf .ws-lights{position:absolute;left:0;right:0;top:0;height:22px;border-bottom:3px solid #3a2a1a;display:flex;justify-content:space-around}
+.wshelf .ws-lights i{width:10px;height:14px;border-radius:50% 50% 55% 55%;margin-top:18px;animation:ws-tw 1.2s ease-in-out infinite alternate}
+.wshelf .ws-lights i:nth-child(4n+1){background:#ff5d5d}.wshelf .ws-lights i:nth-child(4n+2){background:#ffd24a;animation-delay:.3s}
+.wshelf .ws-lights i:nth-child(4n+3){background:#5dd39e;animation-delay:.6s}.wshelf .ws-lights i:nth-child(4n){background:#6bb5ff;animation-delay:.9s}
+@keyframes ws-tw{from{opacity:.5}to{opacity:1}}
+.wshelf .ws-sign{position:absolute;left:10px;top:30px;background:#b07a4a;border:3px solid #6b4220;border-radius:9px;color:#fff;font-weight:900;font-size:15px;padding:1px 12px;box-shadow:0 3px 0 #6b4220;text-shadow:0 2px 0 #6b4220;white-space:nowrap}
+.wshelf .ws-laser{position:absolute;left:10px;top:62px;width:52%;max-width:260px;height:80px;background:linear-gradient(#f4f7fa,#cfd8e0);border:3px solid #8d99a6;border-radius:10px;box-shadow:0 4px 0 #5f6b77}
+.wshelf .ws-win{position:absolute;left:10px;right:10px;top:8px;height:42px;background:linear-gradient(#1b2733,#2c3e50);border:3px solid #6b7783;border-radius:6px;overflow:hidden;box-shadow:inset 0 0 14px #ff6a3a88}
+.wshelf .ws-piece{position:absolute;left:22%;right:22%;bottom:2px;height:12px;background:#d9a066;border-radius:3px}
+.wshelf .ws-beam{position:absolute;top:0;bottom:12px;width:2px;background:#ff3a3a;box-shadow:0 0 6px 2px #ff5a3a;animation:ws-sweep 2.2s ease-in-out infinite alternate}
+@keyframes ws-sweep{from{left:18%}to{left:78%}}
+.wshelf .ws-lp{position:absolute;left:10px;bottom:3px;font-size:8px;font-weight:900;color:#4a5560;letter-spacing:2px}
+.wshelf .ws-face{position:absolute;right:14px;top:50px;width:84px;height:84px;border-radius:50%;border:4px solid #fff;background-color:#fff;background-size:contain;background-repeat:no-repeat;background-position:center;box-shadow:0 5px 0 #5fa63d;animation:ws-hop 1.4s ease-in-out infinite}
+@keyframes ws-hop{50%{transform:translateY(-6px)}}
+.wshelf .ws-say{position:absolute;right:8px;top:24px;background:#fff;border:3px solid #8ccf5e;border-radius:12px;font-weight:900;font-size:11px;padding:1px 8px;white-space:nowrap}
+.wshelf .ws-bench{position:absolute;left:0;right:0;bottom:0;height:20px;background:linear-gradient(#d49a58,#a9703a);border-top:4px solid #7a5230}
+.wshelf .ws-alert{display:none;margin-bottom:10px;padding:8px 12px;border-radius:12px;background:#c8432c;color:#fff;font-weight:900;font-size:13px;line-height:1.5;border:3px solid #fff;box-shadow:0 4px 0 #7e2414;animation:ws-pulse 1.6s ease-in-out infinite}
+.wshelf .ws-alert.on{display:block}
+@keyframes ws-pulse{50%{transform:scale(1.015)}}
+.wshelf .ws-ok{display:none;margin-bottom:10px;padding:6px 12px;border-radius:12px;background:#fffdf3;color:#3f8a2c;font-weight:900;font-size:13px;border:3px solid #8ccf5e}
+.wshelf .ws-ok.on{display:block}
+.wshelf .ws-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.wshelf .ws-seg{display:flex;gap:6px}
+.wshelf .ws-seg button{border:3px solid #4d3219;background:#fffdf3;border-radius:10px;padding:5px 12px;font-weight:900;font-size:12px;color:#5a3d28;cursor:pointer;touch-action:manipulation;font-family:inherit}
+.wshelf .ws-seg button.on{background:#e9a83a;color:#fff;box-shadow:0 3px 0 #b8801f}
+.wshelf .ws-lg{font-size:11px;font-weight:900;color:#5a3d28;display:flex;gap:8px;flex-wrap:wrap}
+.wshelf .ws-lg span{background:#fffdf3;border-radius:8px;padding:2px 8px}
+.wshelf #ws-rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px 14px}
+.wshelf .wrow{position:relative;padding-bottom:12px}
+.wshelf .wrow:after{content:"";position:absolute;left:-4px;right:-4px;bottom:-4px;height:13px;background:linear-gradient(#c98f4e,#a96f34);border-radius:3px;border-bottom:4px solid #6b4220;box-shadow:0 5px 8px rgba(60,35,10,.3)}
+.wshelf .wrn{display:inline-block;font-weight:900;font-size:13px;color:#2b2013;background:#fff7dc;border:3px solid #4d3219;border-radius:7px;padding:0 9px;margin:0 0 7px 3px;box-shadow:0 3px 0 #4d3219}
+.wshelf .wcr{display:flex;gap:6px;position:relative;z-index:1;flex-wrap:wrap}
+.wshelf .wc{position:relative;flex:1 1 76px;min-width:76px;background:#4f6f8f;border-radius:9px 9px 5px 5px;padding:4px 4px 6px;text-align:center;box-shadow:0 4px 0 #2f465e,inset 0 -7px 0 #3d5873}
+.wshelf .wc small{display:block;font-size:10px;font-weight:900;color:#2b2013;background:#fff7dc;border-radius:4px;padding:1px 2px;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wshelf .wc b{display:block;font-size:26px;line-height:1.05;font-weight:900;color:#fff;text-shadow:0 2px 0 #2f465e}
+.wshelf .wc b u{text-decoration:none;font-size:11px;margin-left:1px}
+.wshelf .wc .bar{height:7px;border-radius:3px;background:#2f465e;margin:3px 1px;overflow:hidden}
+.wshelf .wc .bar i{display:block;height:100%;background:#7bd45a}
+.wshelf .wc em{display:block;font-style:normal;font-size:10px;font-weight:900;color:#d4f5c4}
+.wshelf .wc.mid .bar i{background:#ffb830}.wshelf .wc.mid em{color:#ffd88a}
+.wshelf .wc.none{background:#8b8f94;box-shadow:0 4px 0 #5d6166,inset 0 -7px 0 #777c82}.wshelf .wc.none b{font-size:18px;padding:4px 0}.wshelf .wc.none em{color:#e8e8e8}
+.wshelf .wc.low{background:#c8432c;box-shadow:0 4px 0 #7e2414,inset 0 -7px 0 #a8341f;padding-bottom:16px;animation:ws-shake .6s ease-in-out 3}
+.wshelf .wc.low .bar i{background:#ffd24a}.wshelf .wc.low em{color:#fff}
+.wshelf .wc.low:after{content:"要補充";position:absolute;left:-3px;right:-3px;bottom:-6px;height:14px;line-height:14px;font-weight:900;font-size:9px;color:#1b1b1b;letter-spacing:3px;background:repeating-linear-gradient(-45deg,#ffd24a 0 8px,#222 8px 16px);border-radius:3px;text-shadow:0 0 3px #ffd24a,0 0 3px #ffd24a}
+.wshelf .wc .bell{position:absolute;right:-5px;top:-11px;font-size:17px}
+@keyframes ws-shake{25%{transform:rotate(-3deg)}75%{transform:rotate(3deg)}}
+@media(max-width:480px){.wshelf .ws-say{display:none}}
 </style>
 </head>
 <body>
@@ -1306,8 +1358,8 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
 <!-- LOGIN -->
 <div id="login-screen">
   <div>
-    <div class="login-logo">おまんぼさん</div>
-    <div class="login-sub">受注管理システム</div>
+    <div class="login-logo">おまんぼさんの</div>
+    <div class="login-sub">まるっとノート</div>
   </div>
   <div class="login-box">
     <div class="login-lbl">パスワード</div>
@@ -1367,7 +1419,7 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
     <rect width="1600" height="230" filter="url(#hGrain)" fill="#000" opacity=".9"/>
   </svg>
   <div class="hdr-mascot" aria-hidden="true"></div>
-  <div class="hdr-logo"><span>受注管理</span><span>システム</span></div>
+  <div class="hdr-logo"><span>まるっと</span><span>ノート</span></div>
   <div class="hdr-center">
     <div class="hdr-clock" id="clock">--:--</div>
     <div class="hdr-wait" title="現地の完成目安（いまの時刻＋待ち目安）">
@@ -1402,7 +1454,7 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
   <div class="tab" data-tab="history"><span class="tab-ic" style="--c:#a7b8f2">📅</span><span class="tab-lb">履歴</span></div>
   <div class="tab" data-tab="analytics"><span class="tab-ic" style="--c:#f18b9b">📊</span><span class="tab-lb">売上・分析</span></div>
   <div class="tab" data-tab="accounting"><span class="tab-ic" style="--c:#8fd1e8">💹</span><span class="tab-lb">管理会計</span></div>
-  <div class="tab" data-tab="master"><span class="tab-ic" style="--c:#c9a37a">⚙️</span><span class="tab-lb">商品管理</span></div>
+  <div class="tab" data-tab="master"><span class="tab-ic" style="--c:#c9a37a">⚙️<span class="tab-badge" id="stock-badge"></span></span><span class="tab-lb">商品管理</span></div>
   <div class="tab" data-tab="pricing"><span class="tab-ic" style="--c:#e9c46a">💴</span><span class="tab-lb">価格設定</span></div>
 </nav>
 
@@ -1420,7 +1472,7 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
     </defs></svg>
     <div class="farm-scene">
       <div class="panel">
-        <div class="tree-lbl">🍎 お客さまのこと</div>
+        <div class="tree-lbl">🍎 オーダーの木</div>
         <div class="stage"><svg class="art" viewBox="0 0 300 330" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
           <ellipse cx="150" cy="318" rx="122" ry="12" fill="#3f7a2a" opacity=".22"/>
           <path d="M131 320 C136 296 140 262 138 222 C137 207 131 197 121 188 L136 184 C145 193 149 201 151 207 C153 199 159 191 170 183 L180 190 C169 199 163 211 162 225 C160 262 165 296 171 320 C179 321 186 323 192 326 L108 326 C114 323 122 321 131 320Z" fill="url(#gTrunk)"/>
@@ -1464,7 +1516,7 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
       </div>
     </div>
     <div class="fruit-list" id="farm-list" hidden>
-      <div class="fl-head"><b>🍎 お客さまのこと</b></div>
+      <div class="fl-head"><b>🍎 オーダーの木</b></div>
       <div id="farm-list-rows"></div>
     </div>
     <div class="seeds">
@@ -1821,6 +1873,16 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
     <div class="master-ttl">商品マスター</div>
     <button class="btn-add" id="btn-add-product">＋ 追加</button>
   </div>
+  <section class="wshelf" id="wshelf">
+    <div class="ws-scene"><div class="ws-lights"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="ws-sign">🛠 おまんぼ工房</div>
+      <div class="ws-laser"><div class="ws-win"><div class="ws-beam"></div><div class="ws-piece"></div></div><div class="ws-lp">● ● LASER ENGRAVER</div></div>
+      <div class="ws-say">ほりほり〜♪ 在庫もばっちり！</div><div class="ws-face" id="ws-face"></div><div class="ws-bench"></div></div>
+    <div class="ws-alert" id="ws-alert"></div><div class="ws-ok" id="ws-ok">🟢 いまのところ、足りなくなりそうな在庫はありません</div>
+    <div class="ws-bar"><div class="ws-seg" id="ws-seg"><button data-m="loc" class="on">🏪 現地用</button><button data-m="ship">📦 郵送用</button></div>
+      <div class="ws-lg"><span>🟢 たっぷり</span><span>🟠 そろそろ</span><span>🚨 要補充</span></div></div>
+    <div id="ws-rows"></div>
+  </section>
   <div class="pgrid" id="pgrid"></div>
   <div style="margin-top:14px;padding:10px 12px;background:var(--s2);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--dim)">
     <div style="font-weight:700;color:var(--text);margin-bottom:6px">🔧 データ修復</div>
@@ -4499,7 +4561,50 @@ function _initCardDrag(card, pid) {
   });
 }
 
+
+// ---------- 在庫の棚（おまんぼ工房）：何がどれだけあるか／少ないものは赤くお知らせ ----------
+// 目安：在庫 ≦ 警告数 → 要補充（赤）／ ≦ 警告数×2 → そろそろ（橙）／ それ以上 → たっぷり（緑）／ 0個は未管理扱い（既存の isLow と同じ）
+var wsMode = 'loc';
+function renderShelf() {
+  const rowsEl = document.getElementById('ws-rows'); if (!rowsEl) return;
+  const face = document.getElementById('ws-face');
+  if (face && !face.dataset.set) {
+    const f = document.querySelector('#farm-talk .face');
+    if (f) { face.style.backgroundImage = getComputedStyle(f).backgroundImage; face.dataset.set = '1'; }
+  }
+  const isShip = wsMode === 'ship';
+  const lowList = [];
+  const rows = [];
+  (S.products || []).forEach(p => {
+    if (p.sharedStockWith) return;                       // 連動先の在庫を使う商品は、連動先の棚に出る
+    const warn = Math.max(1, Number(p.stockWarn) || 3);
+    const hasTypes = (p.types || []).length > 0;
+    const items = hasTypes ? p.types.map(t => ({ n: t.name, loc: Number(t.stockLoc) || 0, ship: Number(t.stockShip) || 0 }))
+                           : [{ n: '在庫', loc: Number(p.stockLoc) || 0, ship: Number(p.stockShip) || 0 }];
+    items.forEach(it => [['loc', '現地'], ['ship', '郵送']].forEach(([k, lb]) => {
+      const q = it[k]; if (q > 0 && q <= warn) lowList.push(`${p.name}${hasTypes ? '（' + it.n + '）' : ''} ${lb} あと${q}個`);
+    }));
+    const crates = items.map(it => {
+      const q = isShip ? it.ship : it.loc;
+      const st = q <= 0 ? 'none' : q <= warn ? 'low' : q <= warn * 2 ? 'mid' : 'ok';
+      const pct = Math.min(100, Math.round(q / (warn * 5) * 100));
+      const label = st === 'none' ? 'なし' : st === 'low' ? 'あとわずか！' : st === 'mid' ? 'そろそろ' : 'たっぷり';
+      return `<div class="wc ${st}">${st === 'low' ? '<span class="bell">🔔</span>' : ''}<small>${esc(it.n)}</small>` +
+        (st === 'none' ? `<b>—</b>` : `<b>${q}<u>個</u></b><div class="bar"><i style="width:${pct}%"></i></div>`) + `<em>${label}</em></div>`;
+    }).join('');
+    rows.push(`<div class="wrow"><div class="wrn">${esc(p.name)}</div><div class="wcr">${crates}</div></div>`);
+  });
+  rowsEl.innerHTML = rows.join('') || '<div style="color:#5a3d28;font-weight:700">商品を追加すると、ここに棚が並びます</div>';
+  const al = document.getElementById('ws-alert'), ok = document.getElementById('ws-ok');
+  if (al) { al.className = 'ws-alert' + (lowList.length ? ' on' : ''); al.innerHTML = lowList.length ? `🚨 あとわずか ${lowList.length}件：${lowList.slice(0, 4).map(esc).join('／')}${lowList.length > 4 ? ` ほか${lowList.length - 4}件` : ''}` : ''; }
+  if (ok) ok.className = 'ws-ok' + (!lowList.length && (S.products || []).length ? ' on' : '');
+  const bd = document.getElementById('stock-badge'); if (bd) { bd.textContent = lowList.length; bd.className = 'tab-badge' + (lowList.length ? ' on' : ''); }
+  document.querySelectorAll('#ws-seg button').forEach(b => b.classList.toggle('on', b.dataset.m === wsMode));
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('#ws-seg button'); if (b) { wsMode = b.dataset.m; renderShelf(); } });
+
 function renderMaster() {
+  renderShelf();
   const g=document.getElementById('pgrid');
   if(!S.products.length){g.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--dim)">商品を追加してください</div>`;return;}
   g.innerHTML='';
@@ -7563,7 +7668,7 @@ function farmDrawApples(){
       + (!farmApplesAll.length ? '<div class="loading-note" style="position:absolute;left:0;right:0;top:40%">いま実っている注文はありません 🍃</div>' : '');
   }
   const head = document.querySelector('#farm-list .fl-head b');
-  if (head) head.textContent = `🍎 お客さまのこと（${farmApplesAll.length}件・急ぎの順）`;
+  if (head) head.textContent = `🍎 オーダーの木（${farmApplesAll.length}件・急ぎの順）`;
   const rows = document.getElementById('farm-list-rows');
   if (rows) rows.innerHTML = farmApplesAll.map((f, i) => `<div class="fl-row" onclick="farmGoOrder(${i})"><span class="dot ${f.st}">${esc(f.num.replace('#', ''))}</span><span class="t"><b>${esc(f.b)}</b><small>${esc(f.s)}</small></span>
       <span class="st ${f.st}">${f.st === 'rot' ? '1週間たった' : f.st === 'ripe' ? '今やる' : 'まだ大丈夫'}</span><button class="pick">${f.tab === 'local' ? '現地へ' : '郵送へ'}</button></div>`).join('');
