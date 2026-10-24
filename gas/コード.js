@@ -871,6 +871,9 @@ function handleUpdateStep(data) {
     // completedAtなし（次のステップ開始記録）
     var existing = rows[targetRow][4];
     if (!existing) startedAtVal = data.startedAt;
+    // 開始記録ではdoneを触らない。前の工程を押した時の「開始記録(done:false)」が
+    // 直後に押したこの工程の「完了(done:true)」より後に届くと、チェックが外れてしまうため
+    if (!data.done) doneVal = rows[targetRow][3];
   }
 
   sh.getRange(targetRow+1, 4, 1, 4).setValues([[doneVal, startedAtVal, completedAtVal, durationVal]]);
