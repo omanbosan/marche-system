@@ -2605,6 +2605,7 @@ function obApplyPendingLocal() {
         if (!it) continue;
         ['onHold','paid','skipBinarize','skipDesign'].forEach(k => { if (d[k] !== undefined) it[k] = !!d[k]; });
         ['price','paymentMethod','optionFee','optionNote'].forEach(k => { if (d[k] !== undefined) it[k] = d[k]; });
+        if (d.paid && d.paidAt && !o.paidAt) o.paidAt = d.paidAt;   // 送信待ちの入金日も表示する
         break;
       }
     }
@@ -3052,7 +3053,7 @@ function renderCard(o, container, deliveryType) {
       </div>
       <div class="card-extra">
         <span class="payment-badge pb-${it.paymentMethod||'cash'}">${PAY_LABELS[it.paymentMethod||'cash']}</span>
-        ${isShip?`<button class="paid-toggle${it.paid?' on':''}" onclick="togglePaid('${o.id}','${it.id}')">${it.paid?'✓ 入金済み':'入金確認'}</button>`:''}
+        ${isShip?`<button class="paid-toggle${it.paid?' on':''}" onclick="togglePaid('${o.id}','${it.id}')">${it.paid?`✓ 入金済み${o.paidAt?` ${fmtMD(o.paidAt)}`:''}`:'入金確認'}</button>`:''}
         <button class="hold-toggle${it.onHold?' on':''}" onclick="toggleHold('${o.id}','${it.id}')">${it.onHold?'⏸ 保留中':'保留'}</button>
       </div>
     `;
@@ -3209,6 +3210,11 @@ function togglePaid(oid, iid) {
 }
 function setItemPaid(item, paid, paidAt, quiet) {
   item.paid = paid;
+  const ord = S.orders.find(o => (o.items||[]).includes(item));
+  if (ord) {
+    if (paid && paidAt && !ord.paidAt) ord.paidAt = paidAt;
+    if (!paid && !(ord.items||[]).some(x => x.paid)) ord.paidAt = '';
+  }
   renderLocal(); renderShipping(); updateWait();
   if (typeof renderFarm === 'function') renderFarm();   // 農園の「入金確認」りんごもすぐ消す
   const d = { itemId:item.id, paid };
@@ -3216,6 +3222,8 @@ function setItemPaid(item, paid, paidAt, quiet) {
   apiAsync('updateItem', d); // バックグラウンド保存
   if (!quiet) toast(paid ? '✅ 入金確認しました' : '入金確認を解除しました');
 }
+// 入金日などの短い日付表示（10/24）
+function fmtMD(d) { const x = new Date(d); return isNaN(x) ? '' : `${x.getMonth()+1}/${x.getDate()}`; }
 // 日付 ⇔ 入力欄（YYYY-MM-DD・端末の日付）
 function ymdLocal(d) {
   const x = new Date(d);
@@ -5170,6 +5178,7 @@ async function renderHistory() {
         <div class="hcard-num">${fmtOrderNum(h.num, h.numGroup==='goods')} <span style="font-size:11px;font-weight:400;color:var(--dim)">${CH_ICONS[h.channel]||''} ${CH_LABELS[h.channel]||''}</span></div>
         <div class="hcard-items">${itemStr}</div>
         <div class="hcard-wait">${isShip?`受付から完了まで ${h.waitMinutes||'-'}日`:`完了まで ${h.waitMinutes||'-'}分`}</div>
+        ${isShip&&saleDate(h)?`<div class="hcard-wait" style="color:var(--green);font-weight:700">💰 入金日 ${fmtMD(saleDate(h))}</div>`:''}
       </div>
       <div class="hcard-meta">
         <div class="hcard-time">${fmt(h.completedAt)}</div>
