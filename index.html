@@ -2252,6 +2252,32 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
 </div>
 </div>
 
+<!-- 郵送の入金済みボタンを押したとき（入金日を変える／入金確認を外す） -->
+<div class="overlay" id="ov-paid-edit">
+<div class="sheet">
+  <div class="sh-title">入金済み</div>
+  <div class="cf-sub" id="pe-sub" style="margin-bottom:10px"></div>
+  <div class="sh-lbl">入金日を変える <span style="font-size:10px;font-weight:400;color:var(--dim)">（この注文の売上をこの日に移します）</span></div>
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+    <input class="sh-input" id="pe-date" type="date" style="margin-bottom:0;flex:1;min-width:150px">
+    <button class="opt-chip" onclick="peSetDate(0)">今日</button>
+    <button class="opt-chip" onclick="peSetDate(-1)">昨日</button>
+  </div>
+  <button class="sh-ok" id="pe-date-ok" style="width:100%;margin-bottom:16px">📅 入金日を変える</button>
+  <div style="border-top:1px solid var(--border);padding-top:12px">
+    <label id="pe-all-row" style="display:none;align-items:center;gap:8px;font-size:13px;font-weight:700;margin-bottom:10px;cursor:pointer">
+      <input type="checkbox" id="pe-all" checked style="width:20px;height:20px;flex-shrink:0">
+      <span id="pe-all-lbl"></span>
+    </label>
+    <button class="sh-cancel" id="pe-unpay" style="width:100%;color:var(--red);border-color:var(--red)">入金確認を外す</button>
+    <div style="font-size:11px;color:var(--dim);margin-top:6px">全部外すと、この注文の売上はいったん取り消されます（入金確認し直すと、選んだ日で記録し直します）</div>
+  </div>
+  <div class="sh-actions">
+    <button class="sh-cancel" onclick="closeOverlay('ov-paid-edit')">閉じる</button>
+  </div>
+</div>
+</div>
+
 <div class="overlay" id="ov-confirm">
 <div class="sheet">
   <div class="cf-title" id="cf-title">確認</div>
@@ -2597,6 +2623,11 @@ function obApplyPendingLocal() {
         if (d.startedAt) hit.startedAt = d.startedAt;
         break;
       }
+    } else if (op.action === 'updateOrder') {
+      // 送信待ちの入金日の変更も表示する
+      const d = op.data || {};
+      const o = S.orders.find(x => x.id === d.orderId);
+      if (o && d.paidAt) o.paidAt = d.paidAt;
     } else if (op.action === 'updateItem') {
       // 保留・入金確認も同様に、送信待ちの間は自分の操作を優先して表示する
       const d = op.data || {};
@@ -3204,10 +3235,56 @@ function togglePaid(oid, iid) {
   if (!item) return;
   // 郵送の売上は「最初に入金確認した日」に計上される（GASが注文全体をその日で記録する）。
   // 後から入力することもあるので、その注文で最初の入金確認のときだけ入金日を選んでもらう
-  const firstPaid = !item.paid && !(order.items||[]).some(x => x.paid);
+  // 入金済みを押したら、入金日の変更・入金確認を外すを選ぶ画面を出す
+  if (item.paid) { openPaidEdit(order, item); return; }
+  const firstPaid = !(order.items||[]).some(x => x.paid);
   if (firstPaid) { openPaidDate(order, item); return; }
-  setItemPaid(item, !item.paid, null);
+  setItemPaid(item, true, null);
 }
+let _peTarget = null;
+function peSetDate(offsetDays) {
+  const d = new Date(); d.setDate(d.getDate() + offsetDays);
+  document.getElementById('pe-date').value = ymdLocal(d);
+}
+function openPaidEdit(order, item) {
+  _peTarget = { oid:order.id, iid:item.id };
+  const p = S.products.find(x => x.id === item.pid);
+  document.getElementById('pe-sub').textContent =
+    `${fmtOrderNum(order.num, order.numGroup==='goods')}　${p?.name||''}${item.typeName?` [${item.typeName}]`:''}　入金日 ${order.paidAt ? fmtMD(order.paidAt) : '不明'}`;
+  const inp = document.getElementById('pe-date');
+  inp.max = ymdLocal(new Date());
+  inp.value = ymdLocal(order.paidAt || new Date());
+  const others = (order.items||[]).filter(x => x.id !== item.id && x.paid);
+  document.getElementById('pe-all-row').style.display = others.length ? 'flex' : 'none';
+  document.getElementById('pe-all').checked = true;
+  document.getElementById('pe-all-lbl').textContent = `ほかの入金済みの商品（${others.length}点）もまとめて外す`;
+  openOverlay('ov-paid-edit');
+}
+document.getElementById('pe-date-ok').addEventListener('click', () => {
+  const order = S.orders.find(o => o.id === _peTarget?.oid);
+  if (!order) return;
+  const ymd = document.getElementById('pe-date').value;
+  const iso = ymdToIso(ymd);
+  if (!iso) { toast('入金日を選んでください'); return; }
+  if (ymd > ymdLocal(new Date())) { toast('未来の日付は選べません'); return; }
+  closeOverlay('ov-paid-edit');
+  if (order.paidAt && ymdLocal(order.paidAt) === ymd) { toast('入金日は変わっていません'); return; }
+  order.paidAt = iso;
+  renderShipping();
+  // 入金日＝この注文の売上の日時。GASがsales行の日時をまとめて書き換える（売上の集計月も移る）
+  apiAsync('updateOrder', { orderId:order.id, paidAt:iso });
+  toast(`📅 入金日を ${fmtMD(iso)} に変えました`);
+});
+document.getElementById('pe-unpay').addEventListener('click', () => {
+  const order = S.orders.find(o => o.id === _peTarget?.oid);
+  const item  = (order?.items||[]).find(x => x.id === _peTarget?.iid);
+  if (!item) return;
+  closeOverlay('ov-paid-edit');
+  const others = document.getElementById('pe-all').checked ? (order.items||[]).filter(x => x.id !== item.id && x.paid) : [];
+  setItemPaid(item, false, null, others.length > 0);
+  others.forEach(x => setItemPaid(x, false, null, true));
+  if (others.length) toast(`${others.length+1}点の入金確認を外しました`);
+});
 function setItemPaid(item, paid, paidAt, quiet) {
   item.paid = paid;
   const ord = S.orders.find(o => (o.items||[]).includes(item));
