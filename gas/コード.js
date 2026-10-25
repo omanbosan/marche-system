@@ -1042,6 +1042,16 @@ function handleUpdateOrder(data) {
       break;
     }
   }
+  // 郵送の入金日を変える（カードの「入金済み」から）：この注文の売上行の日時をまとめて書き換える。
+  // 売上は salesの最も早い日時で集計されるので、集計する日・月もこれで移る
+  var paidAt = validIsoOrNull(data.paidAt);
+  if (paidAt) {
+    var pSh   = ss.getSheetByName(SH.SALES);
+    var pRows = pSh.getDataRange().getValues();
+    for (var pi = 1; pi < pRows.length; pi++) {
+      if (pRows[pi][2] === data.orderId) pSh.getRange(pi+1, 8).setValue(paidAt);
+    }
+  }
   return ok({ updated: true });
 }
 
