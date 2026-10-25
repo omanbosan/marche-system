@@ -2241,6 +2241,10 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
     <button class="opt-chip" onclick="setPaidDate(0)">今日</button>
     <button class="opt-chip" onclick="setPaidDate(-1)">昨日</button>
   </div>
+  <label id="paid-all-row" style="display:none;align-items:center;gap:8px;font-size:13px;font-weight:700;margin-bottom:11px;cursor:pointer">
+    <input type="checkbox" id="paid-all" checked style="width:20px;height:20px;flex-shrink:0">
+    <span id="paid-all-lbl"></span>
+  </label>
   <div class="sh-actions">
     <button class="sh-cancel" onclick="closeOverlay('ov-paid')">キャンセル</button>
     <button class="sh-ok" id="paid-ok">入金確認する</button>
@@ -3203,13 +3207,14 @@ function togglePaid(oid, iid) {
   if (firstPaid) { openPaidDate(order, item); return; }
   setItemPaid(item, !item.paid, null);
 }
-function setItemPaid(item, paid, paidAt) {
+function setItemPaid(item, paid, paidAt, quiet) {
   item.paid = paid;
   renderLocal(); renderShipping(); updateWait();
+  if (typeof renderFarm === 'function') renderFarm();   // 農園の「入金確認」りんごもすぐ消す
   const d = { itemId:item.id, paid };
   if (paid && paidAt) d.paidAt = paidAt;
   apiAsync('updateItem', d); // バックグラウンド保存
-  toast(paid ? '✅ 入金確認しました' : '入金確認を解除しました');
+  if (!quiet) toast(paid ? '✅ 入金確認しました' : '入金確認を解除しました');
 }
 // 日付 ⇔ 入力欄（YYYY-MM-DD・端末の日付）
 function ymdLocal(d) {
@@ -3234,6 +3239,12 @@ function openPaidDate(order, item) {
   const inp = document.getElementById('inp-paid-date');
   inp.max = ymdLocal(new Date());
   setPaidDate(0);
+  // 郵送はふつう注文まとめて1回で入金されるので、ほかの商品も一緒に入金確認できるようにする
+  // （商品ごとのボタンを1つだけ押して、残りが未入金のまま＝農園のりんごが残る、を防ぐ）
+  const others = (order.items||[]).filter(x => x.id !== item.id && !x.paid);
+  document.getElementById('paid-all-row').style.display = others.length ? 'flex' : 'none';
+  document.getElementById('paid-all').checked = true;
+  document.getElementById('paid-all-lbl').textContent = `同じ注文のほかの商品（${others.length}点）もまとめて入金確認`;
   openOverlay('ov-paid');
 }
 document.getElementById('paid-ok').addEventListener('click', () => {
@@ -3244,7 +3255,13 @@ document.getElementById('paid-ok').addEventListener('click', () => {
   closeOverlay('ov-paid');
   const order = S.orders.find(o=>o.id===_paidTarget?.oid);
   const item  = (order?.items||[]).find(x=>x.id===_paidTarget?.iid);
-  if (item) setItemPaid(item, true, iso);
+  if (!item) return;
+  const all = document.getElementById('paid-all').checked;
+  const others = all ? (order.items||[]).filter(x => x.id !== item.id && !x.paid) : [];
+  // 1件目で売上（注文全体・選んだ入金日）が記録される。キューは順番に送るので、残りは記録済みの後に届く
+  setItemPaid(item, true, iso, others.length > 0);
+  others.forEach(x => setItemPaid(x, true, null, true));
+  if (others.length) toast(`✅ ${others.length+1}点まとめて入金確認しました`);
 });
 
 // ============================================================
