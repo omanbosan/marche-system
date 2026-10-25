@@ -384,6 +384,22 @@ function handleGetAll() {
     });
   });
 
+  // 郵送で入金確認済みの未完了注文に入金日（paidAt＝salesに記録した最も早い日時）を付ける。
+  // 入金確認済みの郵送が無ければsalesシートは読まない
+  var paidShipIds = {};
+  active.forEach(function(o){
+    if (o.deliveryType === 'shipping' && o.items.some(function(it){ return it.paid; })) paidShipIds[o.id] = true;
+  });
+  if (Object.keys(paidShipIds).length) {
+    var earliestPaid = {};
+    ss.getSheetByName(SH.SALES).getDataRange().getValues().forEach(function(r, k){
+      if (k === 0 || !paidShipIds[r[2]] || !r[7]) return;
+      var t = new Date(r[7]).getTime();
+      if (!isNaN(t) && (!earliestPaid[r[2]] || t < earliestPaid[r[2]])) earliestPaid[r[2]] = t;
+    });
+    active.forEach(function(o){ if (earliestPaid[o.id]) o.paidAt = new Date(earliestPaid[o.id]).toISOString(); });
+  }
+
   // 商品のstepTimesJson・typesJsonをパース
   products.forEach(function(p){
     if (typeof p.stepTimesJson === 'string') {
