@@ -890,9 +890,15 @@ function handleUpdateItem(data) {
   const sh   = ss.getSheetByName(SH.ITEMS);
   const rows = sh.getDataRange().getValues();
   var foundOrderId = '';
+  var priceChange = null;
   for (var i = 1; i < rows.length; i++) {
     if (rows[i][0] === data.itemId) {
       foundOrderId = rows[i][1];
+      var newPm = data.paymentMethod !== undefined ? data.paymentMethod : rows[i][8];
+      var newPr = data.price         !== undefined ? data.price         : rows[i][7];
+      if (Number(newPr) !== Number(rows[i][7]) || String(newPm) !== String(rows[i][8])) {
+        priceChange = { pid: rows[i][2], oldPrice: rows[i][7], oldPm: rows[i][8], newPrice: newPr, newPm: newPm };
+      }
       // 列6〜16（skipBinarize〜doubleBinarize）は連続しているので、
       // 変更が無い項目は既存値を維持しつつ1回のsetValuesでまとめて書き込む
       var r = rows[i];
@@ -913,6 +919,8 @@ function handleUpdateItem(data) {
       break;
     }
   }
+  // 売上記録済みの注文（現地は受付時・郵送は入金確認時）で価格・支払い方法を変えたら、salesの行も直す
+  if (priceChange) syncSalesLineForItem(ss, foundOrderId, priceChange.pid, priceChange.oldPrice, priceChange.oldPm, priceChange.newPrice, priceChange.newPm);
 
   // 郵送注文で入金確認チェック → 売上記録（paid=true/1 のときのみ）
   if ((data.paid === true || data.paid === 1) && foundOrderId) {
@@ -921,11 +929,13 @@ function handleUpdateItem(data) {
     var orderDeliveryType = '';
     var orderNum          = '';
     var shippingFee       = 0;
+    var discount          = 0;
     for (var oi = 1; oi < oRows.length; oi++) {
       if (oRows[oi][0] === foundOrderId) {
         orderDeliveryType = oRows[oi][3];
         orderNum          = oRows[oi][1];
         shippingFee       = Number(oRows[oi][9]||0);
+        discount          = Number(oRows[oi][10]||0);
         break;
       }
     }
@@ -952,7 +962,26 @@ function handleUpdateItem(data) {
         }
       }
       var orderPayMethod = salesItems.length > 0 ? (salesItems[0].paymentMethod || 'cash') : 'cash';
-      recordSalesForOrder(ss, foundOrderId, orderNum, orderDeliveryType, salesItems, shippingFee, orderPayMethod);
+      // 割引も渡す（以前は渡しておらず、郵送の割引が売上に入っていなかった）
+      // paidAt：入金確認を後から入力したときの入金日（画面で選んだ日）。売上はこの日に計上する
+      recordSalesForOrder(ss, foundOrderId, orderNum, orderDeliveryType, salesItems, shippingFee, orderPayMethod, discount, false, validIsoOrNull(data.paidAt));
+    }
+  }
+
+  // 郵送で入金確認を解除し、入金確認済みの商品が1つも無くなったら、入金時に記録した売上を取り消す
+  // （発送完了済みの注文は対象外。完了済みの取り消しは「未完了に戻す」で行う）
+  if ((data.paid === false || data.paid === 0) && foundOrderId) {
+    var uRows = ss.getSheetByName(SH.ORDERS).getDataRange().getValues();
+    var uOrd  = null;
+    for (var ui = 1; ui < uRows.length; ui++) { if (uRows[ui][0] === foundOrderId) { uOrd = uRows[ui]; break; } }
+    if (uOrd && uOrd[3] === 'shipping' && uOrd[6] !== 'done') {
+      var anyPaid = sh.getDataRange().getValues().some(function(r, k){
+        return k > 0 && r[1] === foundOrderId && (r[10] === 1 || r[10] === true || r[10] === '1');
+      });
+      if (!anyPaid) {
+        deleteRowsWhere(ss.getSheetByName(SH.SALES),   2, foundOrderId);
+        deleteRowsWhere(ss.getSheetByName(SH.HISTORY), 1, foundOrderId);
+      }
     }
   }
 
@@ -964,11 +993,19 @@ function handleUpdateItem(data) {
 // ============================================================
 function handleUpdateOrder(data) {
   invalidateCache();
-  const sh   = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.ORDERS);
+  const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh   = ss.getSheetByName(SH.ORDERS);
   const rows = sh.getDataRange().getValues();
   for (var i = 1; i < rows.length; i++) {
     if (rows[i][0] === data.orderId) {
       var r = rows[i];
+      // 売上記録済みの注文なら、送料・割引の変更をsalesの「送料」「割引」行にも反映する
+      if (data.shippingFee !== undefined && Number(data.shippingFee||0) !== Number(r[9]||0)) {
+        syncSalesFeeLine(ss, data.orderId, '送料', Number(data.shippingFee||0));
+      }
+      if (data.discount !== undefined && Number(data.discount||0) !== Number(r[10]||0)) {
+        syncSalesFeeLine(ss, data.orderId, '割引', -Number(data.discount||0));
+      }
       // 列2-4（num,note,deliveryType）と列9-11（channel,shippingFee,discount）は
       // それぞれ連続しているので、間の列（createdAt等）に触れないよう2グループに分けて
       // まとめて書き込む（個別setValueの都度呼び出しを避ける）
@@ -997,7 +1034,8 @@ function handleUpdateOrder(data) {
 // ============================================================
 // skipDupCheck=true : 呼び出し側で「この注文は新規＝履歴がまだ無い」ことが確定している場合のみ。
 //                     historyシートの全件読み込み（行数が増え続ける重い処理）を省く
-function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee, shippingPayment, discount, skipDupCheck) {
+// at           : 売上の日時（省略時は今。郵送の入金日を後から入力した場合に使う）
+function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee, shippingPayment, discount, skipDupCheck, at) {
   var hSh = ss.getSheetByName(SH.HISTORY);
   if (!skipDupCheck) {
     // 重複チェック：既に履歴があればスキップ（冪等性）
@@ -1006,7 +1044,7 @@ function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee,
       if (hRows[hi][1] === orderId) return hRows[hi][0]; // 既に記録済み → hId を返す
     }
   }
-  var now  = new Date().toISOString();
+  var now  = at || new Date().toISOString();
   var hId  = Utilities.getUuid();
   var sSh  = ss.getSheetByName(SH.SALES);
   hSh.appendRow([hId, orderId, num, now, 0, deliveryType]);
@@ -1235,6 +1273,14 @@ function handleDeleteItem(data) {
   if (!data.itemId) return err('itemId missing');
   invalidateCache();
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  // 売上記録済みの注文なら、削除するアイテムぶんのsales行も消す（削除前に注文・商品・価格を控える）
+  var iRows = ss.getSheetByName(SH.ITEMS).getDataRange().getValues();
+  for (var ii = 1; ii < iRows.length; ii++) {
+    if (iRows[ii][0] === data.itemId) {
+      syncSalesLineForItem(ss, iRows[ii][1], iRows[ii][2], iRows[ii][7], iRows[ii][8], null, null);
+      break;
+    }
+  }
   // ステップ削除
   deleteRowsWhere(ss.getSheetByName(SH.STEPS), 1, data.itemId);
   // アイテム削除
@@ -1317,6 +1363,65 @@ function appendSalesLineIfRecorded(ss, orderId, pid, productName, typeName, pric
     }
   }
   return false;
+}
+
+// アイテムの価格・支払い方法の変更や削除をsalesシートへ追従させる（newPrice=nullなら行を削除）。
+// salesにはitemIdが無いため、同じ注文・同じ商品・旧価格の行を新しい方から1行だけ直す
+// （旧支払い方法まで一致する行を優先）。売上未記録（郵送の入金前など）なら該当行が無いので何もしない
+function syncSalesLineForItem(ss, orderId, pid, oldPrice, oldPm, newPrice, newPm) {
+  if (!orderId) return false;
+  var sh   = ss.getSheetByName(SH.SALES);
+  var rows = sh.getDataRange().getValues();
+  var hit = -1;
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (rows[i][2] === orderId && String(rows[i][3]) === String(pid) && Number(rows[i][5]) === Number(oldPrice)) {
+      if (String(rows[i][6]) === String(oldPm)) { hit = i; break; }
+      if (hit < 0) hit = i;
+    }
+  }
+  if (hit < 0) return false;
+  if (newPrice === null) { sh.deleteRow(hit + 1); return true; }
+  sh.getRange(hit + 1, 6, 1, 2).setValues([[Number(newPrice) || 0, newPm || rows[hit][6] || 'cash']]);
+  // 送料・割引の行は注文の支払い方法に揃えている（recordSalesForOrder）ので、一緒に揃える
+  if (newPm && String(newPm) !== String(oldPm)) {
+    for (var j = 1; j < rows.length; j++) {
+      if (rows[j][2] === orderId && !rows[j][3] && (rows[j][4] === '送料' || rows[j][4] === '割引')) {
+        sh.getRange(j + 1, 7).setValue(newPm);
+      }
+    }
+  }
+  return true;
+}
+
+// 売上記録済みの注文の「送料」「割引」行を新しい金額に直す（0なら行を消し、無ければ追加する）。
+// 売上未記録（historyに行が無い）なら何もしない。完了・入金確認のときにordersの値から記録される
+// 画面から届いた日時が正しい形のときだけ使う（壊れた値で売上の日付が消えないように）
+function validIsoOrNull(v) {
+  if (!v) return null;
+  var d = new Date(v);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+function syncSalesFeeLine(ss, orderId, name, amount) {
+  var hRows = ss.getSheetByName(SH.HISTORY).getDataRange().getValues();
+  var hId = '';
+  for (var hi = 1; hi < hRows.length; hi++) { if (hRows[hi][1] === orderId) { hId = hRows[hi][0]; break; } }
+  if (!hId) return false;
+  var sh   = ss.getSheetByName(SH.SALES);
+  var rows = sh.getDataRange().getValues();
+  var pm = '', at = '';
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][2] !== orderId) continue;
+    if (!pm && rows[i][3]) { pm = rows[i][6]; at = rows[i][7]; }
+    if (!rows[i][3] && rows[i][4] === name) {
+      if (amount === 0) sh.deleteRow(i + 1);
+      else sh.getRange(i + 1, 6).setValue(amount);
+      return true;
+    }
+  }
+  if (amount === 0) return false;
+  sh.appendRow([Utilities.getUuid(), hId, orderId, '', name, amount, pm || 'cash', at || new Date().toISOString()]);
+  return true;
 }
 
 function handleDeleteHistory(data) {
@@ -1652,6 +1757,15 @@ function handleUpdateHistory(data) {
       if (hRows[i][0] === data.historyId) {
         hSh.getRange(i+1,6).setValue(data.deliveryType); break;
       }
+    }
+  }
+  // 郵送の入金日を直したとき：この履歴の売上行の日時をまとめて書き換える（売上はsalesの最も早い日時で集計される）
+  var salesAt = validIsoOrNull(data.salesAt);
+  if (salesAt && data.historyId) {
+    const aSh   = ss.getSheetByName(SH.SALES);
+    const aRows = aSh.getDataRange().getValues();
+    for (var ai = 1; ai < aRows.length; ai++) {
+      if (aRows[ai][1] === data.historyId) aSh.getRange(ai+1, 8).setValue(salesAt);
     }
   }
   if (data.salesItems && data.salesItems.length) {
