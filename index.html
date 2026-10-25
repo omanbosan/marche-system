@@ -2230,6 +2230,24 @@ body{font-family:var(--isle-round)!important;background-color:var(--isle-sand)!i
 </div>
 
 <!-- CONFIRM MODAL -->
+<!-- 郵送の入金確認（入金日を選ぶ） -->
+<div class="overlay" id="ov-paid">
+<div class="sheet">
+  <div class="sh-title">入金確認</div>
+  <div class="cf-sub" id="paid-sub" style="margin-bottom:10px"></div>
+  <div class="sh-lbl">入金日 <span style="font-size:10px;font-weight:400;color:var(--dim)">（この日の売上として集計します）</span></div>
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:11px">
+    <input class="sh-input" id="inp-paid-date" type="date" style="margin-bottom:0;flex:1;min-width:150px">
+    <button class="opt-chip" onclick="setPaidDate(0)">今日</button>
+    <button class="opt-chip" onclick="setPaidDate(-1)">昨日</button>
+  </div>
+  <div class="sh-actions">
+    <button class="sh-cancel" onclick="closeOverlay('ov-paid')">キャンセル</button>
+    <button class="sh-ok" id="paid-ok">入金確認する</button>
+  </div>
+</div>
+</div>
+
 <div class="overlay" id="ov-confirm">
 <div class="sheet">
   <div class="cf-title" id="cf-title">確認</div>
@@ -3179,11 +3197,55 @@ function togglePaid(oid, iid) {
   if (!order) return;
   const item = (order.items||[]).find(x=>x.id===iid);
   if (!item) return;
-  item.paid = !item.paid;
-  renderLocal(); renderShipping(); updateWait();
-  apiAsync('updateItem', { itemId:iid, paid:item.paid }); // バックグラウンド保存
-  toast(item.paid ? '✅ 入金確認しました' : '入金確認を解除しました');
+  // 郵送の売上は「最初に入金確認した日」に計上される（GASが注文全体をその日で記録する）。
+  // 後から入力することもあるので、その注文で最初の入金確認のときだけ入金日を選んでもらう
+  const firstPaid = !item.paid && !(order.items||[]).some(x => x.paid);
+  if (firstPaid) { openPaidDate(order, item); return; }
+  setItemPaid(item, !item.paid, null);
 }
+function setItemPaid(item, paid, paidAt) {
+  item.paid = paid;
+  renderLocal(); renderShipping(); updateWait();
+  const d = { itemId:item.id, paid };
+  if (paid && paidAt) d.paidAt = paidAt;
+  apiAsync('updateItem', d); // バックグラウンド保存
+  toast(paid ? '✅ 入金確認しました' : '入金確認を解除しました');
+}
+// 日付 ⇔ 入力欄（YYYY-MM-DD・端末の日付）
+function ymdLocal(d) {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+}
+// 今日なら今の時刻、それ以外はその日の正午（時差で前日・翌日にずれないように）
+function ymdToIso(ymd) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd||'');
+  if (!m) return null;
+  if (ymd === ymdLocal(new Date())) return new Date().toISOString();
+  return new Date(+m[1], +m[2]-1, +m[3], 12, 0, 0).toISOString();
+}
+function setPaidDate(offsetDays) {
+  const d = new Date(); d.setDate(d.getDate() + offsetDays);
+  document.getElementById('inp-paid-date').value = ymdLocal(d);
+}
+let _paidTarget = null;
+function openPaidDate(order, item) {
+  _paidTarget = { oid:order.id, iid:item.id };
+  document.getElementById('paid-sub').textContent = `${fmtOrderNum(order.num, order.numGroup==='goods')}　入金を確認した日を選んでください`;
+  const inp = document.getElementById('inp-paid-date');
+  inp.max = ymdLocal(new Date());
+  setPaidDate(0);
+  openOverlay('ov-paid');
+}
+document.getElementById('paid-ok').addEventListener('click', () => {
+  const ymd = document.getElementById('inp-paid-date').value;
+  const iso = ymdToIso(ymd);
+  if (!iso) { toast('入金日を選んでください'); return; }
+  if (ymd > ymdLocal(new Date())) { toast('未来の日付は選べません'); return; }
+  closeOverlay('ov-paid');
+  const order = S.orders.find(o=>o.id===_paidTarget?.oid);
+  const item  = (order?.items||[]).find(x=>x.id===_paidTarget?.iid);
+  if (item) setItemPaid(item, true, iso);
+});
 
 // ============================================================
 //  NEW ORDER
@@ -3231,6 +3293,7 @@ function openEditOrder(oid) {
   const o = S.orders.find(x=>x.id===oid);
   if (!o) return;
   T.editOrderId=oid; T.delivery=o.deliveryType; T.channel=o.channel||'marche';
+  T.options={}; // 直前の受付のオプション設定が、編集で追加する商品に紛れ込まないように
   document.getElementById('order-modal-title').textContent = '注文を編集';
   document.getElementById('inp-num').value  = o.num;
   document.getElementById('num-group-hint').textContent = '';
@@ -3628,7 +3691,11 @@ function renderQtyBlock() {
   });
   const setPriceShownPids = new Set();
 
-  optEl.innerHTML = optRows.map((row, idx) => {
+  // 注文の編集では、ここの追加料金は「この画面で新しく増やした商品」にだけ付く
+  const editOptHint = T.editOrderId
+    ? '<div style="font-size:11px;color:var(--orange);font-weight:700;margin-bottom:8px">※ ここで選ぶ追加料金は、この画面で増やした商品にだけ付きます。登録済みの商品の追加料金・価格は「📦 商品変更」で直してください</div>'
+    : '';
+  optEl.innerHTML = editOptHint + optRows.map((row, idx) => {
     const p = S.products.find(x=>x.id===row.pid);
     const opt = getOption(row.pid, row.tid);
     const qty = row.tid ? ((T.selTypeQty[row.pid]||{})[row.tid]||1) : (T.selProds[row.pid]||1);
@@ -4199,7 +4266,9 @@ function openItemEdit(oid) {
         tid: it.typeId||'',
         typeName: it.typeName||'',
         label: esc(p?.name||'?') + (it.typeName ? ` [${esc(it.typeName)}]` : ''),
-        price: it.price||0,
+        // 受付時の価格は「本体＋追加料金」で保存されているので、本体価格に戻して扱う
+        // （以前はこの価格をグループ全員に入れていたため、1個だけ追加料金を付けても価格に差が出なかった）
+        price: (it.price||0) - (Number(it.optionFee)||0),
         payment: it.paymentMethod||'cash',
         optFee: 0,
         optCount: 0,
@@ -4268,7 +4337,7 @@ function renderItemEditModal() {
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px">
-        <div style="font-size:11px;color:var(--dim);width:46px;flex-shrink:0">価格</div>
+        <div style="font-size:11px;color:var(--dim);width:46px;flex-shrink:0">本体価格</div>
         <span style="font-size:12px;color:var(--dim)">¥</span>
         <input type="number" inputmode="numeric" value="${g.price}"
           style="width:88px;background:var(--s1);border:1.5px solid var(--border);border-radius:6px;padding:7px 8px;font-size:15px;font-weight:700;color:var(--gold);outline:none;-webkit-appearance:none"
@@ -4300,7 +4369,10 @@ function item2SetPay(gi, pay) {
 function item2SetOptCount(gi, val) {
   const g = T.itemGroups[gi];
   if (val === 'none') { g.optFee = 0; g.optCount = g.targetQty; }
-  else { g.optCount = val; }
+  else {
+    g.optCount = val;
+    if (!(g.optFee > 0)) toast('追加料金の金額を入れてください');
+  }
   renderItemEditModal();
 }
 function changeGroupQty(gi, delta) {
@@ -4344,11 +4416,12 @@ async function saveItemEdit() {
       const hasOpt = i < (g.optCount || 0);
       const optFee = (hasOpt && g.optFee > 0) ? g.optFee : 0;
       const doubleBinarize = optFee > 0 && gDoubleOk;
-      it.price = g.price;
+      const itemPrice = g.price + optFee;
+      it.price = itemPrice;
       it.paymentMethod = g.payment;
       it.optionFee = optFee;
       it.doubleBinarize = doubleBinarize;
-      apiAsync('updateItem', { itemId:it.id, price:g.price, paymentMethod:g.payment, optionFee:optFee, doubleBinarize:doubleBinarize, typeId:g.tid, typeName:g.typeName });
+      apiAsync('updateItem', { itemId:it.id, price:itemPrice, paymentMethod:g.payment, optionFee:optFee, doubleBinarize:doubleBinarize, typeId:g.tid, typeName:g.typeName });
     });
 
     // 2. 削除（末尾から）
@@ -4397,7 +4470,7 @@ async function saveItemEdit() {
 
         const res = await api('addItemToOrder', {
           orderId: oid, itemId: newId, pid: g.pid, idx: newIdx,
-          price: g.price, paymentMethod: g.payment,
+          price: g.price + optFee, paymentMethod: g.payment,
           typeId: g.tid, typeName: g.typeName, productName: p?.name||'',
           optionFee: optFee, doubleBinarize: gDoubleBinarize,
           deliveryType: o.deliveryType,
@@ -4412,7 +4485,7 @@ async function saveItemEdit() {
             done: gInstant?true:si===0, startedAt: gInstant?now:(si<=1?now:''), completedAt: gInstant?now:(si===0?now:''), durationMins:'' });
         }
         o.items.push({ id:newId, orderId:oid, pid:g.pid, idx:newIdx, typeId:g.tid, typeName:g.typeName,
-          price:g.price, paymentMethod:g.payment, optionFee:optFee, doubleBinarize:gDoubleBinarize,
+          price:g.price + optFee, paymentMethod:g.payment, optionFee:optFee, doubleBinarize:gDoubleBinarize,
           skipBinarize:false, skipDesign:false, onHold:false, paid:false, steps:stepList });
       }
     }
@@ -5188,6 +5261,10 @@ function openEditHistory(hid) {
           <div class="seg-btn" data-val="same-day">🏪 現地</div>
           <div class="seg-btn" data-val="shipping">📦 郵送</div>
         </div>
+        <div id="hist-paid-wrap" style="display:none">
+          <div class="sh-lbl">入金日 <span style="font-size:10px;font-weight:400;color:var(--dim)">（郵送の売上を集計する日）</span></div>
+          <input class="sh-input" id="hist-paid-date" type="date">
+        </div>
         <div class="sh-lbl">商品ごとの価格・支払い方法</div>
         <div id="hist-items-edit"></div>
         <div class="sh-actions">
@@ -5208,6 +5285,13 @@ function openEditHistory(hid) {
   document.querySelectorAll('#hist-seg-delivery .seg-btn').forEach(b=>{
     b.classList.toggle('on', b.dataset.val===(h.deliveryType||'same-day'));
   });
+  const paidWrap = document.getElementById('hist-paid-wrap');
+  const paidDate = document.getElementById('hist-paid-date');
+  const isShipHist = h.deliveryType === 'shipping';
+  paidWrap.style.display = isShipHist ? '' : 'none';
+  paidDate.max   = ymdLocal(new Date());
+  paidDate.value = isShipHist ? ymdLocal(saleDate(h)) : '';
+  paidDate.dataset.orig = paidDate.value;
   const itemsEl = document.getElementById('hist-items-edit');
   itemsEl.innerHTML = (h.salesItems||[]).map((si,i)=>{
     // typeName がある場合は表示（ローカル完了時）、productName に含まれてない場合のみ付加
@@ -5265,13 +5349,23 @@ async function saveHistEdit() {
     si.price = basePrice + optFee;
     if (payEl) si.paymentMethod = payEl.dataset.pay;
   });
+  // 郵送の入金日を変えたら、その日付で売上を集計し直す（salesの日時を書き換える）
+  const paidDateEl = document.getElementById('hist-paid-date');
+  let salesAt;
+  if (h.deliveryType === 'shipping' && paidDateEl.value && paidDateEl.value !== paidDateEl.dataset.orig) {
+    if (paidDateEl.value > ymdLocal(new Date())) { toast('未来の日付は選べません'); return; }
+    salesAt = ymdToIso(paidDateEl.value);
+    if (salesAt) { h.salesAt = salesAt; (h.salesItems||[]).forEach(si => { si.completedAt = salesAt; }); }
+  }
   h.deliveryType = delivery;
   closeOverlay('ov-hist-edit');
   renderHistory();
   toast('更新しました');
-  api('updateHistory',{
+  // 送信キュー経由にする（以前はapi()の投げっぱなしで、通信に失敗すると修正が消えていた）
+  apiAsync('updateHistory',{
     historyId: editingHistId,
     deliveryType: delivery,
+    salesAt: salesAt,
     salesItems: (h.salesItems||[]).map(si=>({id:si.id, price:si.price, paymentMethod:si.paymentMethod}))
   });
 }
