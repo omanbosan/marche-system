@@ -1,0 +1,2243 @@
+// ============================================================
+//  受注管理システム — GAS v7
+//  郵送工程追加・在庫管理・保留・入金確認対応
+// ============================================================
+
+const SPREADSHEET_ID = '1-27E8JVuZ3aD-cGsNCiq6WdCB6OemqghRKvx7NhjTQE';
+
+const SH = {
+  ORDERS:   'orders',
+  ITEMS:    'items',
+  STEPS:    'steps',
+  PRODUCTS: 'products',
+  HISTORY:  'history',
+  SALES:    'sales',
+  CONFIG:   'config',
+  STOCK_LOG:'stock_log',
+  EXPENSES:    'expenses',
+  FIXED_COSTS: 'fixed_costs',
+  ADMIN_USERS: 'admin_users',
+};
+
+function ok(data) {
+  const o = ContentService.createTextOutput(JSON.stringify({ ok: true, data: data }));
+  o.setMimeType(ContentService.MimeType.JSON);
+  return o;
+}
+function err(msg) {
+  const o = ContentService.createTextOutput(JSON.stringify({ ok: false, error: msg }));
+  o.setMimeType(ContentService.MimeType.JSON);
+  return o;
+}
+
+// ============================================================
+//  チャンク一時保存
+// ============================================================
+function storeChunk(sid, ci, d) {
+  PropertiesService.getScriptProperties().setProperty('chunk_'+sid+'_'+ci, d);
+  return ok({ stored: true });
+}
+
+function assembleChunks(sid, total, lastChunk) {
+  const props = PropertiesService.getScriptProperties();
+  var full = '';
+  for (var i = 0; i < total - 1; i++) {
+    full += props.getProperty('chunk_'+sid+'_'+i) || '';
+    props.deleteProperty('chunk_'+sid+'_'+i);
+  }
+  return full + lastChunk;
+}
+
+// ============================================================
+//  エントリポイント
+// ============================================================
+function doGet(e) {
+  try {
+    const action = e.parameter.action || '';
+
+    // action指定が無い場合＝このURLをブラウザで直接開いた場合。
+    // GAS直配信版は使用終了とし、GitHub Pages版へ誘導する案内ページを返す。
+    // 既存のGitHub Pages版フロントエンドは必ずaction付きでリクエストするので、
+    // このガードには一切引っかからず今までの動作に影響しない。
+    if (!action) {
+      var redirectUrl = 'https://omanbosan.github.io/marche-system/';
+      // GASのHtmlServiceはコンテンツをサンドボックス化されたiframe内（googleusercontent.com）に
+      // 表示するため、<meta http-equiv="refresh">だけだとiframe自身しか遷移せず、
+      // タブ本体（script.google.com）はそのまま残ってしまうことがある。
+      // window.top.location を明示的に書き換えて親フレームごと遷移させる。
+      var guideHtml = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+        '<title>移転しました</title>' +
+        '<style>body{font-family:sans-serif;background:#1a1a2e;color:#eee;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:20px}' +
+        'a{color:#c8a84a;font-weight:bold;font-size:18px}p{font-size:14px;color:#aaa}</style></head>' +
+        '<body><div><p>このページは使用を終了しました。<br>移動しない場合は下のリンクをタップしてください。</p>' +
+        '<a href="' + redirectUrl + '" target="_top">' + redirectUrl + '</a></div>' +
+        '<script>' +
+        'try { window.top.location.href = "' + redirectUrl + '"; }' +
+        'catch(e) { try { window.location.href = "' + redirectUrl + '"; } catch(e2) {} }' +
+        '</script>' +
+        '</body></html>';
+      return HtmlService.createHtmlOutput(guideHtml)
+        .setTitle('移転しました')
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    }
+
+    const token  = e.parameter.token  || '';
+    const sid    = e.parameter.sid    || '';
+    const ci     = parseInt(e.parameter.ci    || '0');
+    const total  = parseInt(e.parameter.total || '1');
+    const dRaw   = e.parameter.d || '{}';
+
+    if (action === 'storeChunk') return storeChunk(sid, ci, dRaw);
+    if (action !== 'auth' && !verifyToken(token)) return err('Unauthorized');
+
+    var data = {};
+    try {
+      var fullJson = (sid && total > 1) ? assembleChunks(sid, total, dRaw) : dRaw;
+      data = JSON.parse(fullJson);
+    } catch(ex) { data = {}; }
+
+    switch (action) {
+      case 'auth':           return handleAuth(e.parameter.password || '');
+      case 'ping':           return ok({ pong: true });
+      case 'getAll':         return handleGetAll();
+      case 'getHistory':     return handleGetHistory(data.year||'', data.month||'', !!data.lite);
+      case 'saveOrderFast':  return handleSaveOrderFast(data);
+      case 'saveOrder':      return handleSaveOrderFast(data.order||data);
+      case 'saveOrderHeader':return handleSaveOrderHeader(data);
+      case 'saveOrderItem':  return handleSaveOrderItem(data);
+      case 'saveOrderStep':  return handleSaveOrderStep(data);
+      case 'updateStep':     return handleUpdateStep(data);
+      case 'updateItem':     return handleUpdateItem(data);
+      case 'updateOrder':    return handleUpdateOrder(data);
+      case 'completeOrder':  return handleCompleteOrder(data);
+      case 'reopenOrder':    return handleReopenOrder(data);
+      case 'deleteOrder':    return handleDeleteOrder(data.orderId||'');
+      case 'deleteItem':     return handleDeleteItem(data);
+      case 'addItemToOrder': return handleAddItemToOrder(data);
+      case 'deleteHistory':  return handleDeleteHistory(data);
+      case 'saveProduct':     return handleSaveProduct(data.product||data);
+      case 'deleteProduct':   return handleDeleteProduct(data.productId||'');
+      case 'reorderProducts': return handleReorderProducts(data);
+      case 'adjustStock':       return handleAdjustStock(data);
+      case 'transferStock':     return handleTransferStock(data);
+      case 'updateHistory':     return handleUpdateHistory(data);
+      case 'exportCSV':         return handleExportCSV();
+      case 'fixSalesTypeNames': return ok({ result: fixSalesTypeNames() });
+      case 'fixItemTypes':      return handleFixItemTypes();
+      case 'recordOrderSales':  return handleRecordOrderSales(data);
+      case 'getExpenses':       return handleGetExpenses(data.year||'', data.month||'');
+      case 'saveExpense':       return handleSaveExpense(data.expense||data);
+      case 'deleteExpense':     return handleDeleteExpense(data.expenseId||'');
+      case 'saveLaborRate':     return handleSaveLaborRate(data.rate||0);
+      case 'getFixedCosts':     return handleGetFixedCosts(data.year||'', data.month||'');
+      case 'saveFixedCost':     return handleSaveFixedCost(data.cost||data);
+      case 'deleteFixedCost':   return handleDeleteFixedCost(data.costId||'');
+      case 'getDashData':       return handleGetDashData(data.year||'');
+      case 'getDashSettings':   return handleGetDashSettings();
+      case 'saveDashSetting':   return handleSaveDashSetting(data);
+      default:               return err('Unknown action: ' + action);
+    }
+  } catch(ex) {
+    return err(ex.toString());
+  }
+}
+
+function doPost(e) { return err('GETを使用してください'); }
+
+// ============================================================
+//  Googleアカウント認証版（gas/Index.html から google.script.run 経由で呼ばれる）
+//  2026-08-09: Googleログイン認証が不安定だったため、GitHub Pages版と同じ
+//  パスワード＋トークン認証（verifyToken、下記rpc参照）に統一した。
+//  ・既存のdoGetのswitchとは意図的に別関数(routeAction)にしている。
+//    doGet側の本番動作(トークン認証)には一切触れないようにするため、
+//    アクション追加時はこちらにも忘れず反映すること。
+//
+//  以下のGoogleアカウント判定用の関数群（〜isMarcheAdminUserまで）は
+//  現在未使用（呼び出し元なし）。admin_usersシートによるアカウント単位の
+//  許可制に戻す場合のために残してある。
+// ============================================================
+const MARCHE_ADMIN_EMAILS_SEED = ['omanbosan.lv@gmail.com'];
+
+function ensureAdminUsersSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh = ss.getSheetByName(SH.ADMIN_USERS);
+  if (!sh) {
+    sh = ss.insertSheet(SH.ADMIN_USERS);
+    sh.getRange(1,1,1,2).setValues([['email','note']]);
+    sh.getRange(1,1,1,2).setBackground('#1a1a2e').setFontColor('#c8a84a').setFontWeight('bold');
+    sh.setFrozenRows(1);
+    MARCHE_ADMIN_EMAILS_SEED.forEach(function(email) {
+      sh.appendRow([email, '初期登録']);
+    });
+  }
+  return sh;
+}
+
+// admin_users シートのemail列を読み、許可されたGoogleアカウント一覧を返す
+function getAllowedAdminEmails() {
+  const sh = ensureAdminUsersSheet();
+  const rows = sh.getDataRange().getValues();
+  var emails = [];
+  for (var i = 1; i < rows.length; i++) {
+    var email = (rows[i][0] || '').toString().trim().toLowerCase();
+    if (email) emails.push(email);
+  }
+  return emails;
+}
+
+function isMarcheAdminUser() {
+  var email = (Session.getActiveUser().getEmail() || '').toLowerCase();
+  return !!email && getAllowedAdminEmails().indexOf(email) !== -1;
+}
+
+function routeAction(action, data) {
+  switch (action) {
+    case 'auth':           return handleAuth(data.password || '');
+    case 'ping':           return ok({ pong: true });
+    case 'getAll':         return handleGetAll();
+    case 'getHistory':     return handleGetHistory(data.year||'', data.month||'', !!data.lite);
+    case 'saveOrderFast':  return handleSaveOrderFast(data);
+    case 'saveOrder':      return handleSaveOrderFast(data.order||data);
+    case 'saveOrderHeader':return handleSaveOrderHeader(data);
+    case 'saveOrderItem':  return handleSaveOrderItem(data);
+    case 'saveOrderStep':  return handleSaveOrderStep(data);
+    case 'updateStep':     return handleUpdateStep(data);
+    case 'updateItem':     return handleUpdateItem(data);
+    case 'updateOrder':    return handleUpdateOrder(data);
+    case 'completeOrder':  return handleCompleteOrder(data);
+    case 'reopenOrder':    return handleReopenOrder(data);
+    case 'deleteOrder':    return handleDeleteOrder(data.orderId||'');
+    case 'deleteItem':     return handleDeleteItem(data);
+    case 'addItemToOrder': return handleAddItemToOrder(data);
+    case 'deleteHistory':  return handleDeleteHistory(data);
+    case 'saveProduct':     return handleSaveProduct(data.product||data);
+    case 'deleteProduct':   return handleDeleteProduct(data.productId||'');
+    case 'reorderProducts': return handleReorderProducts(data);
+    case 'adjustStock':       return handleAdjustStock(data);
+    case 'transferStock':     return handleTransferStock(data);
+    case 'updateHistory':     return handleUpdateHistory(data);
+    case 'exportCSV':         return handleExportCSV();
+    case 'fixSalesTypeNames': return ok({ result: fixSalesTypeNames() });
+    case 'fixItemTypes':      return handleFixItemTypes();
+    case 'recordOrderSales':  return handleRecordOrderSales(data);
+    case 'getExpenses':       return handleGetExpenses(data.year||'', data.month||'');
+    case 'saveExpense':       return handleSaveExpense(data.expense||data);
+    case 'deleteExpense':     return handleDeleteExpense(data.expenseId||'');
+    case 'saveLaborRate':     return handleSaveLaborRate(data.rate||0);
+    case 'getFixedCosts':     return handleGetFixedCosts(data.year||'', data.month||'');
+    case 'saveFixedCost':     return handleSaveFixedCost(data.cost||data);
+    case 'deleteFixedCost':   return handleDeleteFixedCost(data.costId||'');
+    case 'getDashData':       return handleGetDashData(data.year||'');
+    case 'getDashSettings':   return handleGetDashSettings();
+    case 'saveDashSetting':   return handleSaveDashSetting(data);
+    default:                  return err('Unknown action: ' + action);
+  }
+}
+
+// google.script.run から呼ばれる唯一のエントリポイント。
+// GitHub Pages版のdoGet同様、'auth'以外はtoken必須（パスワード認証）。
+function rpc(action, data) {
+  data = data || {};
+  if (action !== 'auth' && !verifyToken(data.token || '')) throw new Error('Unauthorized');
+  var result = routeAction(action, data);
+  var parsed = JSON.parse(result.getContent());
+  if (!parsed.ok) throw new Error(parsed.error);
+  return parsed.data;
+}
+
+// ============================================================
+//  認証（複数端末対応）
+// ============================================================
+function verifyToken(token) {
+  if (!token) return false;
+  var tokens = [];
+  try { tokens = JSON.parse(getConfig().sessionTokens || '[]'); } catch(e) { return false; }
+  return tokens.some(function(t) { return t.token === token && t.exp > Date.now(); });
+}
+
+function handleAuth(pw) {
+  const cfg  = getConfig();
+  const hash = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256, pw, Utilities.Charset.UTF_8
+  ).map(function(b){ return ('0'+(b&0xFF).toString(16)).slice(-2); }).join('');
+  if (hash !== cfg.passwordHash) return err('パスワードが違います');
+
+  const newToken = Utilities.getUuid();
+  // ログイン保持：30日間有効
+  var expDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  var tokens = [];
+  try { tokens = JSON.parse(cfg.sessionTokens || '[]'); } catch(e) { tokens = []; }
+  tokens = tokens.filter(function(t){ return t.exp > Date.now(); });
+  tokens.push({ token: newToken, exp: expDate.getTime() });
+  setConfig('sessionTokens', JSON.stringify(tokens));
+  return ok({ token: newToken });
+}
+
+// ============================================================
+//  設定
+// ============================================================
+// verifyToken()がリクエストの度に呼ぶため、CacheServiceでキャッシュする。
+// これが無いと「トークン確認だけ」のためにconfigシート全体読み込みが
+// 全アクション（getAllのキャッシュヒット時も含む）で毎回発生してしまっていた。
+// setConfig()で書き込むたびにキャッシュを無効化するので、内容が古いまま
+// 使われ続けることはない（TTLはgetAll_v1と同じ50秒）。
+function getConfig() {
+  try {
+    var cached = CacheService.getScriptCache().get('config_v1');
+    if (cached) return JSON.parse(cached);
+  } catch(e){}
+  const sh   = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.CONFIG);
+  const rows = sh.getDataRange().getValues();
+  const cfg  = {};
+  rows.forEach(function(r){ if(r[0]) cfg[r[0]] = r[1]; });
+  try {
+    var json = JSON.stringify(cfg);
+    if (json.length < 95000) CacheService.getScriptCache().put('config_v1', json, 50);
+  } catch(e){}
+  return cfg;
+}
+function setConfig(key, value) {
+  const sh   = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.CONFIG);
+  const rows = sh.getDataRange().getValues();
+  try { CacheService.getScriptCache().remove('config_v1'); } catch(e){}
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i][0] === key) { sh.getRange(i+1,2).setValue(value); return; }
+  }
+  sh.appendRow([key, value]);
+}
+
+// キャッシュを無効化（書き込み系操作後に呼ぶ）
+function invalidateCache() {
+  try { CacheService.getScriptCache().remove('getAll_v1'); } catch(e){}
+}
+
+// ============================================================
+//  全データ取得（CacheServiceで高速化）
+// ============================================================
+function handleGetAll() {
+  // キャッシュから返せる場合は即返す（25秒TTL）
+  try {
+    const cache = CacheService.getScriptCache();
+    const hit = cache.get('getAll_v1');
+    if (hit) return ok(JSON.parse(hit));
+  } catch(e){}
+
+  const ss       = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  // ordersシートの自動マイグレーション（shippingFee列・discount列追加）
+  try {
+    var oMigSh = ss.getSheetByName(SH.ORDERS);
+    if (oMigSh && oMigSh.getLastColumn() < 10) {
+      if (oMigSh.getLastColumn() < 10) oMigSh.insertColumnsAfter(9, 10 - oMigSh.getLastColumn());
+      oMigSh.getRange(1, 10).setValue('shippingFee');
+    }
+    if (oMigSh && oMigSh.getLastColumn() < 11) {
+      oMigSh.insertColumnsAfter(10, 11 - oMigSh.getLastColumn());
+      oMigSh.getRange(1, 11).setValue('discount');
+    }
+    if (oMigSh && oMigSh.getLastColumn() < 12) {
+      oMigSh.insertColumnsAfter(11, 12 - oMigSh.getLastColumn());
+      oMigSh.getRange(1, 12).setValue('numGroup');
+    }
+  } catch(eM){}
+  // productsシートの自動マイグレーション（productType列追加）
+  try {
+    var pMigSh = ss.getSheetByName(SH.PRODUCTS);
+    if (pMigSh && pMigSh.getLastColumn() < 14) {
+      pMigSh.insertColumnsAfter(pMigSh.getLastColumn(), 14 - pMigSh.getLastColumn());
+      pMigSh.getRange(1, 14).setValue('productType');
+    }
+  } catch(eM2){}
+  // itemsシートの自動マイグレーション（engraveOpt列・engraveLabel列追加）
+  try {
+    var iMigSh = ss.getSheetByName(SH.ITEMS);
+    if (iMigSh && iMigSh.getLastColumn() < 17) {
+      iMigSh.insertColumnsAfter(iMigSh.getLastColumn(), 17 - iMigSh.getLastColumn());
+      iMigSh.getRange(1, 17).setValue('engraveOpt');
+    }
+    if (iMigSh && iMigSh.getLastColumn() < 18) {
+      iMigSh.insertColumnsAfter(iMigSh.getLastColumn(), 18 - iMigSh.getLastColumn());
+      iMigSh.getRange(1, 18).setValue('engraveLabel');
+    }
+  } catch(eM3){}
+  const orders   = sheetToObjects(ss.getSheetByName(SH.ORDERS));
+  const items    = sheetToObjects(ss.getSheetByName(SH.ITEMS));
+  const steps    = sheetToObjects(ss.getSheetByName(SH.STEPS));
+  const products = sheetToObjects(ss.getSheetByName(SH.PRODUCTS));
+
+  const active = orders.filter(function(o){ return o.status !== 'done'; });
+  active.forEach(function(o){
+    o.items = items.filter(function(it){ return it.orderId === o.id; }).map(function(it){
+      it.steps        = steps.filter(function(s){ return s.itemId === it.id; });
+      it.skipBinarize   = (it.skipBinarize   == 1 || it.skipBinarize   === true);
+      it.skipDesign     = (it.skipDesign     == 1 || it.skipDesign     === true);
+      it.onHold         = (it.onHold         == 1 || it.onHold         === true);
+      it.paid           = (it.paid           == 1 || it.paid           === true);
+      it.doubleBinarize = (it.doubleBinarize == 1 || it.doubleBinarize === true);
+      it.engraveOpt     = (it.engraveOpt     == 1 || it.engraveOpt     === true);
+      it.engraveLabel   = it.engraveLabel || '';
+      it.optionFee      = Number(it.optionFee  || 0);
+      it.optionNote     = it.optionNote || '';
+      it.steps.forEach(function(s){ s.done = (s.done == 1 || s.done === true); });
+      return it;
+    });
+  });
+
+  // 郵送で入金確認済みの未完了注文に入金日（paidAt＝salesに記録した最も早い日時）を付ける。
+  // 入金確認済みの郵送が無ければsalesシートは読まない
+  var paidShipIds = {};
+  active.forEach(function(o){
+    if (o.deliveryType === 'shipping' && o.items.some(function(it){ return it.paid; })) paidShipIds[o.id] = true;
+  });
+  if (Object.keys(paidShipIds).length) {
+    var earliestPaid = {};
+    ss.getSheetByName(SH.SALES).getDataRange().getValues().forEach(function(r, k){
+      if (k === 0 || !paidShipIds[r[2]] || !r[7]) return;
+      var t = new Date(r[7]).getTime();
+      if (!isNaN(t) && (!earliestPaid[r[2]] || t < earliestPaid[r[2]])) earliestPaid[r[2]] = t;
+    });
+    active.forEach(function(o){ if (earliestPaid[o.id]) o.paidAt = new Date(earliestPaid[o.id]).toISOString(); });
+  }
+
+  // 商品のstepTimesJson・typesJsonをパース
+  products.forEach(function(p){
+    if (typeof p.stepTimesJson === 'string') {
+      try { p.stepTimes = JSON.parse(p.stepTimesJson); } catch(e){ p.stepTimes={}; }
+    }
+    if (typeof p.typesJson === 'string') {
+      try { p.types = JSON.parse(p.typesJson); } catch(e){ p.types=[]; }
+    } else { p.types = []; }
+    p.stock     = Number(p.stock     || 0);
+    p.stockLoc  = Number(p.stockLoc  || 0);
+    p.stockShip = Number(p.stockShip || 0);
+    p.stockWarn = Number(p.stockWarn || 3);
+    p.costPrice = Number(p.costPrice || 0);
+    p.productType = p.productType || 'engrave';
+    // typesのstockLoc/stockShipもパース
+    if (p.types) {
+      p.types.forEach(function(t){
+        t.stockLoc  = Number(t.stockLoc  || 0);
+        t.stockShip = Number(t.stockShip || 0);
+      });
+    }
+  });
+  // itemsのtypeId・typeNameを含める
+  items.forEach(function(it){
+    it.typeId   = it.typeId   || '';
+    it.typeName = it.typeName || '';
+  });
+
+  // 時給（管理会計用）
+  var laborRate = 0;
+  try {
+    var cfg = getConfig();
+    laborRate = Number(cfg.laborRatePerHour || 0);
+  } catch(e){}
+
+  // 次の受付番号を正しく連番にするため、完了済み(done)も含めた全注文の最大番号を返す
+  // （activeだけだとその日の注文が全部完了済みになった時に番号がリセットされてしまうため）
+  // レーザー彫刻あり／物販のみ（numGroup）で別々に連番管理するため、グループ別に最大値を計算する
+  var maxOrderNum = 0, maxOrderNumEngrave = 0, maxOrderNumGoods = 0;
+  orders.forEach(function(o){
+    var n = Number(o.num);
+    if (n > maxOrderNum) maxOrderNum = n;
+    var grp = o.numGroup || 'engrave'; // 旧データ（numGroup未設定）はengrave扱い
+    if (grp === 'goods') { if (n > maxOrderNumGoods) maxOrderNumGoods = n; }
+    else                 { if (n > maxOrderNumEngrave) maxOrderNumEngrave = n; }
+  });
+
+  var result = { orders: active, products: products, laborRatePerHour: laborRate,
+    maxOrderNum: maxOrderNum, maxOrderNumEngrave: maxOrderNumEngrave, maxOrderNumGoods: maxOrderNumGoods };
+  // 結果をキャッシュに保存（50秒間）
+  // フロント同期が30秒ごとなので、50秒TTLで「30秒→キャッシュヒット→60秒→再読み込み」のサイクルになる
+  // 書き込み系操作時は invalidateCache() でキャッシュを即座に消去するため、ステップ更新等は遅延なく反映
+  try {
+    var json = JSON.stringify(result);
+    if (json.length < 95000) { // 100KB制限の安全マージン
+      CacheService.getScriptCache().put('getAll_v1', json, 50);
+    }
+  } catch(e){}
+  return ok(result);
+}
+
+// lite=true : 売上集計用の軽量版。工程(steps)・アイテム(items)の全件読み込みと、
+//             工程別平均などの重い集計を省く（ホームのダッシュボード用）。
+//             返す履歴の中身（salesItems・channel・numGroupなど）は通常版と同じ。
+function handleGetHistory(year, month, lite) {
+  const ss     = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var hist     = sheetToObjects(ss.getSheetByName(SH.HISTORY));
+  const sales    = sheetToObjects(ss.getSheetByName(SH.SALES));
+  const orders   = sheetToObjects(ss.getSheetByName(SH.ORDERS));
+
+  // orderをマップ化
+  var orderMap = {};
+  orders.forEach(function(o){ orderMap[o.id] = o; });
+
+  // salesをhistoryIdでグループ化（履歴1件ごとにsales全件をfilterするとO(履歴×売上)で、データが増えるほど急に遅くなるため）
+  var salesByHist = {};
+  sales.forEach(function(s){
+    (salesByHist[s.historyId] || (salesByHist[s.historyId] = [])).push(s);
+  });
+
+  // 売上計上日（salesAt）：郵送は入金確認時にsalesへ記録した日時（＝salesの最も早い日時）。
+  // historyのcompletedAtは発送完了時に上書きされるため、郵送の集計に使うと入金日とずれる。
+  // 入金確認せずに完了した郵送は完了時に記録されるので、結果的に完了日になる。現地は従来どおり完了日
+  hist.forEach(function(h){
+    h.salesAt = h.completedAt;
+    if (h.deliveryType !== 'shipping') return;
+    var earliest = null;
+    (salesByHist[h.id] || []).forEach(function(s){
+      var t = new Date(s.completedAt);
+      if (!isNaN(t) && (!earliest || t < earliest)) earliest = t;
+    });
+    if (earliest) h.salesAt = earliest.toISOString();
+  });
+  if (year) {
+    hist = hist.filter(function(h){
+      const d = new Date(h.salesAt);
+      return d.getFullYear() == year && (month ? (d.getMonth()+1) == month : true);
+    });
+  }
+
+  if (lite) {
+    hist.forEach(function(h){
+      h.salesItems = salesByHist[h.id] || [];
+      var ord = orderMap[h.orderId];
+      h.channel   = ord ? (ord.channel   || 'marche')  : 'marche';
+      h.createdAt = ord ? (ord.createdAt || '')        : '';
+      h.numGroup  = ord ? (ord.numGroup  || 'engrave') : 'engrave';
+      h.canReopen = canReopenOrder(ord);
+    });
+    return ok({ history: hist });
+  }
+
+  const allItems = sheetToObjects(ss.getSheetByName(SH.ITEMS));
+  const steps    = sheetToObjects(ss.getSheetByName(SH.STEPS));
+
+  // orderIdごとのアイテム（履歴1件ごとにitems全件をfilterしないため）
+  var itemsByOrder = {};
+  allItems.forEach(function(it){
+    (itemsByOrder[it.orderId] || (itemsByOrder[it.orderId] = [])).push(it);
+  });
+
+  // itemをマップ化
+  var itemMap = {};
+  allItems.forEach(function(it){ itemMap[it.id] = it; });
+
+  // 現地・郵送のorderIdセット
+  var localOrderIds = {}, shipOrderIds = {};
+  orders.forEach(function(o){
+    if (o.deliveryType === 'shipping') shipOrderIds[o.id] = true;
+    else localOrderIds[o.id] = true;
+  });
+
+  // stepsをitemIdでグループ化
+  var stepsByItem = {};
+  steps.forEach(function(s){
+    if (!stepsByItem[s.itemId]) stepsByItem[s.itemId] = [];
+    stepsByItem[s.itemId].push(s);
+  });
+
+  // ① 行程別平均実績時間（現地のみ）
+  var stepStats = {};
+  steps.forEach(function(s){
+    if (!s.done || !s.durationMins || Number(s.durationMins) <= 0) return;
+    var it = itemMap[s.itemId];
+    if (!it || !localOrderIds[it.orderId]) return;
+    var si = String(s.stepIndex);
+    if (!stepStats[si]) stepStats[si] = [];
+    stepStats[si].push(Number(s.durationMins));
+  });
+  var stepAvg = {};
+  Object.keys(stepStats).forEach(function(si){
+    var vals = stepStats[si];
+    stepAvg[si] = Math.round(vals.reduce(function(a,b){return a+b;},0) / vals.length);
+  });
+
+  // productsシートから商品名マップを作成
+  var products = sheetToObjects(ss.getSheetByName(SH.PRODUCTS));
+  var productNameMap = {};
+  products.forEach(function(p){ productNameMap[p.id] = p.name; });
+
+  // ① 行程別平均実績時間（現地のみ・受付除外）
+  var stepStats = {};
+  steps.forEach(function(s){
+    if (!s.done) return;
+    if (Number(s.stepIndex) === 0) return; // 受付は自動完了のため除外
+    var dur = Number(s.durationMins);
+    if (dur <= 0) return;
+    if (s.startedAt && s.completedAt && s.startedAt === s.completedAt) return;
+    var it = itemMap[s.itemId];
+    if (!it || !localOrderIds[it.orderId]) return;
+    var si = String(s.stepIndex);
+    if (!stepStats[si]) stepStats[si] = [];
+    stepStats[si].push(dur);
+  });
+  var stepAvg = {};
+  Object.keys(stepStats).forEach(function(si){
+    var vals = stepStats[si];
+    stepAvg[si] = Math.round(vals.reduce(function(a,b){return a+b;},0) / vals.length);
+  });
+
+  // ② 商品別平均制作時間（現地のみ・商品名で集計）
+  var prodStats = {}; // {productName: [totalMins]}
+  allItems.forEach(function(it){
+    if (!localOrderIds[it.orderId]) return;
+    var itemSteps = stepsByItem[it.id] || [];
+    var total = itemSteps.reduce(function(s,sd){
+      return s + (Number(sd.durationMins) || 0);
+    }, 0);
+    if (total <= 0) return;
+    // productsシートから商品名を取得
+    var pname = productNameMap[it.pid] || it.pid;
+    if (!pname) return;
+    if (!prodStats[pname]) prodStats[pname] = [];
+    prodStats[pname].push(total);
+  });
+  var prodAvg = {};
+  Object.keys(prodStats).forEach(function(pname){
+    var vals = prodStats[pname];
+    prodAvg[pname] = Math.round(vals.reduce(function(a,b){return a+b;},0) / vals.length);
+  });
+
+  // ③ 郵送の平均所要日数（受付〜発送）
+  var shipDays = [];
+  hist.filter(function(h){ return h.deliveryType === 'shipping'; })
+      .forEach(function(h){
+        if (h.waitMinutes && Number(h.waitMinutes) > 0) {
+          shipDays.push(Number(h.waitMinutes));
+        }
+      });
+  var shipAvgDays = shipDays.length
+    ? Math.round(shipDays.reduce(function(a,b){return a+b;},0) / shipDays.length * 10) / 10
+    : null;
+
+  // histに詳細情報を付加
+  hist.forEach(function(h){
+    h.salesItems = salesByHist[h.id] || [];
+    var ord = orderMap[h.orderId];
+    if (ord) {
+      h.channel    = ord.channel    || 'marche';
+      h.createdAt  = ord.createdAt  || '';
+      h.numGroup   = ord.numGroup   || 'engrave';
+      h.canReopen  = canReopenOrder(ord);
+    } else {
+      h.numGroup = 'engrave';
+    }
+    // 工程別実績（現地・郵送とも）
+    var ordItems = itemsByOrder[h.orderId] || [];
+    var stepDetailArr = [];
+    ordItems.forEach(function(it){
+      (stepsByItem[it.id] || []).forEach(function(s){
+        if (s.done && Number(s.durationMins) > 0) {
+          stepDetailArr.push({ stepIndex: Number(s.stepIndex), durationMins: Number(s.durationMins) });
+        }
+      });
+    });
+    var sdMap = {};
+    stepDetailArr.forEach(function(sd){
+      var si = String(sd.stepIndex);
+      if (!sdMap[si]) sdMap[si] = 0;
+      sdMap[si] += sd.durationMins;
+    });
+    h.stepDetails = Object.keys(sdMap).map(function(si){
+      return { stepIndex: Number(si), durationMins: sdMap[si] };
+    });
+  });
+
+  return ok({ history: hist, stepAvg: stepAvg, prodAvg: prodAvg, shipAvgDays: shipAvgDays });
+}
+
+
+function handleSaveOrderFast(data) {
+  if (!data || !data.id) return err('data missing');
+  // 「同じIDが既にあるか確認→書き込み」をロックで1本ずつにする。
+  // GASの応答が遅いとフロントの送信キューが60秒で打ち切って再送するが、GAS側では打ち切られた分も
+  // 処理が続くため、同じ注文の送信が同時に何本も動く。ロックが無いと全部が「まだ無い」と判断し、
+  // 迷子札1個の受付が6件登録されるような重複が起きていた（2026-10 判明）
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(30000); } catch (eLock) { return err('受付の保存が混み合っています。自動で再送します'); }
+  try {
+    return handleSaveOrderFastLocked(data);
+  } finally {
+    SpreadsheetApp.flush();   // 書き込みを確定させてからロックを外す（次の処理の重複確認で見えるように）
+    lock.releaseLock();
+  }
+}
+
+function handleSaveOrderFastLocked(data) {
+  invalidateCache(); // 書き込み前にキャッシュ無効化
+  const ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const oSh = ss.getSheetByName(SH.ORDERS);
+  const iSh = ss.getSheetByName(SH.ITEMS);
+  const sSh = ss.getSheetByName(SH.STEPS);
+
+  // べき等性チェック：同じorderIdが既にordersシートに存在する場合は何もせず成功を返す。
+  // フロントのapi()は通信失敗時に1.5秒後へ自動リトライするため、
+  // 「サーバー側は保存済みだがレスポンスが届く前に通信が切れた」ケースで
+  // 同じ注文が2重作成（在庫二重減算・売上二重計上）されるのを防ぐ。
+  var existingIds = oSh.getLastRow() > 1 ? oSh.getRange(2, 1, oSh.getLastRow()-1, 1).getValues() : [];
+  for (var ei = 0; ei < existingIds.length; ei++) {
+    // 既に保存済み＝最初の呼び出しで在庫も引き済みなので stockApplied も true を返す。
+    // （ここで false を返すとフロントが在庫引き落としのフォールバックを実行して二重に引いてしまう）
+    if (String(existingIds[ei][0]) === String(data.id)) return ok({ saved: true, duplicate: true, stockApplied: data.serverStock === true });
+  }
+
+  // typeId→typeName, productId→productName 補完用マップ
+  // 在庫をサーバー側で引く場合の「タイプ別在庫かどうか」の判定にも使う
+  var typeNameMap = {};
+  var prodNameMap = {};
+  var prodTypeCount = {};
+  var prodShared    = {};
+  try {
+    sheetToObjects(ss.getSheetByName(SH.PRODUCTS)).forEach(function(p){
+      prodNameMap[String(p.id)] = p.name || '';
+      prodShared[String(p.id)]  = !!p.sharedStockWith;
+      try {
+        var types = JSON.parse(p.typesJson || '[]');
+        prodTypeCount[String(p.id)] = (types||[]).length;
+        (types||[]).forEach(function(t){ typeNameMap[String(t.id)] = t.name || ''; });
+      } catch(e){ prodTypeCount[String(p.id)] = 0; }
+    });
+  } catch(e){}
+
+  // 物販のみ／彫刻オプション不使用のアイテムだけの注文かどうか（＝即完了・進捗管理タブに出さない）
+  var allInstant = (data.items||[]).length > 0 && (data.items||[]).every(function(it){ return !!it.allDone; });
+
+  // 注文ヘッダー（numGroupはレーザー彫刻あり/物販のみで受付番号を別連番管理するための区分）
+  oSh.appendRow([
+    data.id, data.num, data.note||'', data.deliveryType,
+    data.createdAt, allInstant?data.createdAt:'', allInstant?'done':'active', '', data.channel||'marche',
+    data.shippingFee||0, data.discount||0, allInstant?'goods':'engrave'
+  ]);
+
+  var itemRows = [], stepRows = [];
+  (data.items||[]).forEach(function(it){
+    // typeNameが空でtypeIdがある場合はproductsから補完
+    var resolvedTypeName = it.typeName || '';
+    if (!resolvedTypeName && it.typeId) {
+      resolvedTypeName = typeNameMap[String(it.typeId)] || '';
+    }
+    itemRows.push([
+      it.id, data.id, it.pid, it.idx||0, it.totalOf||1,
+      0, 0, it.price||0, it.paymentMethod||'', 0, 0,
+      it.typeId||'', resolvedTypeName,
+      it.optionFee||0, it.optionNote||'', it.doubleBinarize?1:0,
+      it.engraveOpt?1:0, it.engraveLabel||''
+    ]);
+    var stepIds = it.stepIds || [];
+    // ステップIDは itemId + '-' + 工程番号 で一意に決まるので、フロントから送らなくてよい
+    // （送信量を減らして分割送信＝通信の直列化を避けるため。stepIdsが来たら従来どおりそれを使う）
+    // 受付(step0)は常に完了扱い。step0Done は旧フロントからのみ送られてくる
+    var step0Done = (it.step0Done === undefined) ? true : !!it.step0Done;
+    var step0At   = it.step0At || data.createdAt || '';
+    // 郵送は7ステップ、現地は6ステップ
+    var nSteps = data.deliveryType === 'shipping' ? 7 : 6;
+    for (var si = 0; si < nSteps; si++) {
+      var isDone, stepAt;
+      if (it.allDone) {
+        // 物販のみ／彫刻オプション不使用アイテムは全工程を作成時点で完了扱いにする
+        isDone = 1;
+        stepAt = step0At;
+      } else {
+        isDone = (si === 0 && step0Done) ? 1 : 0;
+        stepAt = (si === 0 && step0Done) ? step0At : '';
+      }
+      // 受付完了時は2値化の startedAt も同時に設定（時間計算を正確にするため）
+      var startedAt   = it.allDone ? stepAt : ((si === 0) ? stepAt : (si === 1 && step0Done ? step0At : ''));
+      var completedAt = it.allDone ? stepAt : ((si === 0) ? stepAt : '');
+      var durMins     = isDone ? 0 : '';
+      stepRows.push([stepIds[si] || (it.id + '-' + si), it.id, si, isDone, startedAt, completedAt, durMins]);
+    }
+  });
+
+  if (itemRows.length > 0) iSh.getRange(iSh.getLastRow()+1,1,itemRows.length,18).setValues(itemRows);
+  if (stepRows.length > 0) sSh.getRange(sSh.getLastRow()+1,1,stepRows.length,7).setValues(stepRows);
+
+  // 現地注文、または物販のみ（allInstant）の注文は登録時に売上記録
+  if (data.deliveryType !== 'shipping' || allInstant) {
+    var salesItems = (data.items||[]).map(function(it){
+      var resolvedTypeName = it.typeName || (it.typeId ? typeNameMap[String(it.typeId)] || '' : '');
+      return {
+        pid: it.pid,
+        productName: prodNameMap[String(it.pid)] || '',
+        typeName: resolvedTypeName,
+        price: it.price||0,
+        paymentMethod: it.paymentMethod||'cash'
+      };
+    });
+    var firstPayMethod = salesItems.length > 0 ? (salesItems[0].paymentMethod || 'cash') : 'cash';
+    // skipDupCheck=true：この関数は冒頭で「ordersに同じIDが無い＝新規」を確認済み。
+    // historyの行はordersの行が出来た後にしか作られないので、この注文の履歴が既にあることはない。
+    // historyシートは増え続けるため、ここでの全件読み込みを省くと注文登録が目に見えて速くなる
+    recordSalesForOrder(ss, data.id, data.num||'', data.deliveryType, salesItems, data.shippingFee||0, firstPayMethod, data.discount||0, true);
+  }
+
+  // 在庫の引き落とし（serverStock=true の新しいフロントのみ。旧フロントは従来どおり自分でadjustStockを呼ぶ）
+  // 商品ごとに通信していたものを1回にまとめ、ロックも1回で済ませる
+  var stockApplied = false;
+  if (data.serverStock === true) {
+    var adjList = [];
+    (data.items||[]).forEach(function(it){
+      var pid = String(it.pid||'');
+      if (!pid) return;
+      var useType = !!it.typeId && (prodTypeCount[pid]||0) > 0 && !prodShared[pid];
+      adjList.push({ productId: pid, typeId: useType ? it.typeId : '', delta: -1, isShip: data.deliveryType === 'shipping' });
+    });
+    // ロックは handleSaveOrderFast が持っているので、ロックなし版を呼ぶ
+    var adjRes = adjustStockBatchLocked(ss, adjList, '注文登録');
+    stockApplied = !adjRes.locked;
+  }
+
+  return ok({ saved: true, stockApplied: stockApplied });
+}
+
+function handleSaveOrderHeader(data) {
+  SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.ORDERS).appendRow([
+    data.id, data.num, data.note||'', data.deliveryType,
+    data.createdAt, '', 'active', '', data.channel||'marche'
+  ]);
+  return ok({ saved: true });
+}
+
+function handleSaveOrderItem(data) {
+  SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.ITEMS).appendRow([
+    data.id, data.orderId, data.pid, data.idx||0, data.totalOf||1,
+    data.skipBinarize?1:0, data.skipDesign?1:0,
+    data.price||0, data.paymentMethod||'', 0, 0,
+    data.typeId||'', data.typeName||''
+  ]);
+  return ok({ saved: true });
+}
+
+function handleSaveOrderStep(data) {
+  SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.STEPS).appendRow([
+    data.id, data.itemId, data.stepIndex, 0, '', '', ''
+  ]);
+  return ok({ saved: true });
+}
+
+// ============================================================
+//  ステップ更新
+// ============================================================
+function handleUpdateStep(data) {
+  invalidateCache();
+  const sh   = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.STEPS);
+  const rows = sh.getDataRange().getValues();
+  var targetRow = -1;
+  var itemId = '';
+  var stepIndex = 0;
+
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][0] === data.stepId) {
+      targetRow = i;
+      itemId    = rows[i][1];
+      stepIndex = Number(rows[i][2]);
+      break;
+    }
+  }
+  if (targetRow < 0) return ok({ updated: false });
+
+  // 列4〜7（done, startedAt, completedAt, durationMins）は最後にまとめて1回で書き込む
+  // （個別setValueをその都度呼ぶとAPI呼び出しのオーバーヘッドが積み重なり遅くなるため）
+  var doneVal      = data.done ? 1 : 0;
+  var startedAtVal = rows[targetRow][4];
+  var completedAtVal = rows[targetRow][5];
+  var durationVal  = rows[targetRow][6];
+
+  if (data.completedAt) {
+    // startedAtの決定：
+    // 1. 渡された値
+    // 2. 既存のstartedAt
+    // 3. 前のステップのcompletedAt（最も正確）
+    // 4. completedAtと同じ（最終手段）
+    var startedAt = data.startedAt || rows[targetRow][4] || '';
+
+    // 前のステップのcompletedAtを探す（startedAtが空か完了と同時刻の場合）
+    if (!startedAt || startedAt === data.completedAt) {
+      for (var j = 1; j < rows.length; j++) {
+        if (rows[j][1] === itemId && Number(rows[j][2]) === stepIndex - 1) {
+          var prevCompleted = rows[j][5];
+          if (prevCompleted) {
+            // Sheetsは日付をDateオブジェクトで返す場合があるのでISOに統一
+            startedAt = (prevCompleted instanceof Date)
+              ? prevCompleted.toISOString()
+              : String(prevCompleted);
+          }
+          break;
+        }
+      }
+    }
+
+    // それでもなければDBのstartedAtを使い、なければcompletedAtを使う
+    if (!startedAt) startedAt = rows[targetRow][4] ? String(rows[targetRow][4]) : data.completedAt;
+
+    startedAtVal   = startedAt;
+    completedAtVal = data.completedAt;
+
+    // 終了時刻もISOに統一して計算
+    var start = new Date(startedAt);
+    var end   = new Date(data.completedAt);
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+      var dur = Math.round((end - start) / 60000);
+      durationVal = dur > 0 ? dur : 0;
+    }
+  } else if (data.startedAt) {
+    // completedAtなし（次のステップ開始記録）
+    var existing = rows[targetRow][4];
+    if (!existing) startedAtVal = data.startedAt;
+    // 開始記録ではdoneを触らない。前の工程を押した時の「開始記録(done:false)」が
+    // 直後に押したこの工程の「完了(done:true)」より後に届くと、チェックが外れてしまうため
+    if (!data.done) doneVal = rows[targetRow][3];
+  }
+
+  sh.getRange(targetRow+1, 4, 1, 4).setValues([[doneVal, startedAtVal, completedAtVal, durationVal]]);
+
+  return ok({ updated: true });
+}
+
+// ============================================================
+//  アイテム更新（onHold・paid対応）
+// ============================================================
+function handleUpdateItem(data) {
+  invalidateCache();
+  const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh   = ss.getSheetByName(SH.ITEMS);
+  const rows = sh.getDataRange().getValues();
+  var foundOrderId = '';
+  var priceChange = null;
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][0] === data.itemId) {
+      foundOrderId = rows[i][1];
+      var newPm = data.paymentMethod !== undefined ? data.paymentMethod : rows[i][8];
+      var newPr = data.price         !== undefined ? data.price         : rows[i][7];
+      if (Number(newPr) !== Number(rows[i][7]) || String(newPm) !== String(rows[i][8])) {
+        priceChange = { pid: rows[i][2], oldPrice: rows[i][7], oldPm: rows[i][8], newPrice: newPr, newPm: newPm };
+      }
+      // 列6〜16（skipBinarize〜doubleBinarize）は連続しているので、
+      // 変更が無い項目は既存値を維持しつつ1回のsetValuesでまとめて書き込む
+      var r = rows[i];
+      var vals = [
+        data.skipBinarize   !== undefined ? (data.skipBinarize  ?1:0) : r[5],
+        data.skipDesign     !== undefined ? (data.skipDesign    ?1:0) : r[6],
+        data.price          !== undefined ? data.price                 : r[7],
+        data.paymentMethod  !== undefined ? data.paymentMethod         : r[8],
+        data.onHold         !== undefined ? (data.onHold        ?1:0) : r[9],
+        data.paid           !== undefined ? (data.paid          ?1:0) : r[10],
+        data.typeId         !== undefined ? (data.typeId  ||'')        : r[11],
+        data.typeName       !== undefined ? (data.typeName||'')        : r[12],
+        data.optionFee      !== undefined ? (data.optionFee ||0)       : r[13],
+        data.optionNote     !== undefined ? (data.optionNote||'')      : r[14],
+        data.doubleBinarize !== undefined ? (data.doubleBinarize?1:0) : r[15],
+      ];
+      sh.getRange(i+1,6,1,11).setValues([vals]);
+      break;
+    }
+  }
+  // 売上記録済みの注文（現地は受付時・郵送は入金確認時）で価格・支払い方法を変えたら、salesの行も直す
+  if (priceChange) syncSalesLineForItem(ss, foundOrderId, priceChange.pid, priceChange.oldPrice, priceChange.oldPm, priceChange.newPrice, priceChange.newPm);
+
+  // 郵送注文で入金確認チェック → 売上記録（paid=true/1 のときのみ）
+  if ((data.paid === true || data.paid === 1) && foundOrderId) {
+    var oSh   = ss.getSheetByName(SH.ORDERS);
+    var oRows = oSh.getDataRange().getValues();
+    var orderDeliveryType = '';
+    var orderNum          = '';
+    var shippingFee       = 0;
+    var discount          = 0;
+    for (var oi = 1; oi < oRows.length; oi++) {
+      if (oRows[oi][0] === foundOrderId) {
+        orderDeliveryType = oRows[oi][3];
+        orderNum          = oRows[oi][1];
+        shippingFee       = Number(oRows[oi][9]||0);
+        discount          = Number(oRows[oi][10]||0);
+        break;
+      }
+    }
+    if (orderDeliveryType === 'shipping') {
+      // 商品名マップ
+      var prodNameMap = {};
+      try {
+        sheetToObjects(ss.getSheetByName(SH.PRODUCTS)).forEach(function(p){
+          prodNameMap[String(p.id)] = p.name || '';
+        });
+      } catch(e){}
+      // 最新のアイテム行を再取得
+      var freshRows = sh.getDataRange().getValues();
+      var salesItems = [];
+      for (var ii = 1; ii < freshRows.length; ii++) {
+        if (freshRows[ii][1] === foundOrderId) {
+          salesItems.push({
+            pid:           freshRows[ii][2],
+            productName:   prodNameMap[String(freshRows[ii][2])] || '',
+            typeName:      freshRows[ii][12] || '',
+            price:         Number(freshRows[ii][7]) || 0,
+            paymentMethod: freshRows[ii][8] || 'cash'
+          });
+        }
+      }
+      var orderPayMethod = salesItems.length > 0 ? (salesItems[0].paymentMethod || 'cash') : 'cash';
+      // 割引も渡す（以前は渡しておらず、郵送の割引が売上に入っていなかった）
+      // paidAt：入金確認を後から入力したときの入金日（画面で選んだ日）。売上はこの日に計上する
+      recordSalesForOrder(ss, foundOrderId, orderNum, orderDeliveryType, salesItems, shippingFee, orderPayMethod, discount, false, validIsoOrNull(data.paidAt));
+    }
+  }
+
+  // 郵送で入金確認を解除し、入金確認済みの商品が1つも無くなったら、入金時に記録した売上を取り消す
+  // （発送完了済みの注文は対象外。完了済みの取り消しは「未完了に戻す」で行う）
+  if ((data.paid === false || data.paid === 0) && foundOrderId) {
+    var uRows = ss.getSheetByName(SH.ORDERS).getDataRange().getValues();
+    var uOrd  = null;
+    for (var ui = 1; ui < uRows.length; ui++) { if (uRows[ui][0] === foundOrderId) { uOrd = uRows[ui]; break; } }
+    if (uOrd && uOrd[3] === 'shipping' && uOrd[6] !== 'done') {
+      var anyPaid = sh.getDataRange().getValues().some(function(r, k){
+        return k > 0 && r[1] === foundOrderId && (r[10] === 1 || r[10] === true || r[10] === '1');
+      });
+      if (!anyPaid) {
+        deleteRowsWhere(ss.getSheetByName(SH.SALES),   2, foundOrderId);
+        deleteRowsWhere(ss.getSheetByName(SH.HISTORY), 1, foundOrderId);
+      }
+    }
+  }
+
+  return ok({ updated: true });
+}
+
+// ============================================================
+//  注文更新
+// ============================================================
+function handleUpdateOrder(data) {
+  invalidateCache();
+  const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh   = ss.getSheetByName(SH.ORDERS);
+  const rows = sh.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][0] === data.orderId) {
+      var r = rows[i];
+      // 売上記録済みの注文なら、送料・割引の変更をsalesの「送料」「割引」行にも反映する
+      if (data.shippingFee !== undefined && Number(data.shippingFee||0) !== Number(r[9]||0)) {
+        syncSalesFeeLine(ss, data.orderId, '送料', Number(data.shippingFee||0));
+      }
+      if (data.discount !== undefined && Number(data.discount||0) !== Number(r[10]||0)) {
+        syncSalesFeeLine(ss, data.orderId, '割引', -Number(data.discount||0));
+      }
+      // 列2-4（num,note,deliveryType）と列9-11（channel,shippingFee,discount）は
+      // それぞれ連続しているので、間の列（createdAt等）に触れないよう2グループに分けて
+      // まとめて書き込む（個別setValueの都度呼び出しを避ける）
+      if (data.num !== undefined || data.note !== undefined || data.deliveryType !== undefined) {
+        sh.getRange(i+1,2,1,3).setValues([[
+          data.num          !== undefined ? data.num          : r[1],
+          data.note         !== undefined ? data.note         : r[2],
+          data.deliveryType !== undefined ? data.deliveryType : r[3],
+        ]]);
+      }
+      if (data.channel !== undefined || data.shippingFee !== undefined || data.discount !== undefined) {
+        sh.getRange(i+1,9,1,3).setValues([[
+          data.channel     !== undefined ? data.channel         : r[8],
+          data.shippingFee !== undefined ? (data.shippingFee||0) : r[9],
+          data.discount    !== undefined ? (data.discount||0)    : r[10],
+        ]]);
+      }
+      break;
+    }
+  }
+  // 郵送の入金日を変える（カードの「入金済み」から）：この注文の売上行の日時をまとめて書き換える。
+  // 売上は salesの最も早い日時で集計されるので、集計する日・月もこれで移る
+  var paidAt = validIsoOrNull(data.paidAt);
+  if (paidAt) {
+    var pSh   = ss.getSheetByName(SH.SALES);
+    var pRows = pSh.getDataRange().getValues();
+    for (var pi = 1; pi < pRows.length; pi++) {
+      if (pRows[pi][2] === data.orderId) pSh.getRange(pi+1, 8).setValue(paidAt);
+    }
+  }
+  return ok({ updated: true });
+}
+
+// ============================================================
+//  売上記録ヘルパー（現地：登録時、郵送：入金確認時に呼ぶ）
+// ============================================================
+// skipDupCheck=true : 呼び出し側で「この注文は新規＝履歴がまだ無い」ことが確定している場合のみ。
+//                     historyシートの全件読み込み（行数が増え続ける重い処理）を省く
+// at           : 売上の日時（省略時は今。郵送の入金日を後から入力した場合に使う）
+function recordSalesForOrder(ss, orderId, num, deliveryType, items, shippingFee, shippingPayment, discount, skipDupCheck, at) {
+  var hSh = ss.getSheetByName(SH.HISTORY);
+  if (!skipDupCheck) {
+    // 重複チェック：既に履歴があればスキップ（冪等性）
+    var hRows = hSh.getDataRange().getValues();
+    for (var hi = 1; hi < hRows.length; hi++) {
+      if (hRows[hi][1] === orderId) return hRows[hi][0]; // 既に記録済み → hId を返す
+    }
+  }
+  var now  = at || new Date().toISOString();
+  var hId  = Utilities.getUuid();
+  var sSh  = ss.getSheetByName(SH.SALES);
+  hSh.appendRow([hId, orderId, num, now, 0, deliveryType]);
+  // salesの各行はappendRowを都度呼ばず配列に集めて最後に1回のsetValuesで書き込む
+  var salesRows = [];
+  (items||[]).forEach(function(it){
+    var displayName = it.productName || it.pid || '';
+    if (it.typeName) displayName += ' [' + it.typeName + ']';
+    salesRows.push([
+      Utilities.getUuid(), hId, orderId,
+      it.pid, displayName, it.price, it.paymentMethod, now
+    ]);
+  });
+  // 支払い方法は注文アイテムと統一する（送料・割引とも）
+  var commonPayment = (items && items.length > 0) ? (items[0].paymentMethod || 'cash') : (shippingPayment || 'cash');
+  if (Number(shippingFee||0) > 0) {
+    salesRows.push([
+      Utilities.getUuid(), hId, orderId,
+      '', '送料', Number(shippingFee), commonPayment, now
+    ]);
+  }
+  if (Number(discount||0) > 0) {
+    salesRows.push([
+      Utilities.getUuid(), hId, orderId,
+      '', '割引', -Number(discount), commonPayment, now
+    ]);
+  }
+  if (salesRows.length > 0) {
+    sSh.getRange(sSh.getLastRow()+1, 1, salesRows.length, 8).setValues(salesRows);
+  }
+  return hId;
+}
+
+function handleRecordOrderSales(data) {
+  if (!data.orderId) return err('orderId missing');
+  invalidateCache();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const hId = recordSalesForOrder(
+    ss, data.orderId, data.num||'', data.deliveryType||'',
+    data.items||[], data.shippingFee||0, data.shippingPayment||'', data.discount||0
+  );
+  return ok({ hId: hId });
+}
+
+// ============================================================
+//  注文完了
+// ============================================================
+function handleCompleteOrder(data) {
+  invalidateCache();
+  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const oSh   = ss.getSheetByName(SH.ORDERS);
+  const oRows = oSh.getDataRange().getValues();
+  var waitMins = 0;
+  for (var i = 1; i < oRows.length; i++) {
+    if (oRows[i][0] === data.orderId) {
+      const created = new Date(oRows[i][4]);
+      const comp    = new Date(data.completedAt);
+      // 郵送は日数、現地は分
+      if (data.deliveryType === 'shipping') {
+        waitMins = Math.round((comp - created) / 86400000); // 日数
+      } else {
+        waitMins = Math.round((comp - created) / 60000);    // 分
+      }
+      oSh.getRange(i+1,6,1,2).setValues([[data.completedAt, 'done']]);
+      break;
+    }
+  }
+
+  // 既に売上記録済み（現地は登録時・郵送は入金時）かチェック
+  var hSh            = ss.getSheetByName(SH.HISTORY);
+  var hRows          = hSh.getDataRange().getValues();
+  var alreadyRecorded = false;
+  var resultHId      = '';
+  for (var hi = 1; hi < hRows.length; hi++) {
+    if (hRows[hi][1] === data.orderId) {
+      alreadyRecorded = true;
+      resultHId = hRows[hi][0];
+      // 完了時刻・待ち時間をまとめて1回で更新
+      hSh.getRange(hi+1, 4, 1, 2).setValues([[data.completedAt, waitMins]]);
+      break;
+    }
+  }
+
+  if (!alreadyRecorded) {
+    // 未記録の場合は従来通り history + sales を作成
+    const hId = Utilities.getUuid();
+    resultHId = hId;
+    hSh.appendRow([hId, data.orderId, data.num, data.completedAt, waitMins, data.deliveryType]);
+    // salesの各行はappendRowを都度呼ばず配列に集めて最後に1回のsetValuesで書き込む
+    var commonPayment = (data.items && data.items.length > 0) ? (data.items[0].paymentMethod || 'cash') : (data.shippingPayment || 'cash');
+    var salesRows = [];
+    (data.items||[]).forEach(function(it){
+      var displayName = it.productName || '';
+      if (it.typeName) displayName += ' [' + it.typeName + ']';
+      salesRows.push([
+        Utilities.getUuid(), hId, data.orderId,
+        it.pid, displayName, it.price, it.paymentMethod, data.completedAt
+      ]);
+    });
+    if (Number(data.shippingFee||0) > 0) {
+      salesRows.push([
+        Utilities.getUuid(), hId, data.orderId,
+        '', '送料', Number(data.shippingFee), commonPayment, data.completedAt
+      ]);
+    }
+    if (Number(data.discount||0) > 0) {
+      salesRows.push([
+        Utilities.getUuid(), hId, data.orderId,
+        '', '割引', -Number(data.discount), commonPayment, data.completedAt
+      ]);
+    }
+    if (salesRows.length > 0) {
+      var sSh = ss.getSheetByName(SH.SALES);
+      sSh.getRange(sSh.getLastRow()+1, 1, salesRows.length, 8).setValues(salesRows);
+    }
+  }
+
+  return ok({ hId: resultHId });
+}
+
+// ============================================================
+//  完了の取り消し（間違って完了を押したとき、履歴から進捗タブへ戻す）
+// ============================================================
+// 完了済みで工程管理のある注文だけ戻せる。物販のみ（受付と同時に完了＝completedAtがcreatedAtと同じ）は対象外
+function canReopenOrder(ord) {
+  if (!ord || ord.status !== 'done') return false;
+  if (ord.numGroup === 'goods') return false;
+  return String(ord.completedAt) !== String(ord.createdAt);
+}
+
+function handleReopenOrder(data) {
+  if (!data.orderId) return err('orderId missing');
+  invalidateCache();
+  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const oSh   = ss.getSheetByName(SH.ORDERS);
+  const oRows = oSh.getDataRange().getValues();
+  var oRow = -1, isShip = false;
+  for (var i = 1; i < oRows.length; i++) {
+    if (oRows[i][0] === data.orderId) {
+      // 既に未完了（通信リトライで2回届いた等）なら何もしない
+      if (oRows[i][6] !== 'done') return ok({ reopened: true, already: true });
+      oRow = i; isShip = (oRows[i][3] === 'shipping');
+      break;
+    }
+  }
+  if (oRow < 0) return err('注文が見つかりません');
+
+  // 最後に押された最終工程（完成連絡／発送）だけを未完了に戻す。
+  // 物販アイテム（作成時から全工程完了）まで戻さないよう、完了時刻が一番新しい1件に絞る
+  const lastIdx = isShip ? 6 : 5;
+  const iRows = ss.getSheetByName(SH.ITEMS).getDataRange().getValues();
+  var itemIds = {}, anyPaid = false;
+  for (var ii = 1; ii < iRows.length; ii++) {
+    if (iRows[ii][1] !== data.orderId) continue;
+    itemIds[iRows[ii][0]] = true;
+    if (iRows[ii][10] == 1 || iRows[ii][10] === true) anyPaid = true;
+  }
+  const sSh   = ss.getSheetByName(SH.STEPS);
+  const sRows = sSh.getDataRange().getValues();
+  var target = -1, targetAt = 0;
+  for (var si = 1; si < sRows.length; si++) {
+    var r = sRows[si];
+    if (!itemIds[r[1]] || Number(r[2]) !== lastIdx) continue;
+    if (!(r[3] == 1 || r[3] === true)) continue;
+    var at = new Date(r[5]).getTime() || 0;
+    if (target < 0 || at > targetAt) { target = si; targetAt = at; }
+  }
+  // 列4〜7（done, startedAt, completedAt, durationMins）。startedAtは残す
+  if (target >= 0) sSh.getRange(target+1, 4, 1, 4).setValues([[0, sRows[target][4], '', '']]);
+
+  oSh.getRange(oRow+1, 6, 1, 2).setValues([['', 'active']]);
+
+  // 郵送で入金確認が1つも無い注文は、売上が完了時に記録されたもの（handleCompleteOrderの未記録フォールバック）なので一緒に取り消す。
+  // 現地（受付時に記録）・入金確認済みの郵送は、売上自体は発生しているので残す
+  var salesRemoved = false;
+  if (isShip && !anyPaid) {
+    deleteRowsWhere(ss.getSheetByName(SH.HISTORY), 1, data.orderId);
+    deleteRowsWhere(ss.getSheetByName(SH.SALES),   2, data.orderId);
+    salesRemoved = true;
+  }
+  return ok({ reopened: true, salesRemoved: salesRemoved });
+}
+
+// ============================================================
+//  削除
+// ============================================================
+function handleDeleteOrder(orderId) {
+  if (!orderId) return err('orderId missing');
+  invalidateCache();
+  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const oSh   = ss.getSheetByName(SH.ORDERS);
+  const iSh   = ss.getSheetByName(SH.ITEMS);
+
+  // 削除前に配送方法（現地/郵送）を取得。在庫を戻す先（stockLoc/stockShip）の判定に使う
+  var isShip = false;
+  var oRows = oSh.getDataRange().getValues();
+  for (var oi = 1; oi < oRows.length; oi++) {
+    if (oRows[oi][0] === orderId) { isShip = (oRows[oi][3] === 'shipping'); break; }
+  }
+
+  const iRows = iSh.getDataRange().getValues();
+  const orderItems = iRows.filter(function(r){ return r[1]===orderId; });
+  const ids = orderItems.map(function(r){ return r[0]; });
+
+  // 注文登録時に引き落とした在庫を、削除経路（進捗タブ・履歴タブどちらから消しても）確実に戻す。
+  // 以前はアイテムごとにhandleAdjustStockを呼んでいたため、ロック取得とproductsシート全件読み込みが
+  // アイテム数だけ繰り返されていた。1回のロックでまとめて戻す
+  adjustStockBatch(ss, orderItems.map(function(r){
+    return { productId: r[2], typeId: r[11] || '', delta: 1, isShip: isShip };
+  }), '注文削除（在庫復元）');
+
+  deleteRowsWhere(oSh, 0, orderId);
+  deleteRowsWhere(iSh, 1, orderId);
+  // アイテムごとにstepsシートを読み直すのではなく、全アイテムIDをまとめて1回で削除する
+  deleteRowsWhereIn(ss.getSheetByName(SH.STEPS), 1, ids);
+  // 現地注文は登録時に売上・履歴が即記録されるため、削除時にも連動して消す
+  deleteRowsWhere(ss.getSheetByName(SH.HISTORY), 1, orderId);
+  deleteRowsWhere(ss.getSheetByName(SH.SALES),   2, orderId);
+  return ok({ deleted: true });
+}
+
+// ============================================================
+//  アイテム単体削除（在庫戻し含む）
+// ============================================================
+function handleDeleteItem(data) {
+  if (!data.itemId) return err('itemId missing');
+  invalidateCache();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  // 売上記録済みの注文なら、削除するアイテムぶんのsales行も消す（削除前に注文・商品・価格を控える）
+  var iRows = ss.getSheetByName(SH.ITEMS).getDataRange().getValues();
+  for (var ii = 1; ii < iRows.length; ii++) {
+    if (iRows[ii][0] === data.itemId) {
+      syncSalesLineForItem(ss, iRows[ii][1], iRows[ii][2], iRows[ii][7], iRows[ii][8], null, null);
+      break;
+    }
+  }
+  // ステップ削除
+  deleteRowsWhere(ss.getSheetByName(SH.STEPS), 1, data.itemId);
+  // アイテム削除
+  deleteRowsWhere(ss.getSheetByName(SH.ITEMS), 0, data.itemId);
+  // 在庫を戻す
+  if (data.productId) {
+    handleAdjustStock({ productId: data.productId, typeId: data.typeId||'', delta: 1, isShip: data.isShip });
+  }
+  return ok({ deleted: true });
+}
+
+// ============================================================
+//  アイテム追加（既存注文に1個追加・在庫引き落とし）
+// ============================================================
+function handleAddItemToOrder(data) {
+  if (!data.orderId || !data.itemId) return err('data missing');
+  invalidateCache();
+  const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const iSh  = ss.getSheetByName(SH.ITEMS);
+  const sSh  = ss.getSheetByName(SH.STEPS);
+  const now  = new Date().toISOString();
+
+  // アイテム行追加
+  iSh.appendRow([
+    data.itemId, data.orderId, data.pid, data.idx||0, 1,
+    0, 0, data.price||0, data.paymentMethod||'',
+    0, 0, data.typeId||'', data.typeName||'',
+    data.optionFee||0, data.optionNote||'', data.doubleBinarize?1:0,
+    data.engraveOpt?1:0, data.engraveLabel||''
+  ]);
+
+  // ステップ行追加（受付=step0を自動完了。物販のみ／彫刻オプション不使用なら全工程を完了扱いで作成）
+  // appendRowを都度呼ばず配列に集めて最後に1回のsetValuesで書き込む
+  var nSteps = data.deliveryType === 'shipping' ? 7 : 6;
+  var stepIds = [];
+  var stepRows = [];
+  for (var si = 0; si < nSteps; si++) {
+    // ステップIDは itemId + '-' + 工程番号。フロントも同じ規則で組み立てるため、
+    // 通信が失敗してこのレスポンスが届かなくてもIDがずれない（従来は's0'等の仮IDになり工程更新が効かなくなっていた）
+    var sid = data.itemId + '-' + si;
+    stepIds.push(sid);
+    var isDone, stepAt, startedAt;
+    if (data.allDone) {
+      isDone = 1; stepAt = now; startedAt = now;
+    } else {
+      isDone    = si === 0 ? 1 : 0;
+      stepAt    = si === 0 ? now : '';
+      startedAt = si === 0 ? now : (si === 1 ? now : '');
+    }
+    stepRows.push([sid, data.itemId, si, isDone, startedAt, stepAt, isDone ? 0 : '']);
+  }
+  if (stepRows.length > 0) {
+    sSh.getRange(sSh.getLastRow()+1, 1, stepRows.length, 7).setValues(stepRows);
+  }
+
+  // 在庫を引く
+  if (data.productId) {
+    handleAdjustStock({ productId: data.productId, typeId: data.typeId||'', delta: -1, isShip: data.isShip });
+  }
+
+  // 既に売上記録済みの注文（現地：登録時、郵送：発送完了時）に追加した場合は、追加分もsalesに反映する
+  appendSalesLineIfRecorded(ss, data.orderId, data.pid, data.productName, data.typeName, data.price, data.paymentMethod, now);
+
+  return ok({ item: { id: data.itemId, stepIds: stepIds } });
+}
+
+// 注文が既にhistoryに売上記録済みなら、追加した1点分をsalesに1行追記する（未記録ならまだ売上計上のタイミングではないので何もしない）
+function appendSalesLineIfRecorded(ss, orderId, pid, productName, typeName, price, paymentMethod, now) {
+  var hSh   = ss.getSheetByName(SH.HISTORY);
+  var hRows = hSh.getDataRange().getValues();
+  for (var hi = 1; hi < hRows.length; hi++) {
+    if (hRows[hi][1] === orderId) {
+      var displayName = productName || pid || '';
+      if (typeName) displayName += ' [' + typeName + ']';
+      ss.getSheetByName(SH.SALES).appendRow([
+        Utilities.getUuid(), hRows[hi][0], orderId,
+        pid, displayName, Number(price||0), paymentMethod||'cash', now
+      ]);
+      return true;
+    }
+  }
+  return false;
+}
+
+// アイテムの価格・支払い方法の変更や削除をsalesシートへ追従させる（newPrice=nullなら行を削除）。
+// salesにはitemIdが無いため、同じ注文・同じ商品・旧価格の行を新しい方から1行だけ直す
+// （旧支払い方法まで一致する行を優先）。売上未記録（郵送の入金前など）なら該当行が無いので何もしない
+function syncSalesLineForItem(ss, orderId, pid, oldPrice, oldPm, newPrice, newPm) {
+  if (!orderId) return false;
+  var sh   = ss.getSheetByName(SH.SALES);
+  var rows = sh.getDataRange().getValues();
+  var hit = -1;
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (rows[i][2] === orderId && String(rows[i][3]) === String(pid) && Number(rows[i][5]) === Number(oldPrice)) {
+      if (String(rows[i][6]) === String(oldPm)) { hit = i; break; }
+      if (hit < 0) hit = i;
+    }
+  }
+  if (hit < 0) return false;
+  if (newPrice === null) { sh.deleteRow(hit + 1); return true; }
+  sh.getRange(hit + 1, 6, 1, 2).setValues([[Number(newPrice) || 0, newPm || rows[hit][6] || 'cash']]);
+  // 送料・割引の行は注文の支払い方法に揃えている（recordSalesForOrder）ので、一緒に揃える
+  if (newPm && String(newPm) !== String(oldPm)) {
+    for (var j = 1; j < rows.length; j++) {
+      if (rows[j][2] === orderId && !rows[j][3] && (rows[j][4] === '送料' || rows[j][4] === '割引')) {
+        sh.getRange(j + 1, 7).setValue(newPm);
+      }
+    }
+  }
+  return true;
+}
+
+// 売上記録済みの注文の「送料」「割引」行を新しい金額に直す（0なら行を消し、無ければ追加する）。
+// 売上未記録（historyに行が無い）なら何もしない。完了・入金確認のときにordersの値から記録される
+// 画面から届いた日時が正しい形のときだけ使う（壊れた値で売上の日付が消えないように）
+function validIsoOrNull(v) {
+  if (!v) return null;
+  var d = new Date(v);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+function syncSalesFeeLine(ss, orderId, name, amount) {
+  var hRows = ss.getSheetByName(SH.HISTORY).getDataRange().getValues();
+  var hId = '';
+  for (var hi = 1; hi < hRows.length; hi++) { if (hRows[hi][1] === orderId) { hId = hRows[hi][0]; break; } }
+  if (!hId) return false;
+  var sh   = ss.getSheetByName(SH.SALES);
+  var rows = sh.getDataRange().getValues();
+  var pm = '', at = '';
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][2] !== orderId) continue;
+    if (!pm && rows[i][3]) { pm = rows[i][6]; at = rows[i][7]; }
+    if (!rows[i][3] && rows[i][4] === name) {
+      if (amount === 0) sh.deleteRow(i + 1);
+      else sh.getRange(i + 1, 6).setValue(amount);
+      return true;
+    }
+  }
+  if (amount === 0) return false;
+  sh.appendRow([Utilities.getUuid(), hId, orderId, '', name, amount, pm || 'cash', at || new Date().toISOString()]);
+  return true;
+}
+
+function handleDeleteHistory(data) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  deleteRowsWhere(ss.getSheetByName(SH.HISTORY), 0, data.historyId);
+  deleteRowsWhere(ss.getSheetByName(SH.SALES),   1, data.historyId);
+  if (data.orderId) handleDeleteOrder(data.orderId);
+  return ok({ deleted: true });
+}
+
+// 該当行が複数ある場合、従来は1行ずつdeleteRow()を呼んでいたため
+// （GASでは1回ごとにシート全体の再配置が走り、行数分だけ遅くなる）、
+// 「削除対象を除いた行だけを1回のsetValuesで書き戻し、余った末尾行をまとめてdeleteRows」
+// する方式に変更。呼び出し回数は該当件数に関わらず常に定数回で済む。
+function deleteRowsWhereIn(sheet, col, vals) {
+  if (!vals || !vals.length) return;
+  var set = {};
+  vals.forEach(function(v){ set[v] = true; });
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  const lastCol = sheet.getLastColumn();
+  const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const keep = rows.filter(function(r){ return !set[r[col]]; });
+  if (keep.length === rows.length) return; // 該当行なし
+  if (keep.length > 0) {
+    sheet.getRange(2, 1, keep.length, lastCol).setValues(keep);
+  }
+  var extra = rows.length - keep.length;
+  if (extra > 0) sheet.deleteRows(keep.length + 2, extra);
+}
+
+function deleteRowsWhere(sheet, col, val) {
+  deleteRowsWhereIn(sheet, col, [val]);
+}
+
+// ============================================================
+//  商品マスター
+// ============================================================
+function handleSaveProduct(p) {
+  if (!p) return err('product missing');
+  invalidateCache();
+  const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh   = ss.getSheetByName(SH.PRODUCTS);
+  const rows = sh.getDataRange().getValues();
+  const json          = JSON.stringify(p.stepTimes  || {});
+  const typesJson     = JSON.stringify(p.types      || []);
+  const setPricesJson = JSON.stringify(p.setPrices  || []);
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][0] === p.id) {
+      sh.getRange(i+1,1,1,14).setValues([[
+        p.id, p.name, p.price, p.totalMinutes, json,
+        p.stock||0, p.stockWarn||3, typesJson,
+        p.stockLoc||0, p.stockShip||0, p.sharedStockWith||'', p.costPrice||0, setPricesJson,
+        p.productType||'engrave'
+      ]]);
+      return ok({ saved: true });
+    }
+  }
+  sh.appendRow([p.id, p.name, p.price, p.totalMinutes, json,
+    p.stock||0, p.stockWarn||3, typesJson,
+    p.stockLoc||0, p.stockShip||0, p.sharedStockWith||'', p.costPrice||0, setPricesJson,
+    p.productType||'engrave']);
+  return ok({ saved: true });
+}
+
+function handleDeleteProduct(productId) {
+  invalidateCache();
+  deleteRowsWhere(
+    SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.PRODUCTS), 0, productId
+  );
+  return ok({ deleted: true });
+}
+
+function handleReorderProducts(data) {
+  var ids = data.ids || [];
+  if (!ids.length) return err('ids missing');
+  invalidateCache();
+  var ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh  = ss.getSheetByName(SH.PRODUCTS);
+  var all = sh.getDataRange().getValues();
+  if (all.length < 2) return ok({ reordered: true });
+
+  var header = all[0];
+  var rowMap  = {};
+  for (var i = 1; i < all.length; i++) {
+    var rowId = String(all[i][0]);
+    rowMap[rowId] = all[i];
+  }
+
+  // IDリスト順に並べ直す（リストにないIDは末尾に追加）
+  var newRows = [];
+  ids.forEach(function(id) {
+    if (rowMap[id]) { newRows.push(rowMap[id]); delete rowMap[id]; }
+  });
+  Object.keys(rowMap).forEach(function(id) { newRows.push(rowMap[id]); });
+
+  // ヘッダー行を除くデータ範囲を一括上書き
+  var dataRange = sh.getRange(2, 1, all.length - 1, header.length);
+  // 新しい行数に合わせてバッファ作成
+  var buf = newRows.map(function(r){ return r; });
+  // 不足分を空行で埋める（行数が変わることは通常ないが安全のため）
+  while (buf.length < all.length - 1) buf.push(header.map(function(){ return ''; }));
+  dataRange.setValues(buf.slice(0, all.length - 1));
+
+  return ok({ reordered: true });
+}
+
+// ============================================================
+//  在庫調整
+// ============================================================
+// 在庫は「現在値を読む→加減算→書く」というread-modify-write処理のため、
+// 複数リクエストがほぼ同時に同じ商品を操作すると片方の更新が失われる競合が起きうる。
+// LockServiceで排他制御し、他のadjustStock処理中は待たせることでこれを防ぐ。
+// handleDeleteOrder等から複数回連続で呼ばれる場合も同一実行内でのロック取得のため問題ない。
+function handleAdjustStock(data) {
+  invalidateCache();
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (eLock) {
+    return err('在庫の更新が混み合っています。少し待ってからもう一度お試しください');
+  }
+  try {
+    return handleAdjustStockLocked(data);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 在庫の増減をまとめて1回のロック・1回のproducts読み込みで処理する（デルタ専用）。
+// 1注文で複数商品の在庫を動かす処理（注文登録・注文削除）が、商品ごとに
+// handleAdjustStock を呼んでいたため、ロック取得とproductsシート全件読み込みが
+// 商品の数だけ繰り返され、2人同時操作時の待ち行列の原因になっていた。
+// list: [{productId, typeId, delta, isShip}]
+// 戻り値の locked=true はロックが取れなかった場合（呼び出し側でフォールバックする）
+function adjustStockBatch(ss, list, reason) {
+  if (!list || !list.length) return { applied: 0, notFound: [] };
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(30000); } catch (eLock) { return { applied: 0, notFound: [], locked: true }; }
+  try {
+    return adjustStockBatchLocked(ss, list, reason);
+  } finally {
+    SpreadsheetApp.flush();
+    lock.releaseLock();
+  }
+}
+
+// adjustStockBatch の本体。呼び出し側がすでにスクリプトロックを持っているときはこちらを直接呼ぶ
+// （adjustStockBatch を呼ぶと、終わった時点で呼び出し側のロックまで外れてしまうため）
+function adjustStockBatchLocked(ss, list, reason) {
+  if (!list || !list.length) return { applied: 0, notFound: [] };
+  var sh   = ss.getSheetByName(SH.PRODUCTS);
+  var rows = sh.getDataRange().getValues();
+  var rowOf = {};
+  for (var i = 1; i < rows.length; i++) rowOf[String(rows[i][0])] = i;
+
+  // sharedStockWith（在庫連動）を解決したうえで、同じ商品・タイプ・現地/郵送の増減をまとめる
+  var agg = {}, keys = [];
+  list.forEach(function(a) {
+    var pid = String(a.productId || ''), tid = a.typeId ? String(a.typeId) : '';
+    if (!pid) return;
+    var ri = rowOf[pid];
+    if (ri !== undefined && rows[ri][10]) { pid = String(rows[ri][10]); tid = ''; } // col11: sharedStockWith
+    var key = pid + '\u0000' + tid + '\u0000' + (a.isShip ? 1 : 0);
+    if (!agg[key]) { agg[key] = { pid: pid, tid: tid, isShip: !!a.isShip, delta: 0 }; keys.push(key); }
+    agg[key].delta += Number(a.delta || 0);
+  });
+
+  var typesDirty = {};  // 行index -> types配列（同じ商品の複数タイプを1回で書き込むため）
+  var plainDirty = {};  // 行index -> {loc, ship}
+  var notFound = [], logRows = [], now = new Date().toISOString();
+
+  keys.forEach(function(key) {
+    var a = agg[key];
+    if (!a.delta) return;
+    var ri = rowOf[a.pid];
+    if (ri === undefined) {
+      // 商品が見つからない場合も、あとから追えるようにログには残す（旧実装と同じ★NOT_FOUND★表記）
+      notFound.push(a.pid);
+      logRows.push([Utilities.getUuid(), a.pid, 0,
+        (reason || '') + ' delta:' + a.delta + ' ★NOT_FOUND★', now]);
+      return;
+    }
+    var logLoc = 0, logShip = 0;
+    if (a.tid) {
+      var types = typesDirty[ri];
+      if (!types) {
+        try { types = JSON.parse(rows[ri][7] || '[]'); } catch (e) { types = []; }
+        typesDirty[ri] = types;
+      }
+      types.forEach(function(t) {
+        if (String(t.id) !== a.tid) return;
+        if (a.isShip) t.stockShip = Math.max(0, Number(t.stockShip || 0) + a.delta);
+        else          t.stockLoc  = Math.max(0, Number(t.stockLoc  || 0) + a.delta);
+        logLoc = Number(t.stockLoc || 0); logShip = Number(t.stockShip || 0);
+      });
+    } else {
+      var cur = plainDirty[ri];
+      if (!cur) { cur = plainDirty[ri] = { loc: Number(rows[ri][8] || 0), ship: Number(rows[ri][9] || 0) }; }
+      if (a.isShip) cur.ship = Math.max(0, cur.ship + a.delta);
+      else          cur.loc  = Math.max(0, cur.loc  + a.delta);
+      logLoc = cur.loc; logShip = cur.ship;
+    }
+    logRows.push([
+      Utilities.getUuid(), a.pid, a.isShip ? logShip : logLoc,
+      (reason || '') + ' ' + (a.tid ? 'type:' + a.tid + ' ' : '') + 'delta:' + a.delta
+        + ' loc:' + logLoc + ' ship:' + logShip + (a.isShip ? ' [郵送]' : ' [現地]'),
+      now
+    ]);
+  });
+
+  Object.keys(typesDirty).forEach(function(ri) {
+    sh.getRange(Number(ri) + 1, 8).setValue(JSON.stringify(typesDirty[ri]));
+  });
+  Object.keys(plainDirty).forEach(function(ri) {
+    sh.getRange(Number(ri) + 1, 9, 1, 2).setValues([[plainDirty[ri].loc, plainDirty[ri].ship]]);
+  });
+  var logSh = ss.getSheetByName(SH.STOCK_LOG);
+  if (logSh && logRows.length) {
+    logSh.getRange(logSh.getLastRow() + 1, 1, logRows.length, 5).setValues(logRows);
+  }
+  return { applied: logRows.length, notFound: notFound };
+}
+
+function handleAdjustStockLocked(data) {
+  var found = false;
+  const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh   = ss.getSheetByName(SH.PRODUCTS);
+  const rows = sh.getDataRange().getValues();
+  var logLoc = 0, logShip = 0;
+
+  // sharedStockWith の解決：連動先が設定されている場合はそちらを操作する
+  for (var ri = 1; ri < rows.length; ri++) {
+    if (String(rows[ri][0]) === String(data.productId)) {
+      var sharedWith = rows[ri][10]; // col 11: sharedStockWith
+      if (sharedWith) {
+        data = Object.assign({}, data, { productId: String(sharedWith), typeId: null });
+      }
+      break;
+    }
+  }
+
+  for (var i = 1; i < rows.length; i++) {
+    // String() で型の不一致を防ぐ
+    if (String(rows[i][0]) === String(data.productId)) {
+      found = true;
+      if (data.typeId) {
+        // タイプ別在庫更新
+        var typesJson = rows[i][7] || '[]';
+        var types = [];
+        try { types = JSON.parse(typesJson); } catch(e){ types=[]; }
+        types = types.map(function(t){
+          if (String(t.id) === String(data.typeId)) {
+            var curLoc  = Number(t.stockLoc  || 0);
+            var curShip = Number(t.stockShip || 0);
+            if (data.delta !== undefined) {
+              // デルタモード（注文登録/削除）: GASが現在値を読んで加減算
+              if (data.isShip) t.stockShip = Math.max(0, curShip + Number(data.delta));
+              else             t.stockLoc  = Math.max(0, curLoc  + Number(data.delta));
+            } else {
+              // 絶対値モード（手動在庫調整）
+              if (data.stockLoc  !== undefined) t.stockLoc  = data.stockLoc;
+              if (data.stockShip !== undefined) t.stockShip = data.stockShip;
+            }
+            logLoc  = Number(t.stockLoc  || 0);
+            logShip = Number(t.stockShip || 0);
+          }
+          return t;
+        });
+        sh.getRange(i+1,8).setValue(JSON.stringify(types));
+      } else {
+        // タイプなし在庫更新
+        var curLoc  = Number(rows[i][8] || 0);
+        var curShip = Number(rows[i][9] || 0);
+        if (data.delta !== undefined) {
+          // デルタモード: GASが現在値を読んで加減算
+          if (data.isShip) {
+            logShip = Math.max(0, curShip + Number(data.delta));
+            logLoc  = curLoc;
+            sh.getRange(i+1,10).setValue(logShip);
+          } else {
+            logLoc  = Math.max(0, curLoc + Number(data.delta));
+            logShip = curShip;
+            sh.getRange(i+1,9).setValue(logLoc);
+          }
+        } else {
+          // 絶対値モード（手動在庫調整）：両方指定された場合も1回のsetValuesでまとめて書き込む
+          var newLoc  = data.stockLoc  !== undefined ? data.stockLoc  : curLoc;
+          var newShip = data.stockShip !== undefined ? data.stockShip : curShip;
+          if (data.stockLoc !== undefined || data.stockShip !== undefined) {
+            sh.getRange(i+1,9,1,2).setValues([[newLoc, newShip]]);
+          }
+          logLoc = newLoc; logShip = newShip;
+        }
+      }
+      break;
+    }
+  }
+
+  // ログ記録（見つからない場合も記録）
+  const logSh = ss.getSheetByName(SH.STOCK_LOG);
+  if (logSh) {
+    var modeNote = data.delta !== undefined ? 'delta:'+data.delta : 'abs';
+    var logNote = (data.typeId ? 'type:'+data.typeId+' ' : '')
+      + modeNote + ' loc:' + logLoc + ' ship:' + logShip
+      + (data.isShip ? ' [郵送]' : ' [現地]')
+      + (found ? '' : ' ★NOT_FOUND★');
+    logSh.appendRow([
+      Utilities.getUuid(), String(data.productId),
+      data.isShip ? logShip : logLoc,
+      (data.reason||'') + ' ' + logNote,
+      new Date().toISOString()
+    ]);
+  }
+
+  if (!found) return err('商品が見つかりません: ' + data.productId);
+  return ok({ adjusted: true });
+}
+
+// ============================================================
+//  履歴更新
+// ============================================================
+function handleUpdateHistory(data) {
+  // 他のupdate系ハンドラと同様、保存直後にキャッシュが古いまま残らないよう無効化する
+  // （キャッシュ無効化漏れは既存バグとして判明済み。[[marche_system_project]]の
+  //  「商品保存系ハンドラのinvalidateCache漏れ」と同種のため合わせて修正）
+  invalidateCache();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (data.deliveryType !== undefined) {
+    const hSh   = ss.getSheetByName(SH.HISTORY);
+    const hRows = hSh.getDataRange().getValues();
+    for (var i = 1; i < hRows.length; i++) {
+      if (hRows[i][0] === data.historyId) {
+        hSh.getRange(i+1,6).setValue(data.deliveryType); break;
+      }
+    }
+  }
+  // 郵送の入金日を直したとき：この履歴の売上行の日時をまとめて書き換える（売上はsalesの最も早い日時で集計される）
+  var salesAt = validIsoOrNull(data.salesAt);
+  if (salesAt && data.historyId) {
+    const aSh   = ss.getSheetByName(SH.SALES);
+    const aRows = aSh.getDataRange().getValues();
+    for (var ai = 1; ai < aRows.length; ai++) {
+      if (aRows[ai][1] === data.historyId) aSh.getRange(ai+1, 8).setValue(salesAt);
+    }
+  }
+  if (data.salesItems && data.salesItems.length) {
+    const sSh   = ss.getSheetByName(SH.SALES);
+    const sRows = sSh.getDataRange().getValues();
+    data.salesItems.forEach(function(si){
+      for (var i = 1; i < sRows.length; i++) {
+        if (sRows[i][0] === si.id) {
+          // price・paymentMethodは連続列なので1回のsetValuesでまとめて書き込む
+          if (si.price !== undefined || si.paymentMethod !== undefined) {
+            sSh.getRange(i+1,6,1,2).setValues([[
+              si.price         !== undefined ? si.price         : sRows[i][5],
+              si.paymentMethod !== undefined ? si.paymentMethod : sRows[i][6],
+            ]]);
+          }
+          break;
+        }
+      }
+    });
+  }
+  return ok({ updated: true });
+}
+
+function handleExportCSV() {
+  return ok({ url: SpreadsheetApp.openById(SPREADSHEET_ID).getUrl() });
+}
+
+// ============================================================
+//  過去データ修正：salesシートのproductNameに種類名を付加
+//  ※ fixAllSheets() を実行してから使うこと
+//  GASエディタから直接実行する（APIからは不要）
+// ============================================================
+// ============================================================
+//  既存itemsシートのtypeName空白をtypeIdから補完
+// ============================================================
+function handleFixItemTypes() {
+  invalidateCache();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  // products から typeId→typeName マップを作成
+  var typeNameMap = {};
+  sheetToObjects(ss.getSheetByName(SH.PRODUCTS)).forEach(function(p){
+    try {
+      var types = JSON.parse(p.typesJson || '[]');
+      (types||[]).forEach(function(t){ typeNameMap[String(t.id)] = t.name || ''; });
+    } catch(e){}
+  });
+
+  // itemsシートを直接更新
+  const iSh   = ss.getSheetByName(SH.ITEMS);
+  const iRows = iSh.getDataRange().getValues();
+  var fixed = 0;
+  for (var i = 1; i < iRows.length; i++) {
+    var typeId   = String(iRows[i][11] || '');  // col 12 = typeId (0-indexed 11)
+    var typeName = String(iRows[i][12] || '');  // col 13 = typeName (0-indexed 12)
+    if (typeId && !typeName) {
+      var name = typeNameMap[typeId];
+      if (name) {
+        iSh.getRange(i+1, 13).setValue(name);
+        fixed++;
+      }
+    }
+  }
+  return ok({ fixed: fixed });
+}
+
+function fixSalesTypeNames() {
+  var ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var iSh  = ss.getSheetByName(SH.ITEMS);
+  var sSh  = ss.getSheetByName(SH.SALES);
+
+  var items = sheetToObjects(iSh);
+  var salesData = sSh.getDataRange().getValues();
+  if (salesData.length < 2) return 'データなし';
+
+  var sHeaders = salesData[0];
+  var orderIdCol    = sHeaders.indexOf('orderId');
+  var pidCol        = sHeaders.indexOf('pid');
+  var productNameCol= sHeaders.indexOf('productName');
+  if (orderIdCol < 0 || pidCol < 0 || productNameCol < 0) {
+    return 'salesシートのヘッダーが不正です';
+  }
+
+  // itemsをorderId+pidでグループ化（idx昇順）
+  var itemGroups = {};
+  items.forEach(function(it){
+    if (!it.typeName) return;
+    var key = String(it.orderId) + '__' + String(it.pid);
+    if (!itemGroups[key]) itemGroups[key] = [];
+    itemGroups[key].push(it);
+  });
+  Object.keys(itemGroups).forEach(function(key){
+    itemGroups[key].sort(function(a,b){ return Number(a.idx||0) - Number(b.idx||0); });
+  });
+
+  // salesをorderId+pidでグループ化（行番号付き）
+  var salesGroups = {};
+  for (var i = 1; i < salesData.length; i++) {
+    var row = salesData[i];
+    var key = String(row[orderIdCol]) + '__' + String(row[pidCol]);
+    if (!salesGroups[key]) salesGroups[key] = [];
+    salesGroups[key].push({ rowNum: i + 1, name: String(row[productNameCol]) });
+  }
+
+  var updated = 0;
+  Object.keys(itemGroups).forEach(function(key){
+    var itList  = itemGroups[key];
+    var saList  = salesGroups[key];
+    if (!saList) return;
+    for (var j = 0; j < Math.min(itList.length, saList.length); j++) {
+      var it = itList[j], sa = saList[j];
+      if (!it.typeName) continue;
+      if (sa.name.indexOf('[') >= 0) continue; // 既に種類名あり
+      var newName = sa.name + ' [' + it.typeName + ']';
+      sSh.getRange(sa.rowNum, productNameCol + 1).setValue(newName);
+      updated++;
+    }
+  });
+
+  return '完了: ' + updated + '件更新';
+}
+
+// ============================================================
+//  在庫移動（現地⇔郵送）
+// ============================================================
+function handleTransferStock(data) {
+  // data: {productId, typeId, amount, toShip}
+  // toShip=true: loc→ship, toShip=false: ship→loc
+  if (!data.productId || !(data.amount > 0)) return err('invalid data');
+  invalidateCache();
+  var amt = Number(data.amount);
+  // Reduce source
+  handleAdjustStock({ productId: data.productId, typeId: data.typeId||'', delta: -amt, isShip: !data.toShip });
+  // Increase destination
+  handleAdjustStock({ productId: data.productId, typeId: data.typeId||'', delta: +amt, isShip: data.toShip });
+  return ok({ transferred: amt });
+}
+
+// ============================================================
+//  ユーティリティ
+// ============================================================
+function sheetToObjects(sheet) {
+  if (!sheet) return [];
+  const all = sheet.getDataRange().getValues();
+  if (all.length < 2) return [];
+  const headers = all[0];
+  return all.slice(1).map(function(r){
+    const obj = {};
+    headers.forEach(function(h,i){ obj[h] = (r[i]===''?null:r[i]); });
+    return obj;
+  });
+}
+
+// ============================================================
+//  初回セットアップ（手動実行）
+// ============================================================
+function setup() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  createSheetWithHeaders(ss, SH.CONFIG,    ['key','value']);
+  createSheetWithHeaders(ss, SH.PRODUCTS,  ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith','costPrice','setPricesJson','productType']);
+  createSheetWithHeaders(ss, SH.ORDERS,    ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee','discount','numGroup']);
+  createSheetWithHeaders(ss, SH.ITEMS,     ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize','engraveOpt','engraveLabel']);
+  createSheetWithHeaders(ss, SH.STEPS,     ['id','itemId','stepIndex','done','startedAt','completedAt','durationMins']);
+  createSheetWithHeaders(ss, SH.HISTORY,   ['id','orderId','num','completedAt','waitMinutes','deliveryType']);
+  createSheetWithHeaders(ss, SH.SALES,     ['id','historyId','orderId','pid','productName','price','paymentMethod','completedAt']);
+  createSheetWithHeaders(ss, SH.STOCK_LOG, ['id','productId','stock','reason','createdAt']);
+  createSheetWithHeaders(ss, SH.EXPENSES,    ['id','date','category','amount','note']);
+  createSheetWithHeaders(ss, SH.FIXED_COSTS,['id','date','category','amount','note']);
+
+  const pw   = 'luke1227mb';
+  const hash = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256, pw, Utilities.Charset.UTF_8
+  ).map(function(b){ return ('0'+(b&0xFF).toString(16)).slice(-2); }).join('');
+  setConfig('passwordHash', hash);
+  setConfig('sessionTokens', '[]');
+  setConfig('laborRatePerHour', '0');
+  Logger.log('✅ セットアップ完了！ パスワード: ' + pw);
+}
+
+function createSheetWithHeaders(ss, name, headers) {
+  var sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.appendRow(headers);
+    sh.setFrozenRows(1);
+    sh.getRange(1,1,1,headers.length)
+      .setBackground('#1a1a2e').setFontColor('#c8a84a').setFontWeight('bold');
+  }
+  return sh;
+}
+
+// ============================================================
+//  診断・シート修正ツール（問題発生時に実行）
+// ============================================================
+function diagnose() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheets = ['orders','items','steps','products','config','history','sales','stock_log'];
+  sheets.forEach(function(name) {
+    const sh = ss.getSheetByName(name);
+    if (!sh) { Logger.log(name + ': シートなし'); return; }
+    const headers = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0];
+    Logger.log(name + 'ヘッダー(' + sh.getLastColumn() + '列): ' + JSON.stringify(headers));
+    Logger.log(name + 'データ行数: ' + (sh.getLastRow()-1));
+  });
+}
+
+function fixAllSheets() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  fixHeader(ss,'orders',   ['id','num','note','deliveryType','createdAt','completedAt','status','sharedImageRef','channel','shippingFee','discount','numGroup']);
+  fixHeader(ss,'items',    ['id','orderId','pid','idx','totalOf','skipBinarize','skipDesign','price','paymentMethod','onHold','paid','typeId','typeName','optionFee','optionNote','doubleBinarize','engraveOpt','engraveLabel']);
+  fixHeader(ss,'steps',    ['id','itemId','stepIndex','done','startedAt','completedAt','durationMins']);
+  fixHeader(ss,'products', ['id','name','price','totalMinutes','stepTimesJson','stock','stockWarn','typesJson','stockLoc','stockShip','sharedStockWith','costPrice','setPricesJson','productType']);
+  fixHeader(ss,'history',  ['id','orderId','num','completedAt','waitMinutes','deliveryType']);
+  fixHeader(ss,'sales',    ['id','historyId','orderId','pid','productName','price','paymentMethod','completedAt']);
+  fixHeader(ss,'config',   ['key','value']);
+  fixHeader(ss,'stock_log',['id','productId','stock','reason','createdAt']);
+  fixHeader(ss,'expenses',    ['id','date','category','amount','note']);
+  fixHeader(ss,'fixed_costs', ['id','date','category','amount','note']);
+  Logger.log('✅ 全シート修正完了');
+  diagnose();
+}
+
+function fixHeader(ss, name, headers) {
+  var sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    Logger.log(name + ': シート新規作成');
+  }
+  var cur = sh.getLastColumn();
+  if (cur < headers.length) {
+    sh.insertColumnsAfter(Math.max(cur,1), headers.length - Math.max(cur,1));
+  }
+  sh.getRange(1,1,1,headers.length).setValues([headers]);
+  sh.getRange(1,1,1,headers.length)
+    .setBackground('#1a1a2e').setFontColor('#c8a84a').setFontWeight('bold');
+  sh.setFrozenRows(1);
+  Logger.log(name + ': ヘッダー修正完了');
+}
+
+// ============================================================
+//  既存ステップの実績時間を再計算（手動実行用）
+//  durationMins が 0 または空のステップを対象に、
+//  前のステップの completedAt から startedAt を再計算して上書きする
+// ============================================================
+function recalcStepDurations() {
+  var sh   = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SH.STEPS);
+  var rows = sh.getDataRange().getValues();
+  // col: 0=id, 1=itemId, 2=stepIndex, 3=done, 4=startedAt, 5=completedAt, 6=durationMins
+
+  // itemId → steps のマップを作成
+  var byItem = {};
+  for (var i = 1; i < rows.length; i++) {
+    var iid = rows[i][1];
+    if (!byItem[iid]) byItem[iid] = [];
+    byItem[iid].push({ row: i, si: Number(rows[i][2]), done: rows[i][3], completedAt: rows[i][5], durationMins: rows[i][6] });
+  }
+
+  var fixed = 0;
+  for (var i = 1; i < rows.length; i++) {
+    var done     = rows[i][3];
+    var stepIdx  = Number(rows[i][2]);
+    var completedAt = rows[i][5];
+    var durMins  = rows[i][6];
+
+    // 完了済み、かつ durationMins が 0 か空、かつ completedAt がある行を対象
+    if (!done || !completedAt) continue;
+    var durNum = (durMins === '' || durMins === null) ? -1 : Number(durMins);
+    if (durNum > 0) continue; // 正常値はスキップ
+    if (stepIdx === 0) continue; // 受付は除外
+
+    // 前のステップ（同じ itemId で stepIndex = stepIdx-1）の completedAt を探す
+    var iid    = rows[i][1];
+    var steps  = byItem[iid] || [];
+    var prevStep = null;
+    for (var k = 0; k < steps.length; k++) {
+      if (steps[k].si === stepIdx - 1) { prevStep = steps[k]; break; }
+    }
+
+    var startedAt = '';
+    if (prevStep && prevStep.completedAt) {
+      startedAt = (prevStep.completedAt instanceof Date)
+        ? prevStep.completedAt.toISOString()
+        : String(prevStep.completedAt);
+    }
+    if (!startedAt) continue; // 前ステップがなければスキップ
+
+    var endVal = (completedAt instanceof Date) ? completedAt.toISOString() : String(completedAt);
+    var start  = new Date(startedAt);
+    var end    = new Date(endVal);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) continue;
+
+    var dur = Math.round((end - start) / 60000);
+    if (dur <= 0) continue; // 計算できないものはスキップ
+
+    // startedAt と durationMins を上書き
+    sh.getRange(i + 1, 5).setValue(startedAt);
+    sh.getRange(i + 1, 7).setValue(dur);
+    fixed++;
+    Logger.log('修正: row=' + (i+1) + ' itemId=' + iid + ' step=' + stepIdx + ' dur=' + dur + '分');
+  }
+
+  Logger.log('✅ recalcStepDurations 完了: ' + fixed + '件修正');
+  return fixed;
+}
+
+// ============================================================
+//  管理会計 — マルシェ費用
+// ============================================================
+function handleGetExpenses(year, month) {
+  var ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh  = ss.getSheetByName(SH.EXPENSES);
+  if (!sh) return ok({ expenses: [] });
+  var rows = sheetToObjects(sh);
+  if (year) {
+    rows = rows.filter(function(r) {
+      var d = new Date(r.date);
+      return d.getFullYear() == year && (month ? (d.getMonth()+1) == month : true);
+    });
+  }
+  return ok({ expenses: rows });
+}
+
+function handleSaveExpense(exp) {
+  if (!exp || !exp.date || !exp.amount) return err('expense data missing');
+  var ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh  = ss.getSheetByName(SH.EXPENSES);
+  if (!sh) sh = createSheetWithHeaders(ss, SH.EXPENSES, ['id','date','category','amount','note']);
+  var id = exp.id || Utilities.getUuid();
+  // 既存IDがあれば上書き
+  var rows = sh.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) {
+      sh.getRange(i+1,1,1,5).setValues([[id, exp.date, exp.category||'other', Number(exp.amount||0), exp.note||'']]);
+      return ok({ saved: true, id: id });
+    }
+  }
+  sh.appendRow([id, exp.date, exp.category||'other', Number(exp.amount||0), exp.note||'']);
+  return ok({ saved: true, id: id });
+}
+
+function handleDeleteExpense(expenseId) {
+  if (!expenseId) return err('expenseId missing');
+  var ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh  = ss.getSheetByName(SH.EXPENSES);
+  if (!sh) return ok({ deleted: false });
+  var rows = sh.getDataRange().getValues();
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (String(rows[i][0]) === String(expenseId)) {
+      sh.deleteRow(i+1);
+      return ok({ deleted: true });
+    }
+  }
+  return ok({ deleted: false });
+}
+
+function handleSaveLaborRate(rate) {
+  setConfig('laborRatePerHour', String(Number(rate)||0));
+  invalidateCache();
+  return ok({ saved: true });
+}
+
+// ============================================================
+//  固定費・仕入れ（事業全体 P&L 用）
+// ============================================================
+function handleGetFixedCosts(year, month) {
+  var ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh  = ss.getSheetByName(SH.FIXED_COSTS);
+  if (!sh) return ok({ costs: [] });
+  var rows = sheetToObjects(sh);
+  if (year) {
+    rows = rows.filter(function(r) {
+      var d = new Date(r.date);
+      return d.getFullYear() == year && (month ? (d.getMonth()+1) == month : true);
+    });
+  }
+  return ok({ costs: rows });
+}
+
+function handleSaveFixedCost(cost) {
+  if (!cost || !cost.date || !cost.amount) return err('cost data missing');
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh = ss.getSheetByName(SH.FIXED_COSTS);
+  if (!sh) sh = createSheetWithHeaders(ss, SH.FIXED_COSTS, ['id','date','category','amount','note']);
+  var id = cost.id || Utilities.getUuid();
+  var rows = sh.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) {
+      sh.getRange(i+1,1,1,5).setValues([[id, cost.date, cost.category||'other', Number(cost.amount||0), cost.note||'']]);
+      return ok({ saved: true, id: id });
+    }
+  }
+  sh.appendRow([id, cost.date, cost.category||'other', Number(cost.amount||0), cost.note||'']);
+  return ok({ saved: true, id: id });
+}
+
+function handleDeleteFixedCost(costId) {
+  if (!costId) return err('costId missing');
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh = ss.getSheetByName(SH.FIXED_COSTS);
+  if (!sh) return ok({ deleted: false });
+  var rows = sh.getDataRange().getValues();
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (String(rows[i][0]) === String(costId)) {
+      sh.deleteRow(i+1);
+      return ok({ deleted: true });
+    }
+  }
+  return ok({ deleted: false });
+}
+
+// ============================================================
+//  ホーム画面の設定（年間・月間の目標／今日のミッション達成／記帳クエスト）
+//  configシートに「dash_」を付けたキーでJSON文字列として保存する。
+//  許可するキーは goals / quests / daily_YYYY-MM のみ（任意のconfigキーを書き換えられないようにする）
+// ============================================================
+function isDashSettingKey(k) {
+  return /^(goals|quests|daily_\d{4}-\d{2})$/.test(String(k || ''));
+}
+
+function handleGetDashSettings() {
+  var cfg = getConfig(), out = {};
+  Object.keys(cfg).forEach(function(k) {
+    if (k.indexOf('dash_') !== 0) return;
+    var name = k.substring(5);
+    if (isDashSettingKey(name)) out[name] = String(cfg[k]);
+  });
+  return ok({ settings: out });
+}
+
+function handleSaveDashSetting(data) {
+  var key = data && data.key, value = data && data.value;
+  if (!isDashSettingKey(key)) return err('invalid setting key');
+  value = String(value == null ? '' : value);
+  if (value.length > 45000) return err('setting too large');   // セル上限(50,000文字)未満に制限
+  try { JSON.parse(value); } catch (e) { return err('setting is not valid JSON'); }
+  setConfig('dash_' + key, value);
+  return ok({ saved: true });
+}
+
+// ホーム画面用：指定した年の「履歴(軽量)・経費・固定費」を1回の通信でまとめて返す。
+// 以前は年ごとに getHistory / getExpenses / getFixedCosts の3通信で、GASは1通信ごとに最低約1秒かかるため
+function handleGetDashData(year) {
+  if (!year) return err('year missing');
+  var unwrap = function(out) { return JSON.parse(out.getContent()).data || {}; };
+  var h = unwrap(handleGetHistory(year, '', true));
+  var e = unwrap(handleGetExpenses(year, ''));
+  var f = unwrap(handleGetFixedCosts(year, ''));
+  return ok({ history: h.history || [], expenses: e.expenses || [], costs: f.costs || [] });
+}
